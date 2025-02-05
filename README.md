@@ -1,6 +1,10 @@
 # coinbase-scripts
 Coinbase crypto trading API scripts
 
+✅ Directly makes the API request.\
+✅ Handles API responses & errors, printing available balances or errors properly.\
+✅ Uses config.json for credentials, keeping them separate from the script.
+
 ## How It Works
 
 ### cb-trading-percentage.py
@@ -12,7 +16,21 @@ Uses market orders for instant execution
 ✔ Displays ETH & USDC Balances 💰\
 ✔ Prevents Trades if You Have No Balance 🚫\
 ✔ Still Trades ETH & USDC Based on Price Changes 📊\
-✔ Trades a percentage of your available ETH or USDC balance\
+✔ Trades a percentage of your available ETH or USDC balance
+
+### Config Example (config.json)
+```
+{
+    "name": "organizations/{org_id}/apiKeys/{key_id}",
+    "privateKey": "-----BEGIN EC PRIVATE KEY-----\nYOUR PRIVATE KEY\n-----END EC PRIVATE KEY-----\n",
+    "buy_percentage": -3,
+    "sell_percentage": 3,
+    "trade_percentage": 10
+}
+```
+
+**Ensure the `config.json` is safelyly stored.**
+You can adjust trade_percentage to control how much of your balance gets traded. 😘💸
 
 ## Example Output
 ```
