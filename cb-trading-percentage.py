@@ -97,9 +97,11 @@ def place_order(side, amount):
     }
     
     if side == "BUY":
-        order_data["order_configuration"]["market_market_ioc"]["quote_size"] = str(amount)  # Amount in USDC
+        rounded_amount = round(amount, 2)  # USDC should have 2 decimal places
+        order_data["order_configuration"]["market_market_ioc"]["quote_size"] = str(rounded_amount)
     else:  # SELL
-        order_data["order_configuration"]["market_market_ioc"]["base_size"] = str(amount)  # Amount in ETH
+        rounded_amount = round(amount, 6)  # ETH should have 6 decimal places
+        order_data["order_configuration"]["market_market_ioc"]["base_size"] = str(rounded_amount)
 
     print(f"🛠️ Placing {side} order: {order_data}")  # Debugging: Print the full request payload
 
