@@ -86,7 +86,13 @@ def get_balances():
 def place_order(side, amount):
     """Place a buy/sell order for ETH-USDC."""
     path = "/api/v3/brokerage/orders"
-    
+
+    # Make sure amount is at least 0.01 USDC for buys and 0.000001 ETH for sells
+    if side == "BUY":
+        rounded_amount = max(round(amount, 2), 0.01)  # At least $0.01 USDC
+    else:  # SELL
+        rounded_amount = max(round(amount, 6), 0.000001)  # At least 0.000001 ETH
+
     order_data = {
         "client_order_id": secrets.token_hex(16),
         "product_id": f"{base_currency}-{quote_currency}",
@@ -95,12 +101,10 @@ def place_order(side, amount):
             "market_market_ioc": {}
         }
     }
-    
+
     if side == "BUY":
-        rounded_amount = round(amount, 2)  # USDC should have 2 decimal places
         order_data["order_configuration"]["market_market_ioc"]["quote_size"] = str(rounded_amount)
     else:  # SELL
-        rounded_amount = round(amount, 6)  # ETH should have 6 decimal places
         order_data["order_configuration"]["market_market_ioc"]["base_size"] = str(rounded_amount)
 
     print(f"🛠️ Placing {side} order: {order_data}")  # Debugging: Print the full request payload
@@ -113,6 +117,7 @@ def place_order(side, amount):
         print(f"✅ {side.upper()} Order Placed: {response['order_id']}")
     else:
         print(f"❌ Order Failed: {response.get('error', 'Unknown error')}")
+
 
 def trading_bot():
     """Monitors ETH price and trades based on percentage changes, using % of available balance."""

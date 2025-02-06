@@ -151,7 +151,7 @@ def trading_bot():
     print(f"🔍 Monitoring ETH... Initial Price: ${initial_price:.2f}")
 
     while True:
-        time.sleep(30)  # Wait before checking price again
+        time.sleep(60)  # Wait before checking price again
         current_price = get_eth_price()
         if not current_price:
             continue
