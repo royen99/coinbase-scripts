@@ -51,6 +51,7 @@ You can adjust `trade_percentage` to control how much of your balance gets trade
 🔍 Monitoring ETH... Initial Price: $3000.00
 💰 Available Balance - ETH: 1.5 | USDC: 1000.00
 📈 ETH Price: $2910.00 (-3.00%)
+🚫 Buy order too small: $0.01 (minimum: $0.01)
 💰 Buying 0.0344 ETH!
 ✅ BUY Order Placed: abc1234
 
@@ -58,6 +59,7 @@ You can adjust `trade_percentage` to control how much of your balance gets trade
 📈 ETH Price: $3090.00 (3.00%)
 💵 Selling 0.1600 ETH!
 ✅ SELL Order Placed: xyz5678
+🚫 Sell order too small: 0.000050 ETH (minimum: 0.000100 ETH)
 🚨 Stop-loss triggered! Selling 0.2739 ETH!
 📊 Total Trades: 12 | Total Profit: $541.20
 ```
