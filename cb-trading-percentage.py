@@ -86,24 +86,28 @@ def get_balances():
 def place_order(side, amount):
     """Place a buy/sell order for ETH-USDC."""
     path = "/api/v3/brokerage/orders"
+    
     order_data = {
         "client_order_id": secrets.token_hex(16),
         "product_id": f"{base_currency}-{quote_currency}",
         "side": side,
         "order_configuration": {
-            "market_market_ioc": {
-                "quote_size": str(amount) if side == "BUY" else "base_size",
-                "base_size": str(amount) if side == "SELL" else "quote_size",
-            }
+            "market_market_ioc": {}
         }
     }
+    
+    if side == "BUY":
+        order_data["order_configuration"]["market_market_ioc"]["quote_size"] = str(amount)  # Amount in USDC
+    else:  # SELL
+        order_data["order_configuration"]["market_market_ioc"]["base_size"] = str(amount)  # Amount in ETH
 
     response = api_request("POST", path, order_data)
-    
+
     if "order_id" in response:
         print(f"✅ {side.upper()} Order Placed: {response['order_id']}")
     else:
         print(f"❌ Order Failed: {response.get('error', 'Unknown error')}")
+
 
 def trading_bot():
     """Monitors ETH price and trades based on percentage changes, using % of available balance."""
