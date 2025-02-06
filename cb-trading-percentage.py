@@ -91,7 +91,7 @@ def place_order(side, amount):
     if side == "BUY":
         rounded_amount = max(round(amount, 2), 0.01)  # At least $0.01 USDC
     else:  # SELL
-        rounded_amount = max(round(amount, 6), 0.000001)  # At least 0.000001 ETH
+        rounded_amount = max(round(amount, 6), 0.0001)  # At least 0.0001 ETH
 
     order_data = {
         "client_order_id": secrets.token_hex(16),

@@ -21,6 +21,10 @@ stop_loss_percentage = config.get("stop_loss_percentage", -10)  # Stop-loss thre
 volatility_window = config.get("volatility_window", 10)  # Window for calculating volatility
 trend_window = config.get("trend_window", 20)  # Window for calculating moving average
 
+# Minimum order sizes
+min_buy_usdc = 0.01  # Minimum USDC amount for buy orders
+min_sell_eth = 0.0001  # Minimum ETH amount for sell orders
+
 request_host = "api.coinbase.com"
 
 # Track price history for volatility and trend analysis
@@ -108,9 +112,15 @@ def place_order(side, amount):
     
     if side == "BUY":
         rounded_amount = round(amount, 2)  # USDC should have 2 decimal places
+        if rounded_amount < min_buy_usdc:
+            print(f"🚫 Buy order too small: ${rounded_amount:.2f} (minimum: ${min_buy_usdc:.2f})")
+            return False
         order_data["order_configuration"]["market_market_ioc"]["quote_size"] = str(rounded_amount)
     else:  # SELL
         rounded_amount = round(amount, 6)  # ETH should have 6 decimal places
+        if rounded_amount < min_sell_eth:
+            print(f"🚫 Sell order too small: {rounded_amount:.6f} ETH (minimum: {min_sell_eth:.6f} ETH)")
+            return False
         order_data["order_configuration"]["market_market_ioc"]["base_size"] = str(rounded_amount)
 
     print(f"🛠️ Placing {side} order: {order_data}")  # Debugging: Print the full request payload
@@ -151,7 +161,7 @@ def trading_bot():
     print(f"🔍 Monitoring ETH... Initial Price: ${initial_price:.2f}")
 
     while True:
-        time.sleep(60)  # Wait before checking price again
+        time.sleep(30)  # Wait before checking price again
         current_price = get_eth_price()
         if not current_price:
             continue
