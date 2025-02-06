@@ -4,6 +4,7 @@ import time
 import secrets
 import json
 from cryptography.hazmat.primitives import serialization
+from collections import deque
 
 # Load API credentials & trading settings from config.json
 with open("config.json", "r") as f:
@@ -16,8 +17,17 @@ quote_currency = "USDC"
 buy_threshold = config.get("buy_percentage", -3)  # % drop to buy
 sell_threshold = config.get("sell_percentage", 3)  # % rise to sell
 trade_percentage = config.get("trade_percentage", 10)  # % of available balance to trade
+stop_loss_percentage = config.get("stop_loss_percentage", -10)  # Stop-loss threshold
+volatility_window = config.get("volatility_window", 10)  # Window for calculating volatility
+trend_window = config.get("trend_window", 20)  # Window for calculating moving average
 
 request_host = "api.coinbase.com"
+
+# Track price history for volatility and trend analysis
+price_history = deque(maxlen=volatility_window)
+initial_price = None
+total_trades = 0
+total_profit = 0.0
 
 def build_jwt(uri):
     """Generate a JWT token for Coinbase API authentication."""
@@ -111,11 +121,28 @@ def place_order(side, amount):
 
     if "order_id" in response:
         print(f"✅ {side.upper()} Order Placed: {response['order_id']}")
+        return True
     else:
         print(f"❌ Order Failed: {response.get('error', 'Unknown error')}")
+        return False
+
+def calculate_volatility():
+    """Calculate volatility as the standard deviation of price changes."""
+    if len(price_history) < 2:
+        return 0.0
+    price_changes = [(price_history[i] - price_history[i - 1]) / price_history[i - 1] for i in range(1, len(price_history))]
+    return sum(price_changes) / len(price_changes)  # Average price change
+
+def calculate_moving_average():
+    """Calculate the moving average of prices."""
+    if len(price_history) < trend_window:
+        return None
+    return sum(price_history) / len(price_history)
 
 def trading_bot():
     """Monitors ETH price and trades based on percentage changes, using % of available balance."""
+    global initial_price, total_trades, total_profit
+
     initial_price = get_eth_price()
     if not initial_price:
         print("🚨 Failed to fetch initial ETH price. Exiting.")
@@ -124,33 +151,57 @@ def trading_bot():
     print(f"🔍 Monitoring ETH... Initial Price: ${initial_price:.2f}")
 
     while True:
-        time.sleep(60)  # Wait before checking price again
+        time.sleep(30)  # Wait before checking price again
         current_price = get_eth_price()
         if not current_price:
             continue
 
+        price_history.append(current_price)
         price_change = ((current_price - initial_price) / initial_price) * 100
         print(f"📈 ETH Price: ${current_price:.2f} ({price_change:.2f}%)")
 
-        balances = get_balances()  # Fetch and display balances
+        # Calculate volatility and moving average
+        volatility = calculate_volatility()
+        moving_avg = calculate_moving_average()
 
-        if price_change <= buy_threshold and balances["USDC"] > 0:
-            buy_amount = (trade_percentage / 100) * balances["USDC"] / current_price
-            if buy_amount > 0:
-                print(f"💰 Buying {buy_amount:.4f} ETH!")
-                place_order("BUY", buy_amount)
-                initial_price = current_price  # Reset reference price
-            else:
-                print("🚫 Not enough USDC to place order.")
+        # Adjust thresholds based on volatility
+        dynamic_buy_threshold = buy_threshold * (1 + abs(volatility))
+        dynamic_sell_threshold = sell_threshold * (1 + abs(volatility))
 
-        elif price_change >= sell_threshold and balances["ETH"] > 0:
-            sell_amount = (trade_percentage / 100) * balances["ETH"]
-            if sell_amount > 0:
-                print(f"💵 Selling {sell_amount:.4f} ETH!")
-                place_order("SELL", sell_amount)
+        # Fetch balances
+        balances = get_balances()
+
+        # Check for stop-loss condition
+        if price_change <= stop_loss_percentage and balances["ETH"] > 0:
+            sell_amount = balances["ETH"]
+            print(f"🚨 Stop-loss triggered! Selling {sell_amount:.4f} ETH!")
+            if place_order("SELL", sell_amount):
+                total_trades += 1
+                total_profit += (current_price - initial_price) * sell_amount
                 initial_price = current_price  # Reset reference price
-            else:
-                print("🚫 Not enough ETH to place order.")
+            continue
+
+        # Check for buy/sell conditions with trend filter
+        if moving_avg and abs(current_price - moving_avg) < (0.02 * moving_avg):  # Only trade if price is close to moving average
+            if price_change <= dynamic_buy_threshold and balances["USDC"] > 0:
+                buy_amount = (trade_percentage / 100) * balances["USDC"] / current_price
+                if buy_amount > 0:
+                    print(f"💰 Buying {buy_amount:.4f} ETH!")
+                    if place_order("BUY", buy_amount):
+                        total_trades += 1
+                        initial_price = current_price  # Reset reference price
+
+            elif price_change >= dynamic_sell_threshold and balances["ETH"] > 0:
+                sell_amount = (trade_percentage / 100) * balances["ETH"]
+                if sell_amount > 0:
+                    print(f"💵 Selling {sell_amount:.4f} ETH!")
+                    if place_order("SELL", sell_amount):
+                        total_trades += 1
+                        total_profit += (current_price - initial_price) * sell_amount
+                        initial_price = current_price  # Reset reference price
+
+        # Log performance
+        print(f"📊 Total Trades: {total_trades} | Total Profit: ${total_profit:.2f}")
 
 if __name__ == "__main__":
     trading_bot()
