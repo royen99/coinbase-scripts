@@ -101,13 +101,16 @@ def place_order(side, amount):
     else:  # SELL
         order_data["order_configuration"]["market_market_ioc"]["base_size"] = str(amount)  # Amount in ETH
 
+    print(f"🛠️ Placing {side} order: {order_data}")  # Debugging: Print the full request payload
+
     response = api_request("POST", path, order_data)
+
+    print(f"🔄 Raw Response: {response}")  # Debugging: Print the full response
 
     if "order_id" in response:
         print(f"✅ {side.upper()} Order Placed: {response['order_id']}")
     else:
         print(f"❌ Order Failed: {response.get('error', 'Unknown error')}")
-
 
 def trading_bot():
     """Monitors ETH price and trades based on percentage changes, using % of available balance."""
