@@ -129,8 +129,10 @@ def place_order(side, amount):
 
     print(f"🔄 Raw Response: {response}")  # Debugging: Print the full response
 
-    if "order_id" in response:
-        print(f"✅ {side.upper()} Order Placed: {response['order_id']}")
+    # Handle the response based on the new structure
+    if response.get("success", False):
+        order_id = response["success_response"]["order_id"]
+        print(f"✅ {side.upper()} Order Placed: {order_id}")
         return True
     else:
         print(f"❌ Order Failed: {response.get('error', 'Unknown error')}")
