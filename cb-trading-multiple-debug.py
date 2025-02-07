@@ -226,7 +226,7 @@ def trading_bot():
             if moving_avg is not None:
                 print(f"  - Moving Average: ${moving_avg:.2f}")
             else:
-                print("  - Moving Average: Not enough data (requires at least {trend_window} prices)")
+                print(f"  - Moving Average: Not enough data (requires at least {trend_window} prices)")
 
             # Adjust thresholds based on volatility
             dynamic_buy_threshold = buy_threshold * (1 + abs(volatility))
