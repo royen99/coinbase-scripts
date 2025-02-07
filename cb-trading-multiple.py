@@ -31,16 +31,38 @@ min_order_sizes = {
 
 request_host = "api.coinbase.com"
 
-# Track price history and trading state for each cryptocurrency
-crypto_data = {
-    symbol: {
-        "price_history": deque(maxlen=volatility_window),
-        "initial_price": None,
-        "total_trades": 0,
-        "total_profit": 0.0,
+# Load or initialize state
+state_file = "state.json"
+try:
+    with open(state_file, "r") as f:
+        crypto_data = json.load(f)
+        # Convert price_history back to deque
+        for symbol in crypto_symbols:
+            if symbol in crypto_data:
+                crypto_data[symbol]["price_history"] = deque(crypto_data[symbol]["price_history"], maxlen=volatility_window)
+except FileNotFoundError:
+    crypto_data = {
+        symbol: {
+            "price_history": deque(maxlen=volatility_window),
+            "initial_price": None,
+            "total_trades": 0,
+            "total_profit": 0.0,
+        }
+        for symbol in crypto_symbols
     }
-    for symbol in crypto_symbols
-}
+
+def save_state():
+    """Save the current state to a file."""
+    # Convert deque to list for JSON serialization
+    state_to_save = {
+        symbol: {
+            **data,
+            "price_history": list(data["price_history"]),
+        }
+        for symbol, data in crypto_data.items()
+    }
+    with open(state_file, "w") as f:
+        json.dump(state_to_save, f, indent=2)
 
 def build_jwt(uri):
     """Generate a JWT token for Coinbase API authentication."""
@@ -169,12 +191,13 @@ def trading_bot():
 
     # Initialize initial prices for all cryptocurrencies
     for symbol in crypto_symbols:
-        initial_price = get_crypto_price(symbol)
-        if not initial_price:
-            print(f"🚨 Failed to fetch initial {symbol} price. Skipping {symbol}.")
-            continue
-        crypto_data[symbol]["initial_price"] = initial_price
-        print(f"🔍 Monitoring {symbol}... Initial Price: ${initial_price:.2f}")
+        if crypto_data[symbol]["initial_price"] is None:
+            initial_price = get_crypto_price(symbol)
+            if not initial_price:
+                print(f"🚨 Failed to fetch initial {symbol} price. Skipping {symbol}.")
+                continue
+            crypto_data[symbol]["initial_price"] = initial_price
+            print(f"🔍 Monitoring {symbol}... Initial Price: ${initial_price:.2f}")
 
     while True:
         time.sleep(30)  # Wait before checking prices again
@@ -197,6 +220,14 @@ def trading_bot():
             # Adjust thresholds based on volatility
             dynamic_buy_threshold = buy_threshold * (1 + abs(volatility))
             dynamic_sell_threshold = sell_threshold * (1 + abs(volatility))
+
+            # Calculate expected buy/sell prices
+            expected_buy_price = crypto_data[symbol]["initial_price"] * (1 + dynamic_buy_threshold / 100)
+            expected_sell_price = crypto_data[symbol]["initial_price"] * (1 + dynamic_sell_threshold / 100)
+
+            # Log expected prices
+            print(f"📊 Expected Buy Price for {symbol}: ${expected_buy_price:.2f}")
+            print(f"📊 Expected Sell Price for {symbol}: ${expected_sell_price:.2f}")
 
             # Check for stop-loss condition
             if price_change <= stop_loss_percentage and balances[symbol] > 0:
@@ -229,6 +260,9 @@ def trading_bot():
 
             # Log performance for each cryptocurrency
             print(f"📊 {symbol} Performance - Total Trades: {crypto_data[symbol]['total_trades']} | Total Profit: ${crypto_data[symbol]['total_profit']:.2f}")
+
+        # Save state after each iteration
+        save_state()
 
 if __name__ == "__main__":
     trading_bot()

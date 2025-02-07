@@ -29,6 +29,31 @@ Similar as the `cb-trading-percentage.py` but also includes:\
 ✔ *Stop-Loss*: A stop-loss mechanism is added to limit losses if the price drops significantly.\
 ✔ *Performance Tracking*: Tracks the total number of trades and cumulative profit/loss.
 
+### cb-trading-multiple.py
+Similar as the `cb-trading-advanced.py` but also includes:\
+
+✔ *Supports Multiple Cryptocurrencies*: The script monitors and trades all cryptocurrencies specified in the `crypto_symbols` list.\
+✔ *Independent Tracking for Each Cryptocurrency*: Each cryptocurrency has its own `price_history`, `initial_price`, `total_trades`, and `total_profit` tracking.\
+✔ *Keeps State*: Can reuse values like `initial_price`, `price_history`, `total_trades`, and `total_profit` if it gets restarted.
+
+To keep state, a `state.json` is created (if none exists) as:
+```json
+{
+  "ETH": {
+    "price_history": [2000.0, 1980.0, 1990.0],
+    "initial_price": 2000.0,
+    "total_trades": 2,
+    "total_profit": 20.0
+  },
+  "XRP": {
+    "price_history": [0.5, 0.49, 0.48],
+    "initial_price": 0.5,
+    "total_trades": 1,
+    "total_profit": -0.02
+  }
+}
+```
+
 ### Config Example (config.json)
 ```
 {
@@ -36,6 +61,7 @@ Similar as the `cb-trading-percentage.py` but also includes:\
     "privateKey": "-----BEGIN EC PRIVATE KEY-----\nYOUR PRIVATE KEY\n-----END EC PRIVATE KEY-----\n",
     "buy_percentage": -3,
     "sell_percentage": 3,
+    "crypto_symbols": ["ETH", "XRP", "DOGE", "SOL"],
     "trade_percentage": 10,
     "stop_loss_percentage": -10,
     "volatility_window": 10,
@@ -47,7 +73,7 @@ Similar as the `cb-trading-percentage.py` but also includes:\
 You can adjust `trade_percentage` to control how much of your balance gets traded. 😘💸\
 **Fine-Tune Parameters**: Adjust the `volatility_window`, `trend_window`, and `stop_loss_percentage` to suit your risk tolerance and market conditions. 📊
 
-## Example Output
+## Example Outputs
 ```
 🔍 Monitoring ETH... Initial Price: $3000.00
 💰 Available Balance - ETH: 1.5 | USDC: 1000.00
@@ -63,4 +89,15 @@ You can adjust `trade_percentage` to control how much of your balance gets trade
 🚫 Sell order too small: 0.000050 ETH (minimum: 0.000100 ETH)
 🚨 Stop-loss triggered! Selling 0.2739 ETH!
 📊 Total Trades: 12 | Total Profit: $541.20
+
+💰 Available Balances:
+  - ETH: 730.041680797387629226
+  - XRP: 40.2
+  - DOGE: 640.5
+  - SOL: 210.1
+  - USDC: 79.3424226884312
+
+📈 ETH Price: $1980.00 (-1.00%)
+📊 Expected Buy Price for ETH: $1940.00
+📊 Expected Sell Price for ETH: $2060.00
 ```
