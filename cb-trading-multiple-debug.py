@@ -31,6 +31,9 @@ min_order_sizes = {
 
 request_host = "api.coinbase.com"
 
+# Initialize price_history with maxlen equal to the larger of volatility_window and trend_window
+price_history_maxlen = max(volatility_window, trend_window)
+
 # Load or initialize state
 state_file = "state.json"
 try:
@@ -39,11 +42,11 @@ try:
         # Convert price_history back to deque
         for symbol in crypto_symbols:
             if symbol in crypto_data:
-                crypto_data[symbol]["price_history"] = deque(crypto_data[symbol]["price_history"], maxlen=volatility_window)
+                crypto_data[symbol]["price_history"] = deque(crypto_data[symbol]["price_history"], maxlen=price_history_maxlen)
 except FileNotFoundError:
     crypto_data = {
         symbol: {
-            "price_history": deque(maxlen=volatility_window),
+            "price_history": deque(maxlen=price_history_maxlen),
             "initial_price": None,
             "total_trades": 0,
             "total_profit": 0.0,
