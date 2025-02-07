@@ -208,26 +208,33 @@ def trading_bot():
             if not current_price:
                 continue
 
-            # Update price history and calculate metrics
+            # Update price history
             crypto_data[symbol]["price_history"].append(current_price)
             price_change = ((current_price - crypto_data[symbol]["initial_price"]) / crypto_data[symbol]["initial_price"]) * 100
             print(f"📈 {symbol} Price: ${current_price:.2f} ({price_change:.2f}%)")
+
+            # Log price history for debugging
+            print(f"🔧 Debug for {symbol}:")
+            print(f"  - Price History: {list(crypto_data[symbol]['price_history'])}")
+            print(f"  - Price History Length: {len(crypto_data[symbol]['price_history'])}")
 
             # Calculate volatility and moving average
             volatility = calculate_volatility(crypto_data[symbol]["price_history"])
             moving_avg = calculate_moving_average(crypto_data[symbol]["price_history"])
 
+            # Log moving average calculation
+            if moving_avg is not None:
+                print(f"  - Moving Average: ${moving_avg:.2f}")
+            else:
+                print("  - Moving Average: Not enough data (requires at least {trend_window} prices)")
+
             # Adjust thresholds based on volatility
             dynamic_buy_threshold = buy_threshold * (1 + abs(volatility))
             dynamic_sell_threshold = sell_threshold * (1 + abs(volatility))
 
-            # Log debug information
-            print(f"🔧 Debug for {symbol}:")
-            print(f"  - Initial Price: ${crypto_data[symbol]['initial_price']:.2f}")
-            print(f"  - Current Price: ${current_price:.2f}")
-            print(f"  - Price Change: {price_change:.2f}%")
+            # Log dynamic thresholds
             print(f"  - Dynamic Buy Threshold: {dynamic_buy_threshold:.2f}%")
-            print(f"  - Moving Average: ${moving_avg:.2f}" if moving_avg else "  - Moving Average: Not enough data")
+            print(f"  - Dynamic Sell Threshold: {dynamic_sell_threshold:.2f}%")
 
             # Check if the price is close to the moving average
             if moving_avg:
