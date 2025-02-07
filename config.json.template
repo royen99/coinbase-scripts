@@ -3,6 +3,7 @@
     "privateKey": "-----BEGIN EC PRIVATE KEY-----\nYOUR PRIVATE KEY\n-----END EC PRIVATE KEY-----\n",
     "buy_percentage": -3,
     "sell_percentage": 3,
+    "crypto_symbols": ["ETH", "XRP", "DOGE", "SOL"],
     "trade_percentage": 10,
     "stop_loss_percentage": -10,
     "volatility_window": 10,
