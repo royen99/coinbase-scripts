@@ -87,7 +87,7 @@ def place_order(side, amount):
     """Place a buy/sell order for ETH-USDC."""
     path = "/api/v3/brokerage/orders"
 
-    # Make sure amount is at least 0.01 USDC for buys and 0.000001 ETH for sells
+    # Make sure amount is at least 0.01 USDC for buys and 0.0001 ETH for sells
     if side == "BUY":
         rounded_amount = max(round(amount, 2), 0.01)  # At least $0.01 USDC
     else:  # SELL
@@ -113,10 +113,13 @@ def place_order(side, amount):
 
     print(f"🔄 Raw Response: {response}")  # Debugging: Print the full response
 
-    if "order_id" in response:
-        print(f"✅ {side.upper()} Order Placed: {response['order_id']}")
+    # Fix: Check for order ID inside success_response
+    order_id = response.get("success_response", {}).get("order_id")
+    
+    if order_id:
+        print(f"✅ {side.upper()} Order Placed Successfully! Order ID: {order_id}")
     else:
-        print(f"❌ Order Failed: {response.get('error', 'Unknown error')}")
+        print(f"❌ Order Failed: {response.get('error_response', {}).get('message', 'Unknown error')}")
 
 
 def trading_bot():

@@ -18,7 +18,8 @@ Uses market orders for instant execution.
 ✔ Displays ETH & USDC Balances 💰\
 ✔ Prevents Trades if You Have No Balance 🚫\
 ✔ Still Trades ETH & USDC Based on Price Changes 📊\
-✔ Trades a percentage of your available ETH or USDC balance
+✔ Trades a percentage of your available ETH or USDC balance.
+✔ *Minimum Order*: Makes sure an order meets Coinbase's minimum amounts.
 
 ### cb-trading-advanced.py
 Similar as the `cb-trading-percentage.py` but also includes:\
