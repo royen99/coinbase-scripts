@@ -38,17 +38,44 @@ def get_db_connection():
         port=db_config["port"]
     )
 
+def build_jwt(uri):
+    """Generate a JWT token for Coinbase API authentication."""
+    private_key_bytes = key_secret.encode("utf-8")
+    from cryptography.hazmat.backends import default_backend
+    private_key = serialization.load_pem_private_key(private_key_bytes, password=None, backend=default_backend())
+
+    jwt_payload = {
+        "sub": key_name,
+        "iss": "cdp",
+        "nbf": int(time.time()),
+        "exp": int(time.time()) + 120,
+        "uri": uri,
+    }
+
+    jwt_token = jwt.encode(
+        jwt_payload,
+        private_key,
+        algorithm="ES256",
+        headers={"kid": key_name, "nonce": secrets.token_hex()},
+    )
+
+    return jwt_token if isinstance(jwt_token, str) else jwt_token.decode("utf-8")
+
 def api_request(method, path, body=None):
     """Send authenticated requests to the Coinbase API."""
     uri = f"{method} {path}"
+    jwt_token = build_jwt(uri)
+
     headers = {
-        "Authorization": f"Bearer {key_secret}",
+        "Authorization": f"Bearer {jwt_token}",
         "Content-Type": "application/json",
         "CB-VERSION": "2024-02-05"
     }
+
     url = f"https://api.coinbase.com{path}"
     response = requests.request(method, url, headers=headers, json=body)
     return response.json() if response.status_code == 200 else {"error": response.text}
+
 
 def log_trade(symbol, side, price, amount):
     conn = get_db_connection()
