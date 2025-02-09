@@ -26,6 +26,7 @@ request_host = "api.coinbase.com"
 
 # Database connection parameters
 DB_HOST = config["database"]["host"]
+DB_PORT = config["database"]["port"]
 DB_NAME = config["database"]["name"]
 DB_USER = config["database"]["user"]
 DB_PASSWORD = config["database"]["password"]
@@ -34,6 +35,7 @@ def get_db_connection():
     """Connect to the PostgreSQL database."""
     conn = psycopg2.connect(
         host=DB_HOST,
+        port=DB_PORT,
         database=DB_NAME,
         user=DB_USER,
         password=DB_PASSWORD
