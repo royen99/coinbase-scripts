@@ -31,6 +31,9 @@ min_order_sizes = {
 
 request_host = "api.coinbase.com"
 
+# Initialize price_history with maxlen equal to the larger of volatility_window and trend_window
+price_history_maxlen = max(volatility_window, trend_window)
+
 # Load or initialize state
 state_file = "state.json"
 try:
@@ -39,11 +42,11 @@ try:
         # Convert price_history back to deque
         for symbol in crypto_symbols:
             if symbol in crypto_data:
-                crypto_data[symbol]["price_history"] = deque(crypto_data[symbol]["price_history"], maxlen=volatility_window)
+                crypto_data[symbol]["price_history"] = deque(crypto_data[symbol]["price_history"], maxlen=price_history_maxlen)
 except FileNotFoundError:
     crypto_data = {
         symbol: {
-            "price_history": deque(maxlen=volatility_window),
+            "price_history": deque(maxlen=price_history_maxlen),
             "initial_price": None,
             "total_trades": 0,
             "total_profit": 0.0,
@@ -208,7 +211,7 @@ def trading_bot():
             if not current_price:
                 continue
 
-            # Update price history and calculate metrics
+            # Update price history
             crypto_data[symbol]["price_history"].append(current_price)
             price_change = ((current_price - crypto_data[symbol]["initial_price"]) / crypto_data[symbol]["initial_price"]) * 100
             print(f"📈 {symbol} Price: ${current_price:.2f} ({price_change:.2f}%)")
@@ -229,18 +232,8 @@ def trading_bot():
             print(f"📊 Expected Buy Price for {symbol}: ${expected_buy_price:.2f}")
             print(f"📊 Expected Sell Price for {symbol}: ${expected_sell_price:.2f}")
 
-            # Check for stop-loss condition
-            if price_change <= stop_loss_percentage and balances[symbol] > 0:
-                sell_amount = balances[symbol]
-                print(f"🚨 Stop-loss triggered for {symbol}! Selling {sell_amount:.4f} {symbol}!")
-                if place_order(symbol, "SELL", sell_amount):
-                    crypto_data[symbol]["total_trades"] += 1
-                    crypto_data[symbol]["total_profit"] += (current_price - crypto_data[symbol]["initial_price"]) * sell_amount
-                    crypto_data[symbol]["initial_price"] = current_price  # Reset reference price
-                continue
-
-            # Check for buy/sell conditions with trend filter
-            if moving_avg and abs(current_price - moving_avg) < (0.02 * moving_avg):  # Only trade if price is close to moving average
+            # Check if the price is close to the moving average
+            if moving_avg and abs(current_price - moving_avg) < (0.02 * moving_avg):  # Only trade if price is within 2% of the moving average
                 if price_change <= dynamic_buy_threshold and balances[quote_currency] > 0:
                     buy_amount = (trade_percentage / 100) * balances[quote_currency] / current_price
                     if buy_amount > 0:
