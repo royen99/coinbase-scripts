@@ -96,7 +96,7 @@ def log_trade(symbol, side, price, amount):
     except Exception as e:
         logging.error(f"❌ Error logging trade for {symbol}: {e}")
 
-
+request_host = "api.coinbase.com"
 def build_jwt(uri):
     """Generate a JWT token for Coinbase API authentication."""
     private_key_bytes = key_secret.encode("utf-8")
