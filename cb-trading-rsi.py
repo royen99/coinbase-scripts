@@ -5,8 +5,6 @@ import secrets
 import json
 import threading
 import psycopg2
-import base64
-import logging
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.backends import default_backend
 from collections import deque
@@ -25,8 +23,6 @@ trade_percentage = config.get("trade_percentage", 10)
 stop_loss_percentage = config.get("stop_loss_percentage", -10)
 volatility_window = config.get("volatility_window", 10)
 trend_window = config.get("trend_window", 20)
-
-request_host = "api.coinbase.com"
 
 # Initialize price history
 price_history_maxlen = max(volatility_window, trend_window)
@@ -72,32 +68,21 @@ def initialize_database():
     cur.close()
     conn.close()
 
-# Set up logging
-logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")
-
 def log_price(symbol, price):
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("INSERT INTO prices (symbol, price) VALUES (%s, %s)", (symbol, price))
-        conn.commit()
-        cur.close()
-        conn.close()
-        logging.debug(f"✅ Logged Price: {symbol} - ${price}")
-    except Exception as e:
-        logging.error(f"❌ Error logging price for {symbol}: {e}")
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("INSERT INTO prices (symbol, price) VALUES (%s, %s)", (symbol, price))
+    conn.commit()
+    cur.close()
+    conn.close()
 
 def log_trade(symbol, side, price, amount):
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("INSERT INTO trades (symbol, side, price, amount) VALUES (%s, %s, %s, %s)", (symbol, side, price, amount))
-        conn.commit()
-        cur.close()
-        conn.close()
-        logging.debug(f"✅ Logged Trade: {symbol} {side} - ${price} | Amount: {amount}")
-    except Exception as e:
-        logging.error(f"❌ Error logging trade for {symbol}: {e}")
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("INSERT INTO trades (symbol, side, price, amount) VALUES (%s, %s, %s, %s)", (symbol, side, price, amount))
+    conn.commit()
+    cur.close()
+    conn.close()
 
 def build_jwt(uri):
     """Generate a JWT token for Coinbase API authentication."""
@@ -109,7 +94,7 @@ def build_jwt(uri):
         "iss": "cdp",
         "nbf": int(time.time()),
         "exp": int(time.time()) + 120,
-        "uri": uri  # ✅ Ensure only the path is used!
+        "uri": uri,
     }
 
     jwt_token = jwt.encode(
@@ -118,38 +103,19 @@ def build_jwt(uri):
         algorithm="ES256",
         headers={"kid": key_name, "nonce": secrets.token_hex()},
     )
-
-    # 🔹 Ensure Proper JWT Encoding
-    header, payload, signature = jwt_token.split('.')
-    header = base64.urlsafe_b64decode(header + '==').decode()
-    payload = base64.urlsafe_b64decode(payload + '==').decode()
-
-    print("\n🔹 Decoded JWT Header:", json.dumps(json.loads(header), indent=2))
-    print("🔹 Decoded JWT Payload:", json.dumps(json.loads(payload), indent=2))
-
     return jwt_token if isinstance(jwt_token, str) else jwt_token.decode("utf-8")
 
 def api_request(method, path, body=None):
     """Send authenticated requests to the Coinbase API."""
-    jwt_token = build_jwt(path)  # ✅ Ensure only the path is passed
-
+    uri = f"{method} {path}"
+    jwt_token = build_jwt(uri)
     headers = {
         "Authorization": f"Bearer {jwt_token}",
         "Content-Type": "application/json",
         "CB-VERSION": "2024-02-05"
     }
-
     url = f"https://api.coinbase.com{path}"
-    
-    # 🔹 Debugging: Print request details
-    print(f"\n🔹 API Request: {method} {url}")
-    print(f"🔹 Headers: {headers}")
-
     response = requests.request(method, url, headers=headers, json=body)
-
-    if response.status_code == 401:
-        print(f"🚨 AUTH ERROR: {response.text}")
-
     return response.json() if response.status_code == 200 else {"error": response.text}
 
 def save_state():
@@ -195,9 +161,8 @@ def get_crypto_price(crypto_symbol):
     data = api_request("GET", path)
     if "price" in data:
         price = float(data["price"])
-        log_price(crypto_symbol, price)  # ✅ Debug: Log every price update
+        log_price(crypto_symbol, price)
         return price
-    logging.warning(f"⚠️ Failed to fetch price for {crypto_symbol}")
     return None
 
 def trading_bot():
@@ -214,14 +179,10 @@ def trading_bot():
             rsi = calculate_rsi(crypto_data[symbol]["price_history"])
             moving_avg = calculate_moving_average(crypto_data[symbol]["price_history"])
             
-            if rsi is not None and macd_line is not None and signal_line is not None:
-                logging.debug(f"📊 {symbol} - MACD: {macd_line:.2f} | Signal: {signal_line:.2f} | RSI: {rsi:.2f}")
-                
+            if rsi is not None and macd_line is not None:
                 if rsi < 30 and macd_line > signal_line:
-                    logging.info(f"🟢 BUY Signal Detected for {symbol} at ${current_price}")
                     log_trade(symbol, "BUY", current_price, trade_percentage)
                 elif rsi > 70 and macd_line < signal_line:
-                    logging.info(f"🔴 SELL Signal Detected for {symbol} at ${current_price}")
                     log_trade(symbol, "SELL", current_price, trade_percentage)
 
         save_state()
