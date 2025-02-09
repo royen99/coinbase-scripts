@@ -189,19 +189,23 @@ def calculate_moving_average(price_history):
     return sum(price_history) / len(price_history)
 
 def calculate_macd(price_history, short_window=12, long_window=26, signal_window=9):
-    """Calculate MACD and Signal Line."""
+    """Calculate the MACD and Signal Line for a given price history."""
     if len(price_history) < long_window:
         return None, None  # Not enough data to calculate MACD
-    
-    # Short-term (12-period) EMA
-    short_ema = sum(price_history[-short_window:]) / short_window
-    # Long-term (26-period) EMA
-    long_ema = sum(price_history[-long_window:]) / long_window
-    
+
+    # Convert deque to list for slicing
+    price_history_list = list(price_history)
+
+    # Calculate the short and long-term EMAs (Exponential Moving Averages)
+    short_ema = sum(price_history_list[-short_window:]) / short_window
+    long_ema = sum(price_history_list[-long_window:]) / long_window
+
+    # Calculate the MACD line
     macd_line = short_ema - long_ema
-    # Signal Line (9-period EMA of MACD)
-    signal_line = sum([macd_line] * signal_window) / signal_window  # Simple EMA for demonstration
-    
+
+    # Signal line: EMA of MACD line over the signal_window period
+    signal_line = sum([macd_line] * signal_window) / signal_window  # In a real MACD calculation, this would be the EMA of MACD
+
     return macd_line, signal_line
 
 def calculate_rsi(price_history, period=14):
