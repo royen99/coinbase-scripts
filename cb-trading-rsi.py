@@ -275,6 +275,10 @@ def trading_bot():
             macd_line, signal_line = calculate_macd(crypto_data[symbol]["price_history"])
             rsi = calculate_rsi(crypto_data[symbol]["price_history"])
 
+            # Display the MACD, Signal Line, and RSI values
+            if macd_line is not None and signal_line is not None and rsi is not None:
+                print(f"📊 {symbol} MACD: {macd_line:.2f} | Signal Line: {signal_line:.2f} | RSI: {rsi:.2f}")
+
             # Adjust thresholds based on volatility
             dynamic_buy_threshold = buy_threshold * (1 + abs(volatility))
             dynamic_sell_threshold = sell_threshold * (1 + abs(volatility))
