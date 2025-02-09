@@ -38,16 +38,33 @@ def get_db_connection():
         port=db_config["port"]
     )
 
-def save_state():
-    state_to_save = {symbol: {"price_history": list(data["price_history"])} for symbol, data in crypto_data.items()}
-    with open("state.json", "w") as f:
-        json.dump(state_to_save, f, indent=2)
+def build_jwt(uri):
+    """Generate a JWT token for Coinbase API authentication."""
+    private_key_bytes = key_secret.encode("utf-8")
+    private_key = serialization.load_pem_private_key(private_key_bytes, password=None)
+
+    jwt_payload = {
+        "sub": key_name,
+        "iss": "cdp",
+        "nbf": int(time.time()),
+        "exp": int(time.time()) + 120,
+        "uri": uri,
+    }
+
+    jwt_token = jwt.encode(
+        jwt_payload,
+        private_key,
+        algorithm="ES256",
+        headers={"kid": key_name, "nonce": secrets.token_hex()},
+    )
+    return jwt_token if isinstance(jwt_token, str) else jwt_token.decode("utf-8")
 
 def api_request(method, path, body=None):
     """Send authenticated requests to the Coinbase API."""
     uri = f"{method} {path}"
+    jwt_token = build_jwt(uri)
     headers = {
-        "Authorization": f"Bearer {key_secret}",
+        "Authorization": f"Bearer {jwt_token}",
         "Content-Type": "application/json",
         "CB-VERSION": "2024-02-05"
     }
@@ -55,48 +72,10 @@ def api_request(method, path, body=None):
     response = requests.request(method, url, headers=headers, json=body)
     return response.json() if response.status_code == 200 else {"error": response.text}
 
-def log_trade(symbol, side, price, amount):
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute(
-        """
-        CREATE TABLE IF NOT EXISTS trades (
-            id SERIAL PRIMARY KEY,
-            symbol TEXT,
-            side TEXT,
-            price NUMERIC,
-            amount NUMERIC,
-            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-        """
-    )
-    cur.execute(
-        "INSERT INTO trades (symbol, side, price, amount) VALUES (%s, %s, %s, %s)",
-        (symbol, side, price, amount)
-    )
-    conn.commit()
-    cur.close()
-    conn.close()
-
-def log_price(symbol, price):
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute(
-        """
-        CREATE TABLE IF NOT EXISTS prices (
-            id SERIAL PRIMARY KEY,
-            symbol TEXT,
-            price NUMERIC,
-            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-        """
-    )
-    cur.execute(
-        "INSERT INTO prices (symbol, price) VALUES (%s, %s)", (symbol, price)
-    )
-    conn.commit()
-    cur.close()
-    conn.close()
+def save_state():
+    state_to_save = {symbol: {"price_history": list(data["price_history"])} for symbol, data in crypto_data.items()}
+    with open("state.json", "w") as f:
+        json.dump(state_to_save, f, indent=2)
 
 def calculate_moving_average(price_history):
     if len(price_history) < trend_window:
@@ -130,24 +109,6 @@ def calculate_rsi(price_history, period=14):
         return 100
     rs = avg_gain / avg_loss
     return 100 - (100 / (1 + rs))
-
-def get_crypto_price(crypto_symbol):
-    path = f"/api/v3/brokerage/products/{crypto_symbol}-{quote_currency}"
-    data = api_request("GET", path)
-    if "price" in data:
-        price = float(data["price"])
-        log_price(crypto_symbol, price)
-        return price
-    return None
-
-def place_order(crypto_symbol, side, amount):
-    path = "/api/v3/brokerage/orders"
-    order_data = {"client_order_id": secrets.token_hex(16), "product_id": f"{crypto_symbol}-{quote_currency}", "side": side, "order_configuration": {"market_market_ioc": {}}}
-    response = api_request("POST", path, order_data)
-    if response.get("success", False):
-        trade_price = get_crypto_price(crypto_symbol)
-        log_trade(crypto_symbol, side, trade_price, amount)
-    return response.get("success", False)
 
 def trading_bot():
     global crypto_data
