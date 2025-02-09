@@ -25,6 +25,8 @@ stop_loss_percentage = config.get("stop_loss_percentage", -10)
 volatility_window = config.get("volatility_window", 10)
 trend_window = config.get("trend_window", 20)
 
+request_host = "api.coinbase.com"
+
 # Initialize price history
 price_history_maxlen = max(volatility_window, trend_window)
 crypto_data = {symbol: {"price_history": deque(maxlen=price_history_maxlen)} for symbol in crypto_symbols}
@@ -96,18 +98,17 @@ def log_trade(symbol, side, price, amount):
     except Exception as e:
         logging.error(f"❌ Error logging trade for {symbol}: {e}")
 
-request_host = "api.coinbase.com"
-def build_jwt(uri):
+def build_jwt(path):
     """Generate a JWT token for Coinbase API authentication."""
     private_key_bytes = key_secret.encode("utf-8")
-    private_key = serialization.load_pem_private_key(private_key_bytes, password=None)
+    private_key = serialization.load_pem_private_key(private_key_bytes, password=None, backend=default_backend())
 
     jwt_payload = {
         "sub": key_name,
         "iss": "cdp",
         "nbf": int(time.time()),
         "exp": int(time.time()) + 120,
-        "uri": uri,
+        "uri": path  # ✅ Ensure only path is passed, NOT method + path
     }
 
     jwt_token = jwt.encode(
@@ -116,13 +117,11 @@ def build_jwt(uri):
         algorithm="ES256",
         headers={"kid": key_name, "nonce": secrets.token_hex()},
     )
-
     return jwt_token if isinstance(jwt_token, str) else jwt_token.decode("utf-8")
 
 def api_request(method, path, body=None):
-    """Send authenticated requests to Coinbase API."""
-    uri = f"{method} {request_host}{path}"
-    jwt_token = build_jwt(uri)
+    """Send authenticated requests to the Coinbase API."""
+    jwt_token = build_jwt(path)  # ✅ Only pass the path
 
     headers = {
         "Authorization": f"Bearer {jwt_token}",
@@ -130,8 +129,11 @@ def api_request(method, path, body=None):
         "CB-VERSION": "2024-02-05"
     }
 
-    url = f"https://{request_host}{path}"
+    url = f"https://api.coinbase.com{path}"
     response = requests.request(method, url, headers=headers, json=body)
+
+    if response.status_code == 401:
+        logging.error(f"🚨 AUTHENTICATION ERROR: {response.text}")
 
     return response.json() if response.status_code == 200 else {"error": response.text}
 
