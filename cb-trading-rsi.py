@@ -99,10 +99,6 @@ def log_trade(symbol, side, price, amount):
     except Exception as e:
         logging.error(f"❌ Error logging trade for {symbol}: {e}")
 
-import base64
-
-import base64
-
 def build_jwt(uri):
     """Generate a JWT token for Coinbase API authentication."""
     private_key_bytes = key_secret.encode("utf-8")
@@ -113,7 +109,7 @@ def build_jwt(uri):
         "iss": "cdp",
         "nbf": int(time.time()),
         "exp": int(time.time()) + 120,
-        "uri": uri,
+        "uri": uri  # ✅ Ensure only the path is used!
     }
 
     jwt_token = jwt.encode(
@@ -123,19 +119,19 @@ def build_jwt(uri):
         headers={"kid": key_name, "nonce": secrets.token_hex()},
     )
 
-    # 🔹 Debugging: Properly Decode JWT Payload
-    try:
-        header, payload, signature = jwt_token.split('.')
-        decoded_payload = json.loads(base64.b64decode(payload + '==').decode())
-        print("🔹 Decoded JWT Payload:", json.dumps(decoded_payload, indent=2))
-    except Exception as e:
-        print(f"❌ Error decoding JWT: {e}")
+    # 🔹 Ensure Proper JWT Encoding
+    header, payload, signature = jwt_token.split('.')
+    header = base64.urlsafe_b64decode(header + '==').decode()
+    payload = base64.urlsafe_b64decode(payload + '==').decode()
+
+    print("\n🔹 Decoded JWT Header:", json.dumps(json.loads(header), indent=2))
+    print("🔹 Decoded JWT Payload:", json.dumps(json.loads(payload), indent=2))
 
     return jwt_token if isinstance(jwt_token, str) else jwt_token.decode("utf-8")
 
 def api_request(method, path, body=None):
     """Send authenticated requests to the Coinbase API."""
-    jwt_token = build_jwt(path)  # ✅ Only pass the path
+    jwt_token = build_jwt(path)  # ✅ Ensure only the path is passed
 
     headers = {
         "Authorization": f"Bearer {jwt_token}",
@@ -146,7 +142,7 @@ def api_request(method, path, body=None):
     url = f"https://api.coinbase.com{path}"
     
     # 🔹 Debugging: Print request details
-    print(f"🔹 Making API Request: {method} {url}")
+    print(f"\n🔹 API Request: {method} {url}")
     print(f"🔹 Headers: {headers}")
 
     response = requests.request(method, url, headers=headers, json=body)
