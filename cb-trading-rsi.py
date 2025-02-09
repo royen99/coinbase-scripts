@@ -260,10 +260,15 @@ def trading_bot():
             macd_line, signal_line = calculate_macd(crypto_data[symbol]["price_history"])
             rsi = calculate_rsi(crypto_data[symbol]["price_history"])
 
-            print(f"📊 {symbol} MACD: {macd_line:.2f} | Signal Line: {signal_line:.2f} | RSI: {rsi:.2f}")
+            # Safely handle None values by checking before formatting
+            macd_str = f"{macd_line:.2f}" if macd_line is not None else "N/A"
+            signal_str = f"{signal_line:.2f}" if signal_line is not None else "N/A"
+            rsi_str = f"{rsi:.2f}" if rsi is not None else "N/A"
+
+            print(f"📊 {symbol} MACD: {macd_str} | Signal Line: {signal_str} | RSI: {rsi_str}")
 
             # Check for buy condition: MACD crosses above Signal Line and RSI is below 30
-            if macd_line > signal_line and rsi < 30 and balances[quote_currency] > 0:
+            if macd_line and signal_line and macd_line > signal_line and rsi < 30 and balances[quote_currency] > 0:
                 buy_amount = (trade_percentage / 100) * balances[quote_currency] / current_price
                 if buy_amount > 0:
                     print(f"💰 Buying {buy_amount:.4f} {symbol}!")
@@ -272,7 +277,7 @@ def trading_bot():
                         crypto_data[symbol]["initial_price"] = current_price  # Reset reference price
 
             # Check for sell condition: MACD crosses below Signal Line and RSI is above 70
-            elif macd_line < signal_line and rsi > 70 and balances[symbol] > 0:
+            elif macd_line and signal_line and macd_line < signal_line and rsi > 70 and balances[symbol] > 0:
                 sell_amount = (trade_percentage / 100) * balances[symbol]
                 if sell_amount > 0:
                     print(f"💵 Selling {sell_amount:.4f} {symbol}!")
