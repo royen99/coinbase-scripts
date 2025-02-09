@@ -53,7 +53,8 @@ def save_state():
 
 def build_jwt(uri):
     private_key_bytes = key_secret.encode("utf-8")
-    private_key = serialization.load_pem_private_key(private_key_bytes, password=None)
+    from cryptography.hazmat.backends import default_backend
+    private_key = serialization.load_pem_private_key(private_key_bytes, password=None, backend=default_backend())
     jwt_payload = {"sub": key_name, "iss": "cdp", "nbf": int(time.time()), "exp": int(time.time()) + 120, "uri": uri}
     jwt_token = jwt.encode(jwt_payload, private_key, algorithm="ES256", headers={"kid": key_name, "nonce": secrets.token_hex()})
     return jwt_token if isinstance(jwt_token, str) else jwt_token.decode("utf-8")
