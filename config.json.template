@@ -1,11 +1,59 @@
 {
-    "name": "organizations/{org_id}/apiKeys/{key_id}",
-    "privateKey": "-----BEGIN EC PRIVATE KEY-----\nYOUR PRIVATE KEY\n-----END EC PRIVATE KEY-----\n",
-    "buy_percentage": -3,
-    "sell_percentage": 3,
-    "crypto_symbols": ["ETH", "XRP", "DOGE", "SOL"],
-    "trade_percentage": 10,
-    "stop_loss_percentage": -10,
-    "volatility_window": 10,
-    "trend_window": 20
+  "name": "organizations/{org_id}/apiKeys/{key_id}",
+  "privateKey": "-----BEGIN EC PRIVATE KEY-----\nYOUR PRIVATE KEY\n-----END EC PRIVATE KEY-----\n",
+  "buy_percentage": -3,
+  "sell_percentage": 3,
+  "crypto_symbols": ["ETH", "XRP", "DOGE", "SOL"],
+  "trade_percentage": 10,
+  "stop_loss_percentage": -10,
+  "volatility_window": 10,
+  "trend_window": 20,
+  "trade_percentage": 10,
+  "stop_loss_percentage": -10,
+  "coins": {
+    "ETH": {
+      "enabled": true,
+      "buy_percentage": -3,
+      "sell_percentage": 3,
+      "volatility_window": 10,
+      "trend_window": 20,
+      "min_order_sizes": {
+        "buy": 0.01,
+        "sell": 0.0001
+      }
+    },
+    "XRP": {
+      "enabled": true,
+      "buy_percentage": -5,
+      "sell_percentage": 5,
+      "volatility_window": 15,
+      "trend_window": 25,
+      "min_order_sizes": {
+        "buy": 0.01,
+        "sell": 1
+      }
+    },
+    "DOGE": {
+      "enabled": false,
+      "buy_percentage": -4,
+      "sell_percentage": 4,
+      "volatility_window": 10,
+      "trend_window": 20,
+      "min_order_sizes": {
+        "buy": 0.01,
+        "sell": 1
+      }
+    },
+    "SOL": {
+      "enabled": true,
+      "buy_percentage": -2,
+      "sell_percentage": 2,
+      "volatility_window": 5,
+      "trend_window": 10,
+      "min_order_sizes": {
+        "buy": 0.01,
+        "sell": 0.01
+      }
+    }
+  }
 }

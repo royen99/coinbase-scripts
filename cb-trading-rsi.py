@@ -178,7 +178,7 @@ def calculate_volatility(price_history):
     price_changes = [(price_history[i] - price_history[i - 1]) / price_history[i - 1] for i in range(1, len(price_history))]
     return sum(price_changes) / len(price_changes)  # Average price change
 
-def calculate_moving_average(price_history):
+def calculate_moving_average(price_history, trend_window):
     """Calculate the moving average of prices."""
     if len(price_history) < trend_window:
         return None
@@ -221,7 +221,7 @@ def trading_bot():
 
             # Calculate volatility and moving average
             volatility = calculate_volatility(crypto_data[symbol]["price_history"])
-            moving_avg = calculate_moving_average(crypto_data[symbol]["price_history"])
+            moving_avg = calculate_moving_average(crypto_data[symbol]["price_history"], trend_window)
 
             # Adjust thresholds based on volatility
             dynamic_buy_threshold = buy_threshold * (1 + abs(volatility))
