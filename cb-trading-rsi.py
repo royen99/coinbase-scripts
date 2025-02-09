@@ -39,6 +39,35 @@ def get_db_connection():
         port=db_config["port"]
     )
 
+def initialize_database():
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS trades (
+            id SERIAL PRIMARY KEY,
+            symbol TEXT,
+            side TEXT,
+            price NUMERIC,
+            amount NUMERIC,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """
+    )
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS prices (
+            id SERIAL PRIMARY KEY,
+            symbol TEXT,
+            price NUMERIC,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
+
 def build_jwt(uri):
     """Generate a JWT token for Coinbase API authentication."""
     private_key_bytes = key_secret.encode("utf-8")
@@ -120,6 +149,7 @@ def get_crypto_price(crypto_symbol):
 
 def trading_bot():
     global crypto_data
+    initialize_database()
     while True:
         time.sleep(30)
         for symbol in crypto_symbols:
