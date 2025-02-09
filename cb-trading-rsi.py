@@ -64,12 +64,13 @@ def log_trade(symbol, side, price, amount):
             price NUMERIC,
             amount NUMERIC,
             timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )""
-    )
+        )
+    """)
     cur.execute("INSERT INTO trades (symbol, side, price, amount) VALUES (%s, %s, %s, %s)", (symbol, side, price, amount))
     conn.commit()
     cur.close()
     conn.close()
+
 
 def log_price(symbol, price):
     conn = get_db_connection()
@@ -80,11 +81,13 @@ def log_price(symbol, price):
             symbol TEXT,
             price NUMERIC,
             timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )""
-    )
+        )
+    """)
     cur.execute("INSERT INTO prices (symbol, price) VALUES (%s, %s)", (symbol, price))
     conn.commit()
     cur.close()
+    conn.close()
+
     conn.close()
 
 def get_crypto_price(crypto_symbol):
