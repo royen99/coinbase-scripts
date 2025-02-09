@@ -68,6 +68,22 @@ def initialize_database():
     cur.close()
     conn.close()
 
+def log_price(symbol, price):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("INSERT INTO prices (symbol, price) VALUES (%s, %s)", (symbol, price))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+def log_trade(symbol, side, price, amount):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("INSERT INTO trades (symbol, side, price, amount) VALUES (%s, %s, %s, %s)", (symbol, side, price, amount))
+    conn.commit()
+    cur.close()
+    conn.close()
+
 def build_jwt(uri):
     """Generate a JWT token for Coinbase API authentication."""
     private_key_bytes = key_secret.encode("utf-8")
@@ -144,7 +160,9 @@ def get_crypto_price(crypto_symbol):
     path = f"/api/v3/brokerage/products/{crypto_symbol}-{quote_currency}"
     data = api_request("GET", path)
     if "price" in data:
-        return float(data["price"])
+        price = float(data["price"])
+        log_price(crypto_symbol, price)
+        return price
     return None
 
 def trading_bot():
@@ -160,6 +178,14 @@ def trading_bot():
             macd_line, signal_line = calculate_macd(crypto_data[symbol]["price_history"])
             rsi = calculate_rsi(crypto_data[symbol]["price_history"])
             moving_avg = calculate_moving_average(crypto_data[symbol]["price_history"])
+            
+            # Example trade logging (should be linked to real trade execution logic)
+            if rsi is not None and macd_line is not None:
+                if rsi < 30 and macd_line > signal_line:
+                    log_trade(symbol, "BUY", current_price, trade_percentage)
+                elif rsi > 70 and macd_line < signal_line:
+                    log_trade(symbol, "SELL", current_price, trade_percentage)
+
         save_state()
 
 if __name__ == "__main__":
