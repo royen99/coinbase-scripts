@@ -242,7 +242,7 @@ def calculate_rsi(price_history, period=14):
     return rsi
 
 def trading_bot():
-    """Monitors multiple cryptocurrencies and trades based on technical indicators."""
+    """Monitors multiple cryptocurrencies and trades based on percentage changes."""
     global crypto_data
 
     # Initialize initial prices for all cryptocurrencies
@@ -269,35 +269,54 @@ def trading_bot():
             price_change = ((current_price - crypto_data[symbol]["initial_price"]) / crypto_data[symbol]["initial_price"]) * 100
             print(f"📈 {symbol} Price: ${current_price:.2f} ({price_change:.2f}%)")
 
-            # Calculate MACD, Signal Line, and RSI
+            # Calculate volatility, moving average, MACD, and RSI
+            volatility = calculate_volatility(crypto_data[symbol]["price_history"])
+            moving_avg = calculate_moving_average(crypto_data[symbol]["price_history"])
             macd_line, signal_line = calculate_macd(crypto_data[symbol]["price_history"])
             rsi = calculate_rsi(crypto_data[symbol]["price_history"])
 
-            # Safely handle None values by checking before formatting
-            macd_str = f"{macd_line:.2f}" if macd_line is not None else "N/A"
-            signal_str = f"{signal_line:.2f}" if signal_line is not None else "N/A"
-            rsi_str = f"{rsi:.2f}" if rsi is not None else "N/A"
+            # Adjust thresholds based on volatility
+            dynamic_buy_threshold = buy_threshold * (1 + abs(volatility))
+            dynamic_sell_threshold = sell_threshold * (1 + abs(volatility))
 
-            print(f"📊 {symbol} MACD: {macd_str} | Signal Line: {signal_str} | RSI: {rsi_str}")
+            # Calculate expected buy/sell prices
+            expected_buy_price = crypto_data[symbol]["initial_price"] * (1 + dynamic_buy_threshold / 100)
+            expected_sell_price = crypto_data[symbol]["initial_price"] * (1 + dynamic_sell_threshold / 100)
 
-            # Check for buy condition: MACD crosses above Signal Line and RSI is below 30
-            if macd_line and signal_line and macd_line > signal_line and rsi < 30 and balances[quote_currency] > 0:
-                buy_amount = (trade_percentage / 100) * balances[quote_currency] / current_price
-                if buy_amount > 0:
-                    print(f"💰 Buying {buy_amount:.4f} {symbol}!")
-                    if place_order(symbol, "BUY", buy_amount):
-                        crypto_data[symbol]["total_trades"] += 1
-                        crypto_data[symbol]["initial_price"] = current_price  # Reset reference price
+            # Log expected prices
+            print(f"📊 Expected Buy Price for {symbol}: ${expected_buy_price:.2f}")
+            print(f"📊 Expected Sell Price for {symbol}: ${expected_sell_price:.2f}")
 
-            # Check for sell condition: MACD crosses below Signal Line and RSI is above 70
-            elif macd_line and signal_line and macd_line < signal_line and rsi > 70 and balances[symbol] > 0:
-                sell_amount = (trade_percentage / 100) * balances[symbol]
-                if sell_amount > 0:
-                    print(f"💵 Selling {sell_amount:.4f} {symbol}!")
-                    if place_order(symbol, "SELL", sell_amount):
-                        crypto_data[symbol]["total_trades"] += 1
-                        crypto_data[symbol]["total_profit"] += (current_price - crypto_data[symbol]["initial_price"]) * sell_amount
-                        crypto_data[symbol]["initial_price"] = current_price  # Reset reference price
+            # Adjust based on MACD and RSI indicators:
+            if macd_line is not None and signal_line is not None and rsi is not None:
+                # Buy condition (RSI < 30 and MACD crosses above signal line)
+                if rsi < 30 and macd_line > signal_line:
+                    adjusted_buy_price = current_price * (1 - 0.02)  # Slightly lower to trigger buy
+                    print(f"🔴 RSI is low, MACD is bullish! Adjusted Buy Price: ${adjusted_buy_price:.2f}")
+
+                # Sell condition (RSI > 70 and MACD crosses below signal line)
+                elif rsi > 70 and macd_line < signal_line:
+                    adjusted_sell_price = current_price * (1 + 0.02)  # Slightly higher to trigger sell
+                    print(f"🟢 RSI is high, MACD is bearish! Adjusted Sell Price: ${adjusted_sell_price:.2f}")
+
+            # Check if the price is close to the moving average
+            if moving_avg and abs(current_price - moving_avg) < (0.02 * moving_avg):  # Only trade if price is within 2% of the moving average
+                if price_change <= dynamic_buy_threshold and balances[quote_currency] > 0:
+                    buy_amount = (trade_percentage / 100) * balances[quote_currency] / current_price
+                    if buy_amount > 0:
+                        print(f"💰 Buying {buy_amount:.4f} {symbol}! Expected Buy Price: ${expected_buy_price:.2f}")
+                        if place_order(symbol, "BUY", buy_amount):
+                            crypto_data[symbol]["total_trades"] += 1
+                            crypto_data[symbol]["initial_price"] = current_price  # Reset reference price
+
+                elif price_change >= dynamic_sell_threshold and balances[symbol] > 0:
+                    sell_amount = (trade_percentage / 100) * balances[symbol]
+                    if sell_amount > 0:
+                        print(f"💵 Selling {sell_amount:.4f} {symbol}! Expected Sell Price: ${expected_sell_price:.2f}")
+                        if place_order(symbol, "SELL", sell_amount):
+                            crypto_data[symbol]["total_trades"] += 1
+                            crypto_data[symbol]["total_profit"] += (current_price - crypto_data[symbol]["initial_price"]) * sell_amount
+                            crypto_data[symbol]["initial_price"] = current_price  # Reset reference price
 
             # Log performance for each cryptocurrency
             print(f"📊 {symbol} Performance - Total Trades: {crypto_data[symbol]['total_trades']} | Total Profit: ${crypto_data[symbol]['total_profit']:.2f}")
