@@ -38,6 +38,18 @@ def get_db_connection():
         port=db_config["port"]
     )
 
+def api_request(method, path, body=None):
+    """Send authenticated requests to the Coinbase API."""
+    uri = f"{method} {path}"
+    headers = {
+        "Authorization": f"Bearer {key_secret}",
+        "Content-Type": "application/json",
+        "CB-VERSION": "2024-02-05"
+    }
+    url = f"https://api.coinbase.com{path}"
+    response = requests.request(method, url, headers=headers, json=body)
+    return response.json() if response.status_code == 200 else {"error": response.text}
+
 def log_trade(symbol, side, price, amount):
     conn = get_db_connection()
     cur = conn.cursor()
