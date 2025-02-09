@@ -97,7 +97,7 @@ def log_trade(symbol, side, price, amount):
         logging.error(f"❌ Error logging trade for {symbol}: {e}")
 
 
-def build_jwt(uri):
+def build_jwt(path):
     """Generate a JWT token for Coinbase API authentication."""
     private_key_bytes = key_secret.encode("utf-8")
     private_key = serialization.load_pem_private_key(private_key_bytes, password=None, backend=default_backend())
@@ -105,9 +105,9 @@ def build_jwt(uri):
     jwt_payload = {
         "sub": key_name,
         "iss": "cdp",
-        "nbf": int(time.time()),
         "exp": int(time.time()) + 120,
-        "uri": uri,
+        "nbf": int(time.time()),
+        "uri": f"{path}"
     }
 
     jwt_token = jwt.encode(
@@ -116,19 +116,25 @@ def build_jwt(uri):
         algorithm="ES256",
         headers={"kid": key_name, "nonce": secrets.token_hex()},
     )
+    
     return jwt_token if isinstance(jwt_token, str) else jwt_token.decode("utf-8")
 
 def api_request(method, path, body=None):
     """Send authenticated requests to the Coinbase API."""
-    uri = f"{method} {path}"
-    jwt_token = build_jwt(uri)
+    jwt_token = build_jwt(path)  # 🔥 Only pass the path, NOT method + path
+
     headers = {
         "Authorization": f"Bearer {jwt_token}",
         "Content-Type": "application/json",
         "CB-VERSION": "2024-02-05"
     }
+
     url = f"https://api.coinbase.com{path}"
     response = requests.request(method, url, headers=headers, json=body)
+
+    if response.status_code == 401:
+        logging.error(f"🚨 AUTHENTICATION ERROR: {response.text}")
+
     return response.json() if response.status_code == 200 else {"error": response.text}
 
 def save_state():
