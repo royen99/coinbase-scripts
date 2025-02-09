@@ -206,14 +206,16 @@ def calculate_macd(price_history, short_window=12, long_window=26, signal_window
 
 def calculate_rsi(price_history, period=14):
     """Calculate the Relative Strength Index (RSI) for a given price history."""
-    if len(price_history) < period:  # Ensure enough data points for RSI
-        return None
+    if len(price_history) < period:
+        return None  # Not enough data to calculate RSI
 
     gains = []
     losses = []
 
-    # Calculate the price changes
+    # Calculate the price changes for the last 'period' entries
     for i in range(1, period + 1):
+        if len(price_history) < i + 1:  # Avoid out-of-range indexing
+            return None
         change = price_history[-i] - price_history[-(i + 1)]
         if change >= 0:
             gains.append(change)
