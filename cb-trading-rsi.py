@@ -12,27 +12,21 @@ with open("config.json", "r") as f:
 
 key_name = config["name"]
 key_secret = config["privateKey"]
-crypto_symbols = config.get("crypto_symbols", ["ETH", "XRP", "DOGE", "SOL"])  # List of cryptocurrencies to trade
 quote_currency = "USDC"
-buy_threshold = config.get("buy_percentage", -3)  # % drop to buy
-sell_threshold = config.get("sell_percentage", 3)  # % rise to sell
 trade_percentage = config.get("trade_percentage", 10)  # % of available balance to trade
 stop_loss_percentage = config.get("stop_loss_percentage", -10)  # Stop-loss threshold
-volatility_window = config.get("volatility_window", 10)  # Window for calculating volatility
-trend_window = config.get("trend_window", 20)  # Window for calculating moving average
 
-# Minimum order sizes (adjust based on Coinbase requirements for each cryptocurrency)
-min_order_sizes = {
-    "ETH": {"buy": 0.01, "sell": 0.0001},  # ETH minimums
-    "XRP": {"buy": 0.01, "sell": 1},       # XRP minimums (example values, check Coinbase)
-    "DOGE": {"buy": 0.01, "sell": 1},      # DOGE minimums (example values, check Coinbase)
-    "SOL": {"buy": 0.01, "sell": 0.01},    # SOL minimums (example values, check Coinbase)
-}
+# Load coin-specific settings
+coins_config = config.get("coins", {})
+crypto_symbols = [symbol for symbol, settings in coins_config.items() if settings.get("enabled", False)]
 
 request_host = "api.coinbase.com"
 
 # Initialize price_history with maxlen equal to the larger of volatility_window and trend_window
-price_history_maxlen = max(volatility_window, trend_window)
+price_history_maxlen = max(
+    max(settings.get("volatility_window", 10) for settings in coins_config.values()),
+    max(settings.get("trend_window", 20) for settings in coins_config.values())
+)
 
 # Load or initialize state
 state_file = "state.json"
@@ -147,16 +141,18 @@ def place_order(crypto_symbol, side, amount):
         }
     }
     
+    min_order_sizes = coins_config[crypto_symbol]["min_order_sizes"]
+    
     if side == "BUY":
         rounded_amount = round(amount, 2)  # USDC should have 2 decimal places
-        if rounded_amount < min_order_sizes[crypto_symbol]["buy"]:
-            print(f"🚫 Buy order too small: ${rounded_amount:.2f} (minimum: ${min_order_sizes[crypto_symbol]['buy']:.2f})")
+        if rounded_amount < min_order_sizes["buy"]:
+            print(f"🚫 Buy order too small: ${rounded_amount:.2f} (minimum: ${min_order_sizes['buy']:.2f})")
             return False
         order_data["order_configuration"]["market_market_ioc"]["quote_size"] = str(rounded_amount)
     else:  # SELL
         rounded_amount = round(amount, 6)  # Cryptocurrency amount precision
-        if rounded_amount < min_order_sizes[crypto_symbol]["sell"]:
-            print(f"🚫 Sell order too small: {rounded_amount:.6f} {crypto_symbol} (minimum: {min_order_sizes[crypto_symbol]['sell']:.6f} {crypto_symbol})")
+        if rounded_amount < min_order_sizes["sell"]:
+            print(f"🚫 Sell order too small: {rounded_amount:.6f} {crypto_symbol} (minimum: {min_order_sizes['sell']:.6f} {crypto_symbol})")
             return False
         order_data["order_configuration"]["market_market_ioc"]["base_size"] = str(rounded_amount)
 
@@ -182,64 +178,11 @@ def calculate_volatility(price_history):
     price_changes = [(price_history[i] - price_history[i - 1]) / price_history[i - 1] for i in range(1, len(price_history))]
     return sum(price_changes) / len(price_changes)  # Average price change
 
-def calculate_moving_average(price_history):
+def calculate_moving_average(price_history, trend_window):
     """Calculate the moving average of prices."""
     if len(price_history) < trend_window:
         return None
     return sum(price_history) / len(price_history)
-
-def calculate_macd(price_history, short_window=12, long_window=26, signal_window=9):
-    """Calculate the MACD and Signal Line for a given price history."""
-    if len(price_history) < long_window:
-        return None, None  # Not enough data to calculate MACD
-
-    # Convert deque to list for slicing
-    price_history_list = list(price_history)
-
-    # Calculate the short and long-term EMAs (Exponential Moving Averages)
-    short_ema = sum(price_history_list[-short_window:]) / short_window
-    long_ema = sum(price_history_list[-long_window:]) / long_window
-
-    # Calculate the MACD line
-    macd_line = short_ema - long_ema
-
-    # Signal line: EMA of MACD line over the signal_window period
-    signal_line = sum([macd_line] * signal_window) / signal_window  # In a real MACD calculation, this would be the EMA of MACD
-
-    return macd_line, signal_line
-
-def calculate_rsi(price_history, period=14):
-    """Calculate the Relative Strength Index (RSI) for a given price history."""
-    if len(price_history) < period:
-        return None  # Not enough data to calculate RSI
-
-    gains = []
-    losses = []
-
-    # Calculate the price changes for the last 'period' entries
-    for i in range(1, period + 1):
-        if len(price_history) < i + 1:  # Avoid out-of-range indexing
-            return None
-        change = price_history[-i] - price_history[-(i + 1)]
-        if change >= 0:
-            gains.append(change)
-            losses.append(0)
-        else:
-            losses.append(abs(change))
-            gains.append(0)
-
-    # Calculate average gain and loss
-    avg_gain = sum(gains) / period
-    avg_loss = sum(losses) / period
-
-    if avg_loss == 0:
-        return 100  # Avoid division by zero, RSI would be 100 in this case
-
-    # Calculate the RSI
-    rs = avg_gain / avg_loss
-    rsi = 100 - (100 / (1 + rs))
-
-    return rsi
 
 def trading_bot():
     """Monitors multiple cryptocurrencies and trades based on percentage changes."""
@@ -269,15 +212,16 @@ def trading_bot():
             price_change = ((current_price - crypto_data[symbol]["initial_price"]) / crypto_data[symbol]["initial_price"]) * 100
             print(f"📈 {symbol} Price: ${current_price:.2f} ({price_change:.2f}%)")
 
-            # Calculate volatility, moving average, MACD, and RSI
-            volatility = calculate_volatility(crypto_data[symbol]["price_history"])
-            moving_avg = calculate_moving_average(crypto_data[symbol]["price_history"])
-            macd_line, signal_line = calculate_macd(crypto_data[symbol]["price_history"])
-            rsi = calculate_rsi(crypto_data[symbol]["price_history"])
+            # Get coin-specific settings
+            coin_settings = coins_config[symbol]
+            buy_threshold = coin_settings["buy_percentage"]
+            sell_threshold = coin_settings["sell_percentage"]
+            volatility_window = coin_settings["volatility_window"]
+            trend_window = coin_settings["trend_window"]
 
-            # Display the MACD, Signal Line, and RSI values
-            if macd_line is not None and signal_line is not None and rsi is not None:
-                print(f"📊 {symbol} MACD: {macd_line:.2f} | Signal Line: {signal_line:.2f} | RSI: {rsi:.2f}")
+            # Calculate volatility and moving average
+            volatility = calculate_volatility(crypto_data[symbol]["price_history"])
+            moving_avg = calculate_moving_average(crypto_data[symbol]["price_history"], trend_window)
 
             # Adjust thresholds based on volatility
             dynamic_buy_threshold = buy_threshold * (1 + abs(volatility))
@@ -291,24 +235,12 @@ def trading_bot():
             print(f"📊 Expected Buy Price for {symbol}: ${expected_buy_price:.2f}")
             print(f"📊 Expected Sell Price for {symbol}: ${expected_sell_price:.2f}")
 
-            # Adjust based on MACD and RSI indicators:
-            if macd_line is not None and signal_line is not None and rsi is not None:
-                # Buy condition (RSI < 30 and MACD crosses above signal line)
-                if rsi < 30 and macd_line > signal_line:
-                    adjusted_buy_price = current_price * (1 - 0.02)  # Slightly lower to trigger buy
-                    print(f"🔴 RSI is low, MACD is bullish! Adjusted Buy Price: ${adjusted_buy_price:.2f}")
-
-                # Sell condition (RSI > 70 and MACD crosses below signal line)
-                elif rsi > 70 and macd_line < signal_line:
-                    adjusted_sell_price = current_price * (1 + 0.02)  # Slightly higher to trigger sell
-                    print(f"🟢 RSI is high, MACD is bearish! Adjusted Sell Price: ${adjusted_sell_price:.2f}")
-
             # Check if the price is close to the moving average
             if moving_avg and abs(current_price - moving_avg) < (0.02 * moving_avg):  # Only trade if price is within 2% of the moving average
                 if price_change <= dynamic_buy_threshold and balances[quote_currency] > 0:
                     buy_amount = (trade_percentage / 100) * balances[quote_currency] / current_price
                     if buy_amount > 0:
-                        print(f"💰 Buying {buy_amount:.4f} {symbol}! Expected Buy Price: ${expected_buy_price:.2f}")
+                        print(f"💰 Buying {buy_amount:.4f} {symbol}!")
                         if place_order(symbol, "BUY", buy_amount):
                             crypto_data[symbol]["total_trades"] += 1
                             crypto_data[symbol]["initial_price"] = current_price  # Reset reference price
@@ -316,7 +248,7 @@ def trading_bot():
                 elif price_change >= dynamic_sell_threshold and balances[symbol] > 0:
                     sell_amount = (trade_percentage / 100) * balances[symbol]
                     if sell_amount > 0:
-                        print(f"💵 Selling {sell_amount:.4f} {symbol}! Expected Sell Price: ${expected_sell_price:.2f}")
+                        print(f"💵 Selling {sell_amount:.4f} {symbol}!")
                         if place_order(symbol, "SELL", sell_amount):
                             crypto_data[symbol]["total_trades"] += 1
                             crypto_data[symbol]["total_profit"] += (current_price - crypto_data[symbol]["initial_price"]) * sell_amount
