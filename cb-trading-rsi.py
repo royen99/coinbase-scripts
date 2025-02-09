@@ -6,6 +6,7 @@ import json
 import threading
 import psycopg2
 from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.backends import default_backend
 from collections import deque
 
 # Load API credentials & trading settings from config.json
@@ -41,7 +42,7 @@ def get_db_connection():
 def build_jwt(uri):
     """Generate a JWT token for Coinbase API authentication."""
     private_key_bytes = key_secret.encode("utf-8")
-    private_key = serialization.load_pem_private_key(private_key_bytes, password=None)
+    private_key = serialization.load_pem_private_key(private_key_bytes, password=None, backend=default_backend())
 
     jwt_payload = {
         "sub": key_name,
