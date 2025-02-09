@@ -110,6 +110,13 @@ def calculate_rsi(price_history, period=14):
     rs = avg_gain / avg_loss
     return 100 - (100 / (1 + rs))
 
+def get_crypto_price(crypto_symbol):
+    path = f"/api/v3/brokerage/products/{crypto_symbol}-{quote_currency}"
+    data = api_request("GET", path)
+    if "price" in data:
+        return float(data["price"])
+    return None
+
 def trading_bot():
     global crypto_data
     while True:
