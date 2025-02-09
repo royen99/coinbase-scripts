@@ -20,6 +20,8 @@ stop_loss_percentage = config.get("stop_loss_percentage", -10)  # Stop-loss thre
 coins_config = config.get("coins", {})
 crypto_symbols = [symbol for symbol, settings in coins_config.items() if settings.get("enabled", False)]
 
+request_host = "api.coinbase.com"
+
 # Initialize price_history with maxlen equal to the larger of volatility_window and trend_window
 price_history_maxlen = max(
     max(settings.get("volatility_window", 10) for settings in coins_config.values()),
