@@ -102,6 +102,18 @@ def fetch_prices_concurrently():
     for thread in threads:
         thread.join()
 
+# Initialize crypto data
+price_history_maxlen = max(volatility_window, trend_window)
+crypto_data = {
+    symbol: {
+        "price_history": deque(maxlen=price_history_maxlen),
+        "initial_price": None,
+        "total_trades": 0,
+        "total_profit": 0.0
+    }
+    for symbol in crypto_symbols
+}
+
 def trading_bot():
     global crypto_data
     for symbol in crypto_symbols:
