@@ -24,6 +24,12 @@ crypto_symbols = [symbol for symbol, settings in coins_config.items() if setting
 
 request_host = "api.coinbase.com"
 
+# Database connection parameters
+DB_HOST = config["database"]["host"]
+DB_NAME = config["database"]["name"]
+DB_USER = config["database"]["user"]
+DB_PASSWORD = config["database"]["password"]
+
 def get_db_connection():
     """Connect to the PostgreSQL database."""
     conn = psycopg2.connect(
