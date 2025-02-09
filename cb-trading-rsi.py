@@ -5,6 +5,7 @@ import secrets
 import json
 import threading
 import psycopg2
+import base64
 import logging
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.backends import default_backend
@@ -100,6 +101,8 @@ def log_trade(symbol, side, price, amount):
 
 import base64
 
+import base64
+
 def build_jwt(uri):
     """Generate a JWT token for Coinbase API authentication."""
     private_key_bytes = key_secret.encode("utf-8")
@@ -120,9 +123,13 @@ def build_jwt(uri):
         headers={"kid": key_name, "nonce": secrets.token_hex()},
     )
 
-    # 🔹 Debugging: Print token and payload
-    print("🔹 JWT Token Generated:", jwt_token)
-    print("🔹 Decoded Payload:", json.loads(base64.b64decode(jwt_token.split('.')[1] + '==').decode()))
+    # 🔹 Debugging: Properly Decode JWT Payload
+    try:
+        header, payload, signature = jwt_token.split('.')
+        decoded_payload = json.loads(base64.b64decode(payload + '==').decode())
+        print("🔹 Decoded JWT Payload:", json.dumps(decoded_payload, indent=2))
+    except Exception as e:
+        print(f"❌ Error decoding JWT: {e}")
 
     return jwt_token if isinstance(jwt_token, str) else jwt_token.decode("utf-8")
 
