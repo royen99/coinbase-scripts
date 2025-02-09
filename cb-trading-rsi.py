@@ -204,28 +204,35 @@ def calculate_macd(price_history, short_window=12, long_window=26, signal_window
     
     return macd_line, signal_line
 
-def calculate_rsi(price_history, window=14):
-    """Calculate RSI (Relative Strength Index)."""
-    if len(price_history) < window:
-        return None  # Not enough data to calculate RSI
-    
+def calculate_rsi(price_history, period=14):
+    """Calculate the Relative Strength Index (RSI) for a given price history."""
+    if len(price_history) < period:  # Ensure enough data points for RSI
+        return None
+
     gains = []
     losses = []
-    for i in range(1, window + 1):
+
+    # Calculate the price changes
+    for i in range(1, period + 1):
         change = price_history[-i] - price_history[-(i + 1)]
-        if change > 0:
+        if change >= 0:
             gains.append(change)
             losses.append(0)
         else:
-            gains.append(0)
             losses.append(abs(change))
-    
-    avg_gain = sum(gains) / window
-    avg_loss = sum(losses) / window
-    
-    rs = avg_gain / avg_loss if avg_loss != 0 else float('inf')
+            gains.append(0)
+
+    # Calculate average gain and loss
+    avg_gain = sum(gains) / period
+    avg_loss = sum(losses) / period
+
+    if avg_loss == 0:
+        return 100  # Avoid division by zero, RSI would be 100 in this case
+
+    # Calculate the RSI
+    rs = avg_gain / avg_loss
     rsi = 100 - (100 / (1 + rs))
-    
+
     return rsi
 
 def trading_bot():
