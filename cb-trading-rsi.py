@@ -188,6 +188,46 @@ def calculate_moving_average(price_history):
         return None
     return sum(price_history) / len(price_history)
 
+def calculate_macd(price_history, short_window=12, long_window=26, signal_window=9):
+    """Calculate MACD and Signal Line."""
+    if len(price_history) < long_window:
+        return None, None  # Not enough data to calculate MACD
+    
+    # Short-term (12-period) EMA
+    short_ema = sum(price_history[-short_window:]) / short_window
+    # Long-term (26-period) EMA
+    long_ema = sum(price_history[-long_window:]) / long_window
+    
+    macd_line = short_ema - long_ema
+    # Signal Line (9-period EMA of MACD)
+    signal_line = sum([macd_line] * signal_window) / signal_window  # Simple EMA for demonstration
+    
+    return macd_line, signal_line
+
+def calculate_rsi(price_history, window=14):
+    """Calculate RSI (Relative Strength Index)."""
+    if len(price_history) < window:
+        return None  # Not enough data to calculate RSI
+    
+    gains = []
+    losses = []
+    for i in range(1, window + 1):
+        change = price_history[-i] - price_history[-(i + 1)]
+        if change > 0:
+            gains.append(change)
+            losses.append(0)
+        else:
+            gains.append(0)
+            losses.append(abs(change))
+    
+    avg_gain = sum(gains) / window
+    avg_loss = sum(losses) / window
+    
+    rs = avg_gain / avg_loss if avg_loss != 0 else float('inf')
+    rsi = 100 - (100 / (1 + rs))
+    
+    return rsi
+
 def trading_bot():
     """Monitors multiple cryptocurrencies and trades based on technical indicators."""
     global crypto_data
