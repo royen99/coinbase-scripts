@@ -41,6 +41,18 @@ def get_db_connection():
         port=db_config["port"]
     )
 
+# Initialize crypto data
+price_history_maxlen = max(volatility_window, trend_window)
+crypto_data = {
+    symbol: {
+        "price_history": deque(maxlen=price_history_maxlen),
+        "initial_price": None,
+        "total_trades": 0,
+        "total_profit": 0.0
+    }
+    for symbol in crypto_symbols
+}
+
 def log_trade(symbol, side, price, amount):
     conn = get_db_connection()
     cur = conn.cursor()
@@ -52,8 +64,8 @@ def log_trade(symbol, side, price, amount):
             price NUMERIC,
             amount NUMERIC,
             timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
+        )""
+    )
     cur.execute("INSERT INTO trades (symbol, side, price, amount) VALUES (%s, %s, %s, %s)", (symbol, side, price, amount))
     conn.commit()
     cur.close()
@@ -68,8 +80,8 @@ def log_price(symbol, price):
             symbol TEXT,
             price NUMERIC,
             timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
+        )""
+    )
     cur.execute("INSERT INTO prices (symbol, price) VALUES (%s, %s)", (symbol, price))
     conn.commit()
     cur.close()
@@ -101,18 +113,6 @@ def fetch_prices_concurrently():
         threads.append(thread)
     for thread in threads:
         thread.join()
-
-# Initialize crypto data
-price_history_maxlen = max(volatility_window, trend_window)
-crypto_data = {
-    symbol: {
-        "price_history": deque(maxlen=price_history_maxlen),
-        "initial_price": None,
-        "total_trades": 0,
-        "total_profit": 0.0
-    }
-    for symbol in crypto_symbols
-}
 
 def trading_bot():
     global crypto_data
