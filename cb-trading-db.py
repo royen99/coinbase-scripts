@@ -1,8 +1,9 @@
 import jwt
-import requests
-import time
+import aiohttp
+import asyncio
 import secrets
 import json
+import time
 from cryptography.hazmat.primitives import serialization
 from collections import deque
 import psycopg2
@@ -119,8 +120,8 @@ def build_jwt(uri):
 
     return jwt_token if isinstance(jwt_token, str) else jwt_token.decode("utf-8")
 
-def api_request(method, path, body=None):
-    """Send authenticated requests to Coinbase API."""
+async def api_request(method, path, body=None):
+    """Send authenticated requests to Coinbase API asynchronously."""
     uri = f"{method} {request_host}{path}"
     jwt_token = build_jwt(uri)
 
@@ -131,14 +132,17 @@ def api_request(method, path, body=None):
     }
 
     url = f"https://{request_host}{path}"
-    response = requests.request(method, url, headers=headers, json=body)
+    async with aiohttp.ClientSession() as session:
+        async with session.request(method, url, headers=headers, json=body) as response:
+            if response.status == 200:
+                return await response.json()
+            else:
+                return {"error": await response.text()}
 
-    return response.json() if response.status_code == 200 else {"error": response.text}
-
-def get_crypto_price(crypto_symbol):
-    """Fetch cryptocurrency price from Coinbase."""
+async def get_crypto_price(crypto_symbol):
+    """Fetch cryptocurrency price from Coinbase asynchronously."""
     path = f"/api/v3/brokerage/products/{crypto_symbol}-{quote_currency}"
-    data = api_request("GET", path)
+    data = await api_request("GET", path)
     
     if "price" in data:
         return float(data["price"])
@@ -146,10 +150,10 @@ def get_crypto_price(crypto_symbol):
     print(f"Error fetching {crypto_symbol} price: {data.get('error', 'Unknown error')}")
     return None
 
-def get_balances():
-    """Fetch and display balances for all cryptocurrencies and USDC."""
+async def get_balances():
+    """Fetch and display balances for all cryptocurrencies and USDC asynchronously."""
     path = "/api/v3/brokerage/accounts"
-    data = api_request("GET", path)
+    data = await api_request("GET", path)
     
     balances = {symbol: 0.0 for symbol in crypto_symbols}
     balances[quote_currency] = 0.0
@@ -164,8 +168,8 @@ def get_balances():
         print(f"  - {symbol}: {balance}")
     return balances
 
-def place_order(crypto_symbol, side, amount):
-    """Place a buy/sell order for the specified cryptocurrency."""
+async def place_order(crypto_symbol, side, amount):
+    """Place a buy/sell order for the specified cryptocurrency asynchronously."""
     path = "/api/v3/brokerage/orders"
     
     order_data = {
@@ -194,7 +198,7 @@ def place_order(crypto_symbol, side, amount):
 
     print(f"🛠️ Placing {side} order for {crypto_symbol}: {order_data}")  # Debugging: Print the full request payload
 
-    response = api_request("POST", path, order_data)
+    response = await api_request("POST", path, order_data)
 
     print(f"🔄 Raw Response: {response}")  # Debugging: Print the full response
 
@@ -223,8 +227,8 @@ def calculate_moving_average(price_history, trend_window):
 # Initialize crypto_data as a global variable
 crypto_data = {}
 
-def trading_bot():
-    """Monitors multiple cryptocurrencies and trades based on percentage changes."""
+async def trading_bot():
+    """Monitors multiple cryptocurrencies and trades based on percentage changes asynchronously."""
     global crypto_data
 
     # Initialize initial prices for all cryptocurrencies
@@ -233,7 +237,7 @@ def trading_bot():
         if state:
             crypto_data[symbol] = state
         else:
-            initial_price = get_crypto_price(symbol)
+            initial_price = await get_crypto_price(symbol)
             if not initial_price:
                 print(f"🚨 Failed to fetch initial {symbol} price. Skipping {symbol}.")
                 continue
@@ -247,11 +251,14 @@ def trading_bot():
             print(f"🔍 Monitoring {symbol}... Initial Price: ${initial_price:.2f}")
 
     while True:
-        time.sleep(30)  # Wait before checking prices again
-        balances = get_balances()  # Fetch balances for all cryptocurrencies and USDC
+        await asyncio.sleep(30)  # Wait before checking prices again
+        balances = await get_balances()  # Fetch balances for all cryptocurrencies and USDC
 
-        for symbol in crypto_symbols:
-            current_price = get_crypto_price(symbol)
+        # Fetch prices for all cryptocurrencies concurrently
+        price_tasks = [get_crypto_price(symbol) for symbol in crypto_symbols]
+        prices = await asyncio.gather(*price_tasks)
+
+        for symbol, current_price in zip(crypto_symbols, prices):
             if not current_price:
                 continue
 
@@ -289,7 +296,7 @@ def trading_bot():
                     buy_amount = (trade_percentage / 100) * balances[quote_currency] / current_price
                     if buy_amount > 0:
                         print(f"💰 Buying {buy_amount:.4f} {symbol}!")
-                        if place_order(symbol, "BUY", buy_amount):
+                        if await place_order(symbol, "BUY", buy_amount):
                             crypto_data[symbol]["total_trades"] += 1
                             crypto_data[symbol]["initial_price"] = current_price  # Reset reference price
 
@@ -297,7 +304,7 @@ def trading_bot():
                     sell_amount = (trade_percentage / 100) * balances[symbol]
                     if sell_amount > 0:
                         print(f"💵 Selling {sell_amount:.4f} {symbol}!")
-                        if place_order(symbol, "SELL", sell_amount):
+                        if await place_order(symbol, "SELL", sell_amount):
                             crypto_data[symbol]["total_trades"] += 1
                             crypto_data[symbol]["total_profit"] += (current_price - crypto_data[symbol]["initial_price"]) * sell_amount
                             crypto_data[symbol]["initial_price"] = current_price  # Reset reference price
@@ -309,4 +316,4 @@ def trading_bot():
             save_state(symbol, list(crypto_data[symbol]["price_history"]), crypto_data[symbol]["initial_price"], crypto_data[symbol]["total_trades"], crypto_data[symbol]["total_profit"])
 
 if __name__ == "__main__":
-    trading_bot()
+    asyncio.run(trading_bot())
