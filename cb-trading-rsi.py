@@ -8,7 +8,7 @@ from collections import deque
 import psycopg2
 from psycopg2.extras import Json
 
-# Load configuration from config.json
+# Load API credentials & trading settings from config.json
 with open("config.json", "r") as f:
     config = json.load(f)
 
@@ -22,11 +22,7 @@ stop_loss_percentage = config.get("stop_loss_percentage", -10)  # Stop-loss thre
 coins_config = config.get("coins", {})
 crypto_symbols = [symbol for symbol, settings in coins_config.items() if settings.get("enabled", False)]
 
-# Initialize price_history with maxlen equal to the larger of volatility_window and trend_window
-price_history_maxlen = max(
-    max(settings.get("volatility_window", 10) for settings in coins_config.values()),
-    max(settings.get("trend_window", 20) for settings in coins_config.values())
-)
+request_host = "api.coinbase.com"
 
 # Database connection parameters
 DB_HOST = config["database"]["host"]
@@ -68,7 +64,6 @@ def save_state(symbol, price_history, initial_price, total_trades, total_profit)
         conn.close()
 
 def load_state(symbol):
-    """Load the trading state from the PostgreSQL database."""
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
