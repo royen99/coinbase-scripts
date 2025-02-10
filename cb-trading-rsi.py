@@ -249,6 +249,7 @@ def trading_bot():
         state = load_state(symbol)
         if state:
             crypto_data[symbol] = state
+            print(f"🔍 Loaded state for {symbol}: {state}")
         else:
             initial_price = get_crypto_price(symbol)
             if not initial_price:
@@ -276,6 +277,11 @@ def trading_bot():
             crypto_data[symbol]["price_history"].append(current_price)
             price_change = ((current_price - crypto_data[symbol]["initial_price"]) / crypto_data[symbol]["initial_price"]) * 100
             print(f"📈 {symbol} Price: ${current_price:.2f} ({price_change:.2f}%)")
+
+            # Log price history for debugging
+            print(f"🔧 Debug for {symbol}:")
+            print(f"  - Price History: {list(crypto_data[symbol]['price_history'])}")
+            print(f"  - Price History Length: {len(crypto_data[symbol]['price_history'])}")
 
             # Get coin-specific settings
             coin_settings = coins_config[symbol]
@@ -322,8 +328,12 @@ def trading_bot():
             # Log performance for each cryptocurrency
             print(f"📊 {symbol} Performance - Total Trades: {crypto_data[symbol]['total_trades']} | Total Profit: ${crypto_data[symbol]['total_profit']:.2f}")
 
-        # Save state after each iteration
-        save_state(symbol, list(crypto_data[symbol]["price_history"]), crypto_data[symbol]["initial_price"], crypto_data[symbol]["total_trades"], crypto_data[symbol]["total_profit"])
+            # Save state after each coin's update
+            save_state(symbol, list(crypto_data[symbol]["price_history"]), crypto_data[symbol]["initial_price"], crypto_data[symbol]["total_trades"], crypto_data[symbol]["total_profit"])
+            print(f"💾 Saved state for {symbol}")
+
+        # Log a separator for clarity
+        print("---")
 
 if __name__ == "__main__":
     trading_bot()
