@@ -54,20 +54,34 @@ To keep state, a `state.json` is created (if none exists) as:
 }
 ```
 
+The included `cb-trading-dashboard.py` can be run seperatly to provide (simple) dashboard for monitoring the price history.
+
+### cb-trading-database.py
+Similar as the `cb-trading-advanced.py` but this uses a PostgreSQL database for storing price history and trades.
+
+The table structure is expected as:
+```sql
+CREATE TABLE trading_state (
+    symbol TEXT PRIMARY KEY,
+    price_history TEXT,  -- Store as JSON or separate table for time-series data
+    initial_price REAL,
+    total_trades INTEGER,
+    total_profit REAL
+);
+```
+
+
 ### Config Example (config.json)
 ```
 {
     "name": "organizations/{org_id}/apiKeys/{key_id}",
     "privateKey": "-----BEGIN EC PRIVATE KEY-----\nYOUR PRIVATE KEY\n-----END EC PRIVATE KEY-----\n",
     "buy_percentage": -3,
-    "sell_percentage": 3,
-    "crypto_symbols": ["ETH", "XRP", "DOGE", "SOL"],
-    "trade_percentage": 10,
-    "stop_loss_percentage": -10,
-    "volatility_window": 10,
-    "trend_window": 20
+    "sell_percentage": 3
 }
 ```
+
+See the `config.json.template` file for the full example.
 
 **Ensure the `config.json` is safelyly stored.**
 You can adjust `trade_percentage` to control how much of your balance gets traded. 😘💸\
