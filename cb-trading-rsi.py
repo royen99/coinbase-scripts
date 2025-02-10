@@ -5,11 +5,8 @@ import secrets
 import json
 from cryptography.hazmat.primitives import serialization
 from collections import deque
-import psycopg2
-from psycopg2.extras import Json
-from decimal import Decimal
 
-# Load configuration from config.json
+# Load API credentials & trading settings from config.json
 with open("config.json", "r") as f:
     config = json.load(f)
 
@@ -19,11 +16,11 @@ quote_currency = "USDC"
 trade_percentage = config.get("trade_percentage", 10)  # % of available balance to trade
 stop_loss_percentage = config.get("stop_loss_percentage", -10)  # Stop-loss threshold
 
-request_host = "api.coinbase.com"
-
 # Load coin-specific settings
 coins_config = config.get("coins", {})
 crypto_symbols = [symbol for symbol, settings in coins_config.items() if settings.get("enabled", False)]
+
+request_host = "api.coinbase.com"
 
 # Initialize price_history with maxlen equal to the larger of volatility_window and trend_window
 price_history_maxlen = max(
@@ -31,71 +28,38 @@ price_history_maxlen = max(
     max(settings.get("trend_window", 20) for settings in coins_config.values())
 )
 
-# Database connection parameters
-DB_HOST = config["database"]["host"]
-DB_PORT = config["database"]["port"]
-DB_NAME = config["database"]["name"]
-DB_USER = config["database"]["user"]
-DB_PASSWORD = config["database"]["password"]
+# Load or initialize state
+state_file = "state.json"
+try:
+    with open(state_file, "r") as f:
+        crypto_data = json.load(f)
+        # Convert price_history back to deque
+        for symbol in crypto_symbols:
+            if symbol in crypto_data:
+                crypto_data[symbol]["price_history"] = deque(crypto_data[symbol]["price_history"], maxlen=price_history_maxlen)
+except FileNotFoundError:
+    crypto_data = {
+        symbol: {
+            "price_history": deque(maxlen=price_history_maxlen),
+            "initial_price": None,
+            "total_trades": 0,
+            "total_profit": 0.0,
+        }
+        for symbol in crypto_symbols
+    }
 
-def get_db_connection():
-    """Connect to the PostgreSQL database."""
-    conn = psycopg2.connect(
-        host=DB_HOST,
-        port=DB_PORT,
-        database=DB_NAME,
-        user=DB_USER,
-        password=DB_PASSWORD
-    )
-    return conn
-
-def save_state(symbol, price_history, initial_price, total_trades, total_profit):
-    """Save the trading state to the PostgreSQL database."""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    try:
-        cursor.execute("""
-        INSERT INTO trading_state (symbol, price_history, initial_price, total_trades, total_profit)
-        VALUES (%s, %s, %s, %s, %s)
-        ON CONFLICT (symbol) DO UPDATE
-        SET price_history = EXCLUDED.price_history,
-            initial_price = EXCLUDED.initial_price,
-            total_trades = EXCLUDED.total_trades,
-            total_profit = EXCLUDED.total_profit
-        """, (symbol, Json(price_history), initial_price, total_trades, total_profit))
-        conn.commit()
-    except Exception as e:
-        print(f"Error saving state to database: {e}")
-    finally:
-        cursor.close()
-        conn.close()
-
-def load_state(symbol):
-    """Load the trading state from the PostgreSQL database."""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    try:
-        cursor.execute("SELECT price_history, initial_price, total_trades, total_profit FROM trading_state WHERE symbol = %s", (symbol,))
-        row = cursor.fetchone()
-        if row:
-            # Convert decimal.Decimal to float
-            price_history = row[0]
-            initial_price = float(row[1]) if isinstance(row[1], Decimal) else row[1]
-            total_trades = int(row[2])
-            total_profit = float(row[3]) if isinstance(row[3], Decimal) else row[3]
-            return {
-                "price_history": price_history,
-                "initial_price": initial_price,
-                "total_trades": total_trades,
-                "total_profit": total_profit,
-            }
-        return None
-    except Exception as e:
-        print(f"Error loading state from database: {e}")
-        return None
-    finally:
-        cursor.close()
-        conn.close()
+def save_state():
+    """Save the current state to a file."""
+    # Convert deque to list for JSON serialization
+    state_to_save = {
+        symbol: {
+            **data,
+            "price_history": list(data["price_history"]),
+        }
+        for symbol, data in crypto_data.items()
+    }
+    with open(state_file, "w") as f:
+        json.dump(state_to_save, f, indent=2)
 
 def build_jwt(uri):
     """Generate a JWT token for Coinbase API authentication."""
@@ -220,30 +184,18 @@ def calculate_moving_average(price_history, trend_window):
         return None
     return sum(price_history) / len(price_history)
 
-# Initialize crypto_data as a global variable
-crypto_data = {}
-
 def trading_bot():
     """Monitors multiple cryptocurrencies and trades based on percentage changes."""
     global crypto_data
 
     # Initialize initial prices for all cryptocurrencies
     for symbol in crypto_symbols:
-        state = load_state(symbol)
-        if state:
-            crypto_data[symbol] = state
-        else:
+        if crypto_data[symbol]["initial_price"] is None:
             initial_price = get_crypto_price(symbol)
             if not initial_price:
                 print(f"🚨 Failed to fetch initial {symbol} price. Skipping {symbol}.")
                 continue
-            crypto_data[symbol] = {
-                "price_history": deque(maxlen=price_history_maxlen),
-                "initial_price": initial_price,
-                "total_trades": 0,
-                "total_profit": 0.0,
-            }
-            save_state(symbol, list(crypto_data[symbol]["price_history"]), initial_price, 0, 0.0)
+            crypto_data[symbol]["initial_price"] = initial_price
             print(f"🔍 Monitoring {symbol}... Initial Price: ${initial_price:.2f}")
 
     while True:
@@ -305,8 +257,8 @@ def trading_bot():
             # Log performance for each cryptocurrency
             print(f"📊 {symbol} Performance - Total Trades: {crypto_data[symbol]['total_trades']} | Total Profit: ${crypto_data[symbol]['total_profit']:.2f}")
 
-            # Save state after each coin's update
-            save_state(symbol, list(crypto_data[symbol]["price_history"]), crypto_data[symbol]["initial_price"], crypto_data[symbol]["total_trades"], crypto_data[symbol]["total_profit"])
+        # Save state after each iteration
+        save_state()
 
 if __name__ == "__main__":
     trading_bot()
