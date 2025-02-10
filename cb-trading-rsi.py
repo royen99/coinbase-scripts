@@ -220,6 +220,9 @@ def calculate_moving_average(price_history, trend_window):
         return None
     return sum(price_history) / len(price_history)
 
+# Initialize crypto_data as a global variable
+crypto_data = {}
+
 def trading_bot():
     """Monitors multiple cryptocurrencies and trades based on percentage changes."""
     global crypto_data
