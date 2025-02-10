@@ -69,6 +69,8 @@ def save_state(symbol, price_history, initial_price, total_trades, total_profit)
         cursor.close()
         conn.close()
 
+from decimal import Decimal
+
 def load_state(symbol):
     """Load the trading state from the PostgreSQL database."""
     conn = get_db_connection()
@@ -77,11 +79,16 @@ def load_state(symbol):
         cursor.execute("SELECT price_history, initial_price, total_trades, total_profit FROM trading_state WHERE symbol = %s", (symbol,))
         row = cursor.fetchone()
         if row:
+            # Convert decimal.Decimal to float
+            price_history = row[0]
+            initial_price = float(row[1]) if isinstance(row[1], Decimal) else row[1]
+            total_trades = int(row[2])
+            total_profit = float(row[3]) if isinstance(row[3], Decimal) else row[3]
             return {
-                "price_history": row[0],
-                "initial_price": row[1],
-                "total_trades": row[2],
-                "total_profit": row[3],
+                "price_history": price_history,
+                "initial_price": initial_price,
+                "total_trades": total_trades,
+                "total_profit": total_profit,
             }
         return None
     except Exception as e:
