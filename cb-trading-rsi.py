@@ -117,19 +117,6 @@ except FileNotFoundError:
         for symbol in crypto_symbols
     }
 
-def save_state():
-    """Save the current state to a file."""
-    # Convert deque to list for JSON serialization
-    state_to_save = {
-        symbol: {
-            **data,
-            "price_history": list(data["price_history"]),
-        }
-        for symbol, data in crypto_data.items()
-    }
-    with open(state_file, "w") as f:
-        json.dump(state_to_save, f, indent=2)
-
 def build_jwt(uri):
     """Generate a JWT token for Coinbase API authentication."""
     private_key_bytes = key_secret.encode("utf-8")
