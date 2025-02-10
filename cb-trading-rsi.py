@@ -7,6 +7,7 @@ from cryptography.hazmat.primitives import serialization
 from collections import deque
 import psycopg2
 from psycopg2.extras import Json
+from decimal import Decimal
 
 # Load configuration from config.json
 with open("config.json", "r") as f:
@@ -69,8 +70,6 @@ def save_state(symbol, price_history, initial_price, total_trades, total_profit)
         cursor.close()
         conn.close()
 
-from decimal import Decimal
-
 def load_state(symbol):
     """Load the trading state from the PostgreSQL database."""
     conn = get_db_connection()
@@ -97,32 +96,6 @@ def load_state(symbol):
     finally:
         cursor.close()
         conn.close()
-
-# Initialize price_history with maxlen equal to the larger of volatility_window and trend_window
-price_history_maxlen = max(
-    max(settings.get("volatility_window", 10) for settings in coins_config.values()),
-    max(settings.get("trend_window", 20) for settings in coins_config.values())
-)
-
-# Load or initialize state
-state_file = "state.json"
-try:
-    with open(state_file, "r") as f:
-        crypto_data = json.load(f)
-        # Convert price_history back to deque
-        for symbol in crypto_symbols:
-            if symbol in crypto_data:
-                crypto_data[symbol]["price_history"] = deque(crypto_data[symbol]["price_history"], maxlen=price_history_maxlen)
-except FileNotFoundError:
-    crypto_data = {
-        symbol: {
-            "price_history": deque(maxlen=price_history_maxlen),
-            "initial_price": None,
-            "total_trades": 0,
-            "total_profit": 0.0,
-        }
-        for symbol in crypto_symbols
-    }
 
 def build_jwt(uri):
     """Generate a JWT token for Coinbase API authentication."""
@@ -256,7 +229,6 @@ def trading_bot():
         state = load_state(symbol)
         if state:
             crypto_data[symbol] = state
-            print(f"🔍 Loaded state for {symbol}: {state}")
         else:
             initial_price = get_crypto_price(symbol)
             if not initial_price:
@@ -284,11 +256,6 @@ def trading_bot():
             crypto_data[symbol]["price_history"].append(current_price)
             price_change = ((current_price - crypto_data[symbol]["initial_price"]) / crypto_data[symbol]["initial_price"]) * 100
             print(f"📈 {symbol} Price: ${current_price:.2f} ({price_change:.2f}%)")
-
-            # Log price history for debugging
-            print(f"🔧 Debug for {symbol}:")
-            print(f"  - Price History: {list(crypto_data[symbol]['price_history'])}")
-            print(f"  - Price History Length: {len(crypto_data[symbol]['price_history'])}")
 
             # Get coin-specific settings
             coin_settings = coins_config[symbol]
@@ -337,10 +304,6 @@ def trading_bot():
 
             # Save state after each coin's update
             save_state(symbol, list(crypto_data[symbol]["price_history"]), crypto_data[symbol]["initial_price"], crypto_data[symbol]["total_trades"], crypto_data[symbol]["total_profit"])
-            print(f"💾 Saved state for {symbol}")
-
-        # Log a separator for clarity
-        print("---")
 
 if __name__ == "__main__":
     trading_bot()
