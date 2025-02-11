@@ -265,7 +265,7 @@ def calculate_ema(prices, period):
         ema = (price - ema) * multiplier + ema
     return ema
 
-def calculate_macd(prices, short_window=12, long_window=26, signal_window=9):
+def calculate_macd(prices, symbol, short_window=12, long_window=26, signal_window=9):
     """Calculate MACD and Signal Line."""
     if len(prices) < long_window + signal_window:
         print(f"⚠️ Not enough data to calculate MACD for {symbol}. Required: {long_window + signal_window}, Available: {len(prices)}")
@@ -287,7 +287,7 @@ def calculate_macd(prices, short_window=12, long_window=26, signal_window=9):
     print(f"📊 {symbol} MACD Calculation - Short EMA: {short_ema:.2f}, Long EMA: {long_ema:.2f}, MACD Line: {macd_line:.2f}, Signal Line: {signal_line:.2f}, Histogram: {macd_histogram:.2f}")
     return macd_line, signal_line, macd_histogram
 
-def calculate_rsi(prices, period=14):
+def calculate_rsi(prices, symbol, period=14):
     """Calculate the Relative Strength Index (RSI)."""
     if len(prices) < period:
         print(f"⚠️ Not enough data to calculate RSI for {symbol}. Required: {period}, Available: {len(prices)}")
@@ -374,8 +374,8 @@ async def trading_bot():
             moving_avg = calculate_moving_average(price_history, trend_window)
 
             # Calculate MACD and RSI
-            macd_line, signal_line, macd_histogram = calculate_macd(price_history)
-            rsi = calculate_rsi(price_history)
+            macd_line, signal_line, macd_histogram = calculate_macd(price_history, symbol)
+            rsi = calculate_rsi(price_history, symbol)
 
             # Log MACD and RSI values (if available)
             if macd_line is not None and signal_line is not None and rsi is not None:
