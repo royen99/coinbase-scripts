@@ -14,3 +14,4 @@ crypto_data
 dash
 sqlalchemy
 plotly.express
+dash-bootstrap-components
