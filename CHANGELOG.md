@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **Asynchronous Programming**: Integrated `aiohttp` and `asyncio` to make API requests concurrently, improving performance and responsiveness.
 - **Concurrent Price Fetching**: Fetch prices for all cryptocurrencies simultaneously using `asyncio.gather`.
+- **MACD Indicator**: Added Moving Average Convergence Divergence (MACD) to identify trend direction and momentum.
+- **RSI Indicator**: Added Relative Strength Index (RSI) to identify overbought and oversold conditions.
+- **Enhanced Trading Logic**: Integrated MACD and RSI signals into the trading strategy.
 
 ### Fixed
 - **Missing `time` Module**: Added `import time` to resolve the `NameError` in the `build_jwt` function.
@@ -17,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **API Requests**: Replaced `requests` with `aiohttp` for asynchronous HTTP requests.
 - **Function Updates**: Converted `api_request`, `get_crypto_price`, `get_balances`, `place_order`, and `trading_bot` to asynchronous functions.
+- **Configuration**: Added MACD and RSI settings to `config.json`
 
 ### Removed
 - **Synchronous Requests**: Removed dependency on the `requests` library.

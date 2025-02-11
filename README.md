@@ -29,7 +29,10 @@ The `cb-trading-db.py` script is the main project (see below for for scripts wit
 ✅ Uses a PostgreSQL database backend for saving and loading price history and trading state.\
 ✅ Asynchronous API requests, improving performance and responsiveness.\
 ✅ Concurrent Price Fetching. Fetches prices for all cryptocurrencies simultaneously.\
-✅ Trades multiple cryptocurrencies with configurable settings.
+✅ Trades multiple cryptocurrencies with configurable settings.\
+✅ Moving Average Convergence Divergence (MACD) to identify trend direction and momentum.\
+✅ Relative Strength Index (RSI) to identify overbought and oversold conditions.\
+✅ Integrated MACD and RSI signals into the trading strategy.
 
 Additional settings (inside the `config.json`) are needed holding your database info and which coins you want to enable/disable.\
 You can adjust `trade_percentage` to control how much of your balance gets traded. 😘💸\
@@ -55,6 +58,10 @@ You can adjust `trade_percentage` to control how much of your balance gets trade
       "sell_percentage": 3,
       "volatility_window": 10,
       "trend_window": 26,
+      "macd_short_window": 12,
+      "macd_long_window": 26,
+      "macd_signal_window": 9,
+      "rsi_period": 14,
       "min_order_sizes": {
         "buy": 0.01,
         "sell": 0.0001
