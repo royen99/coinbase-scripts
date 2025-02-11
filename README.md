@@ -108,11 +108,19 @@ The PostgreSQL table structure is expected as:
 ```sql
 CREATE TABLE trading_state (
     symbol TEXT PRIMARY KEY,
-    price_history TEXT,
     initial_price REAL,
     total_trades INTEGER,
     total_profit REAL
 );
+
+CREATE TABLE price_history (
+    symbol TEXT,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    price REAL,
+    PRIMARY KEY (symbol, timestamp)
+);
+
+CREATE INDEX idx_symbol_timestamp ON price_history (symbol, timestamp);
 ```
 Example output:
 
@@ -139,8 +147,6 @@ Example output:
 📊 Expected Sell Price for SOL: $193.81
 📊 SOL Performance - Total Trades: 0 | Total Profit: $0.00
 ```
-
-The included `cb-trading-dashboard.py` can be run seperatly to provide (simple) dashboard for monitoring the price history.
 
 ## More basic scripts
 
