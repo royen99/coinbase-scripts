@@ -12,4 +12,5 @@ yarl
 psycopg2
 crypto_data
 dash
+sqlalchemy
 plotly.express

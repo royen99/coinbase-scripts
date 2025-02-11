@@ -20,6 +20,9 @@ DB_PASSWORD = config["database"]["password"]
 DATABASE_URI = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 engine = db.create_engine(DATABASE_URI)
 
+# Get enabled coins from config
+enabled_coins = [symbol for symbol, settings in config["coins"].items() if settings.get("enabled", False)]
+
 # Initialize Dash app
 app = dash.Dash(__name__)
 
@@ -27,6 +30,15 @@ app = dash.Dash(__name__)
 app.layout = html.Div([
     html.H1("Crypto Trading Bot Dashboard", style={"textAlign": "center"}),
     
+    # Dropdown to select coin
+    html.Label("Select Coin:"),
+    dcc.Dropdown(
+        id="coin-dropdown",
+        options=[{"label": coin, "value": coin} for coin in enabled_coins],
+        value=enabled_coins[0] if enabled_coins else None,  # Default to the first enabled coin
+        clearable=False
+    ),
+
     # Real-Time Price Chart
     dcc.Graph(id="price-chart"),
     dcc.Interval(id="interval-component", interval=30 * 1000, n_intervals=0),  # Update every 30 seconds
@@ -47,51 +59,60 @@ app.layout = html.Div([
 # Callback to update the price chart
 @app.callback(
     Output("price-chart", "figure"),
-    Input("interval-component", "n_intervals")
+    Input("interval-component", "n_intervals"),
+    Input("coin-dropdown", "value")
 )
-def update_price_chart(n):
+def update_price_chart(n, selected_coin):
     # Fetch price history from the database
-    query = "SELECT timestamp, price FROM price_history WHERE symbol = 'ETH' ORDER BY timestamp DESC LIMIT 100"
+    query = f"SELECT timestamp, price FROM price_history WHERE symbol = '{selected_coin}' ORDER BY timestamp DESC LIMIT 100"
     df = pd.read_sql(query, engine)
 
     # Create the price chart
     figure = {
-        "data": [go.Scatter(x=df["timestamp"], y=df["price"], mode="lines", name="ETH Price")],
-        "layout": go.Layout(title="ETH Price History", xaxis={"title": "Time"}, yaxis={"title": "Price"})
+        "data": [go.Scatter(x=df["timestamp"], y=df["price"], mode="lines", name=f"{selected_coin} Price")],
+        "layout": go.Layout(title=f"{selected_coin} Price History", xaxis={"title": "Time"}, yaxis={"title": "Price"})
     }
     return figure
 
 # Callback to update the trade log
 @app.callback(
     Output("trade-log", "children"),
-    Input("interval-component", "n_intervals")
+    Input("interval-component", "n_intervals"),
+    Input("coin-dropdown", "value")
 )
-def update_trade_log(n):
+def update_trade_log(n, selected_coin):
     # Fetch recent trades from the database
-    query = "SELECT * FROM trades ORDER BY timestamp DESC LIMIT 10"
+    query = f"SELECT * FROM trades WHERE symbol = '{selected_coin}' ORDER BY timestamp DESC LIMIT 10"
     df = pd.read_sql(query, engine)
 
-    # Display the trade log
-    return html.Table([
-        html.Thead(html.Tr([html.Th(col) for col in df.columns])),
-        html.Tbody([html.Tr([html.Td(df.iloc[i][col]) for col in df.columns]) for i in range(len(df))])
-    ])
+    # Display the trade log (or a message if no trades exist)
+    if df.empty:
+        return html.P("No trades recorded yet.")
+    else:
+        return html.Table([
+            html.Thead(html.Tr([html.Th(col) for col in df.columns])),
+            html.Tbody([html.Tr([html.Td(df.iloc[i][col]) for col in df.columns]) for i in range(len(df))])
+        ])
 
 # Callback to update performance metrics
 @app.callback(
     Output("performance-metrics", "children"),
-    Input("interval-component", "n_intervals")
+    Input("interval-component", "n_intervals"),
+    Input("coin-dropdown", "value")
 )
-def update_performance_metrics(n):
+def update_performance_metrics(n, selected_coin):
     # Fetch performance metrics from the database
-    query = "SELECT total_trades, total_profit FROM trading_state WHERE symbol = 'ETH'"
+    query = f"SELECT total_trades, total_profit FROM trading_state WHERE symbol = '{selected_coin}'"
     result = engine.execute(query).fetchone()
 
-    # Display performance metrics
-    return html.Div([
-        html.P(f"Total Trades: {result['total_trades']}"),
-        html.P(f"Total Profit: ${result['total_profit']:.2f}"),
-    ])
+    # Display performance metrics (or a message if no data exists)
+    if result is None:
+        return html.P("No performance data available.")
+    else:
+        return html.Div([
+            html.P(f"Total Trades: {result['total_trades']}"),
+            html.P(f"Total Profit: ${result['total_profit']:.2f}"),
+        ])
 
 # Callback to update balance and portfolio
 @app.callback(
@@ -103,11 +124,14 @@ def update_balance_portfolio(n):
     query = "SELECT currency, available_balance FROM balances"
     df = pd.read_sql(query, engine)
 
-    # Display balance and portfolio
-    return html.Table([
-        html.Thead(html.Tr([html.Th(col) for col in df.columns])),
-        html.Tbody([html.Tr([html.Td(df.iloc[i][col]) for col in df.columns]) for i in range(len(df))])
-    ])
+    # Display balance and portfolio (or a message if no data exists)
+    if df.empty:
+        return html.P("No balance data available.")
+    else:
+        return html.Table([
+            html.Thead(html.Tr([html.Th(col) for col in df.columns])),
+            html.Tbody([html.Tr([html.Td(df.iloc[i][col]) for col in df.columns]) for i in range(len(df))])
+        ])
 
 # Run the app
 if __name__ == "__main__":
