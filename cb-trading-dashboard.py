@@ -113,8 +113,8 @@ def update_performance_metrics(n, selected_coin):
         return html.P("No performance data available.")
     else:
         return html.Div([
-            html.P(f"Total Trades: {result['total_trades']}"),
-            html.P(f"Total Profit: ${result['total_profit']:.2f}"),
+            html.P(f"Total Trades: {result[0]}"),  # Access by index
+            html.P(f"Total Profit: ${result[1]:.2f}"),  # Access by index
         ])
 
 # Callback to update balance and portfolio
