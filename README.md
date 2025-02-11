@@ -148,8 +148,6 @@ Example output:
 📊 SOL Performance - Total Trades: 0 | Total Profit: $0.00
 ```
 
-The included `cb-trading-dashboard.py` can be run seperatly to provide (simple) dashboard for monitoring the price history.
-
 ## More basic scripts
 
 ### cb-trading-percentage.py
