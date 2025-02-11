@@ -108,11 +108,19 @@ The PostgreSQL table structure is expected as:
 ```sql
 CREATE TABLE trading_state (
     symbol TEXT PRIMARY KEY,
-    price_history TEXT,
     initial_price REAL,
     total_trades INTEGER,
     total_profit REAL
 );
+
+CREATE TABLE price_history (
+    symbol TEXT,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    price REAL,
+    PRIMARY KEY (symbol, timestamp)
+);
+
+CREATE INDEX idx_symbol_timestamp ON price_history (symbol, timestamp);
 ```
 Example output:
 

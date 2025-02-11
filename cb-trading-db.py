@@ -50,20 +50,35 @@ def get_db_connection():
     )
     return conn
 
-def save_state(symbol, price_history, initial_price, total_trades, total_profit):
+def save_price_history(symbol, price):
+    """Save price history to the PostgreSQL database."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+        INSERT INTO price_history (symbol, price)
+        VALUES (%s, %s)
+        """, (symbol, price))
+        conn.commit()
+    except Exception as e:
+        print(f"Error saving price history to database: {e}")
+    finally:
+        cursor.close()
+        conn.close()
+
+def save_state(symbol, initial_price, total_trades, total_profit):
     """Save the trading state to the PostgreSQL database."""
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
         cursor.execute("""
-        INSERT INTO trading_state (symbol, price_history, initial_price, total_trades, total_profit)
-        VALUES (%s, %s, %s, %s, %s)
+        INSERT INTO trading_state (symbol, initial_price, total_trades, total_profit)
+        VALUES (%s, %s, %s, %s)
         ON CONFLICT (symbol) DO UPDATE
-        SET price_history = EXCLUDED.price_history,
-            initial_price = EXCLUDED.initial_price,
+        SET initial_price = EXCLUDED.initial_price,
             total_trades = EXCLUDED.total_trades,
             total_profit = EXCLUDED.total_profit
-        """, (symbol, Json(price_history), initial_price, total_trades, total_profit))
+        """, (symbol, initial_price, total_trades, total_profit))
         conn.commit()
     except Exception as e:
         print(f"Error saving state to database: {e}")
@@ -76,16 +91,32 @@ def load_state(symbol):
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
-        cursor.execute("SELECT price_history, initial_price, total_trades, total_profit FROM trading_state WHERE symbol = %s", (symbol,))
+        # Load trading metrics from trading_state
+        cursor.execute("""
+        SELECT initial_price, total_trades, total_profit
+        FROM trading_state
+        WHERE symbol = %s
+        """, (symbol,))
         row = cursor.fetchone()
+
         if row:
-            # Convert decimal.Decimal to float
-            price_history = row[0]
-            initial_price = float(row[1]) if isinstance(row[1], Decimal) else row[1]
-            total_trades = int(row[2])
-            total_profit = float(row[3]) if isinstance(row[3], Decimal) else row[3]
+            # Convert decimal.Decimal to float if necessary
+            initial_price = float(row[0]) if isinstance(row[0], Decimal) else row[0]
+            total_trades = int(row[1])
+            total_profit = float(row[2]) if isinstance(row[2], Decimal) else row[2]
+
+            # Load price history from price_history table
+            cursor.execute("""
+            SELECT price
+            FROM price_history
+            WHERE symbol = %s
+            ORDER BY timestamp DESC
+            LIMIT %s
+            """, (symbol, price_history_maxlen))
+            price_history = [float(row[0]) for row in cursor.fetchall()]
+
             return {
-                "price_history": price_history,
+                "price_history": deque(price_history, maxlen=price_history_maxlen),
                 "initial_price": initial_price,
                 "total_trades": total_trades,
                 "total_profit": total_profit,
@@ -302,7 +333,7 @@ async def trading_bot():
                 "total_trades": 0,
                 "total_profit": 0.0,
             }
-            save_state(symbol, list(crypto_data[symbol]["price_history"]), initial_price, 0, 0.0)
+            save_state(symbol, initial_price, 0, 0.0)
             print(f"🔍 Monitoring {symbol}... Initial Price: ${initial_price:.2f}")
 
     while True:
@@ -317,7 +348,10 @@ async def trading_bot():
             if not current_price:
                 continue
 
-            # Update price history
+            # Save price history
+            save_price_history(symbol, current_price)
+
+            # Update price history in memory
             crypto_data[symbol]["price_history"].append(current_price)
             price_history = list(crypto_data[symbol]["price_history"])
             price_change = ((current_price - crypto_data[symbol]["initial_price"]) / crypto_data[symbol]["initial_price"]) * 100
@@ -390,7 +424,7 @@ async def trading_bot():
             print(f"📊 {symbol} Performance - Total Trades: {crypto_data[symbol]['total_trades']} | Total Profit: ${crypto_data[symbol]['total_profit']:.2f}")
 
             # Save state after each coin's update
-            save_state(symbol, list(crypto_data[symbol]["price_history"]), crypto_data[symbol]["initial_price"], crypto_data[symbol]["total_trades"], crypto_data[symbol]["total_profit"])
+            save_state(symbol, crypto_data[symbol]["initial_price"], crypto_data[symbol]["total_trades"], crypto_data[symbol]["total_profit"])
 
 if __name__ == "__main__":
     asyncio.run(trading_bot())
