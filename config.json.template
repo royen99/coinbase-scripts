@@ -5,6 +5,7 @@
   "stop_loss_percentage": -10,
   "database": {
     "host": "your-database-host",
+    "port": "your-database-port",
     "name": "your-database-name",
     "user": "your-database-user",
     "password": "your-database-password"
@@ -15,7 +16,11 @@
       "buy_percentage": -3,
       "sell_percentage": 3,
       "volatility_window": 10,
-      "trend_window": 20,
+      "trend_window": 26,
+      "macd_short_window": 12,
+      "macd_long_window": 26,
+      "macd_signal_window": 9,
+      "rsi_period": 14,
       "min_order_sizes": {
         "buy": 0.01,
         "sell": 0.0001
@@ -26,7 +31,7 @@
       "buy_percentage": -5,
       "sell_percentage": 5,
       "volatility_window": 15,
-      "trend_window": 25,
+      "trend_window": 26,
       "min_order_sizes": {
         "buy": 0.01,
         "sell": 1
@@ -37,7 +42,7 @@
       "buy_percentage": -4,
       "sell_percentage": 4,
       "volatility_window": 10,
-      "trend_window": 20,
+      "trend_window": 26,
       "min_order_sizes": {
         "buy": 0.01,
         "sell": 1
@@ -48,7 +53,7 @@
       "buy_percentage": -2,
       "sell_percentage": 2,
       "volatility_window": 5,
-      "trend_window": 10,
+      "trend_window": 26,
       "min_order_sizes": {
         "buy": 0.01,
         "sell": 0.01
