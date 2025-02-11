@@ -255,15 +255,20 @@ def calculate_moving_average(price_history, trend_window):
         return None
     return sum(price_history) / len(price_history)
 
-def calculate_ema(prices, period):
+def calculate_ema(prices, period, return_all=False):
     """Calculate the Exponential Moving Average (EMA) for a given period."""
     if len(prices) < period:
         return None
+
     multiplier = 2 / (period + 1)
     ema = sum(prices[:period]) / period  # Start with SMA
+    ema_values = [ema]
+
     for price in prices[period:]:
         ema = (price - ema) * multiplier + ema
-    return ema
+        ema_values.append(ema)
+
+    return ema_values if return_all else ema
 
 def calculate_macd(prices, symbol, short_window=12, long_window=26, signal_window=9):
     """Calculate MACD and Signal Line."""
@@ -279,7 +284,13 @@ def calculate_macd(prices, symbol, short_window=12, long_window=26, signal_windo
     macd_line = short_ema - long_ema
 
     # Calculate Signal line (EMA of MACD line)
-    signal_line = calculate_ema(prices[-signal_window:], signal_window)
+    # Create a list of MACD Line values for the signal window
+    macd_line_values = [short_ema - long_ema for short_ema, long_ema in zip(
+        calculate_ema(prices, short_window, return_all=True),
+        calculate_ema(prices, long_window, return_all=True)
+    ][-signal_window:]
+
+    signal_line = calculate_ema(macd_line_values, signal_window)
 
     # Calculate MACD Histogram
     macd_histogram = macd_line - signal_line
