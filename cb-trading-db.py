@@ -1,12 +1,13 @@
 import jwt
-import requests
-import time
+import aiohttp
+import asyncio
 import secrets
 import json
+import time
 from cryptography.hazmat.primitives import serialization
 from collections import deque
-import psycopg2
-from psycopg2.extras import Json
+import psycopg2 # type: ignore
+from psycopg2.extras import Json # type: ignore
 from decimal import Decimal
 
 # Load configuration from config.json
@@ -119,8 +120,8 @@ def build_jwt(uri):
 
     return jwt_token if isinstance(jwt_token, str) else jwt_token.decode("utf-8")
 
-def api_request(method, path, body=None):
-    """Send authenticated requests to Coinbase API."""
+async def api_request(method, path, body=None):
+    """Send authenticated requests to Coinbase API asynchronously."""
     uri = f"{method} {request_host}{path}"
     jwt_token = build_jwt(uri)
 
@@ -131,14 +132,17 @@ def api_request(method, path, body=None):
     }
 
     url = f"https://{request_host}{path}"
-    response = requests.request(method, url, headers=headers, json=body)
+    async with aiohttp.ClientSession() as session:
+        async with session.request(method, url, headers=headers, json=body) as response:
+            if response.status == 200:
+                return await response.json()
+            else:
+                return {"error": await response.text()}
 
-    return response.json() if response.status_code == 200 else {"error": response.text}
-
-def get_crypto_price(crypto_symbol):
-    """Fetch cryptocurrency price from Coinbase."""
+async def get_crypto_price(crypto_symbol):
+    """Fetch cryptocurrency price from Coinbase asynchronously."""
     path = f"/api/v3/brokerage/products/{crypto_symbol}-{quote_currency}"
-    data = api_request("GET", path)
+    data = await api_request("GET", path)
     
     if "price" in data:
         return float(data["price"])
@@ -146,10 +150,10 @@ def get_crypto_price(crypto_symbol):
     print(f"Error fetching {crypto_symbol} price: {data.get('error', 'Unknown error')}")
     return None
 
-def get_balances():
-    """Fetch and display balances for all cryptocurrencies and USDC."""
+async def get_balances():
+    """Fetch and display balances for all cryptocurrencies and USDC asynchronously."""
     path = "/api/v3/brokerage/accounts"
-    data = api_request("GET", path)
+    data = await api_request("GET", path)
     
     balances = {symbol: 0.0 for symbol in crypto_symbols}
     balances[quote_currency] = 0.0
@@ -164,8 +168,8 @@ def get_balances():
         print(f"  - {symbol}: {balance}")
     return balances
 
-def place_order(crypto_symbol, side, amount):
-    """Place a buy/sell order for the specified cryptocurrency."""
+async def place_order(crypto_symbol, side, amount):
+    """Place a buy/sell order for the specified cryptocurrency asynchronously."""
     path = "/api/v3/brokerage/orders"
     
     order_data = {
@@ -194,7 +198,7 @@ def place_order(crypto_symbol, side, amount):
 
     print(f"🛠️ Placing {side} order for {crypto_symbol}: {order_data}")  # Debugging: Print the full request payload
 
-    response = api_request("POST", path, order_data)
+    response = await api_request("POST", path, order_data)
 
     print(f"🔄 Raw Response: {response}")  # Debugging: Print the full response
 
@@ -220,11 +224,66 @@ def calculate_moving_average(price_history, trend_window):
         return None
     return sum(price_history) / len(price_history)
 
+def calculate_ema(prices, period):
+    """Calculate the Exponential Moving Average (EMA) for a given period."""
+    if len(prices) < period:
+        return None
+    multiplier = 2 / (period + 1)
+    ema = sum(prices[:period]) / period  # Start with SMA
+    for price in prices[period:]:
+        ema = (price - ema) * multiplier + ema
+    return ema
+
+def calculate_macd(prices, short_window=12, long_window=26, signal_window=9):
+    """Calculate MACD and Signal Line."""
+    if len(prices) < long_window + signal_window:
+        return None, None, None
+
+    # Calculate short-term and long-term EMAs
+    short_ema = calculate_ema(prices, short_window)
+    long_ema = calculate_ema(prices, long_window)
+
+    # Calculate MACD line
+    macd_line = short_ema - long_ema
+
+    # Calculate Signal line (EMA of MACD line)
+    signal_line = calculate_ema(prices[-signal_window:], signal_window)
+
+    # Calculate MACD Histogram
+    macd_histogram = macd_line - signal_line
+
+    return macd_line, signal_line, macd_histogram
+
+def calculate_rsi(prices, period=14):
+    """Calculate the Relative Strength Index (RSI)."""
+    if len(prices) < period:
+        return None
+
+    gains = []
+    losses = []
+
+    for i in range(1, len(prices)):
+        change = prices[i] - prices[i - 1]
+        if change > 0:
+            gains.append(change)
+        else:
+            losses.append(abs(change))
+
+    avg_gain = sum(gains) / period
+    avg_loss = sum(losses) / period
+
+    if avg_loss == 0:
+        return 100  # Avoid division by zero
+
+    rs = avg_gain / avg_loss
+    rsi = 100 - (100 / (1 + rs))
+    return rsi
+
 # Initialize crypto_data as a global variable
 crypto_data = {}
 
-def trading_bot():
-    """Monitors multiple cryptocurrencies and trades based on percentage changes."""
+async def trading_bot():
+    """Monitors multiple cryptocurrencies and trades based on technical indicators."""
     global crypto_data
 
     # Initialize initial prices for all cryptocurrencies
@@ -233,7 +292,7 @@ def trading_bot():
         if state:
             crypto_data[symbol] = state
         else:
-            initial_price = get_crypto_price(symbol)
+            initial_price = await get_crypto_price(symbol)
             if not initial_price:
                 print(f"🚨 Failed to fetch initial {symbol} price. Skipping {symbol}.")
                 continue
@@ -247,16 +306,20 @@ def trading_bot():
             print(f"🔍 Monitoring {symbol}... Initial Price: ${initial_price:.2f}")
 
     while True:
-        time.sleep(30)  # Wait before checking prices again
-        balances = get_balances()  # Fetch balances for all cryptocurrencies and USDC
+        await asyncio.sleep(30)  # Wait before checking prices again
+        balances = await get_balances()  # Fetch balances for all cryptocurrencies and USDC
 
-        for symbol in crypto_symbols:
-            current_price = get_crypto_price(symbol)
+        # Fetch prices for all cryptocurrencies concurrently
+        price_tasks = [get_crypto_price(symbol) for symbol in crypto_symbols]
+        prices = await asyncio.gather(*price_tasks)
+
+        for symbol, current_price in zip(crypto_symbols, prices):
             if not current_price:
                 continue
 
             # Update price history
             crypto_data[symbol]["price_history"].append(current_price)
+            price_history = list(crypto_data[symbol]["price_history"])
             price_change = ((current_price - crypto_data[symbol]["initial_price"]) / crypto_data[symbol]["initial_price"]) * 100
             print(f"📈 {symbol} Price: ${current_price:.2f} ({price_change:.2f}%)")
 
@@ -268,8 +331,17 @@ def trading_bot():
             trend_window = coin_settings["trend_window"]
 
             # Calculate volatility and moving average
-            volatility = calculate_volatility(crypto_data[symbol]["price_history"])
-            moving_avg = calculate_moving_average(crypto_data[symbol]["price_history"], trend_window)
+            volatility = calculate_volatility(price_history)
+            moving_avg = calculate_moving_average(price_history, trend_window)
+
+            # Calculate MACD and RSI
+            macd_line, signal_line, macd_histogram = calculate_macd(price_history)
+            rsi = calculate_rsi(price_history)
+
+            # Log MACD and RSI values
+            if macd_line and signal_line and rsi:
+                print(f"📊 {symbol} MACD: {macd_line:.2f}, Signal: {signal_line:.2f}, Histogram: {macd_histogram:.2f}")
+                print(f"📊 {symbol} RSI: {rsi:.2f}")
 
             # Adjust thresholds based on volatility
             dynamic_buy_threshold = buy_threshold * (1 + abs(volatility))
@@ -285,19 +357,31 @@ def trading_bot():
 
             # Check if the price is close to the moving average
             if moving_avg and abs(current_price - moving_avg) < (0.02 * moving_avg):  # Only trade if price is within 2% of the moving average
-                if price_change <= dynamic_buy_threshold and balances[quote_currency] > 0:
+                # MACD Buy Signal: MACD line crosses above Signal line
+                macd_buy_signal = macd_line and signal_line and macd_line > signal_line
+
+                # RSI Buy Signal: RSI is below 30 (oversold)
+                rsi_buy_signal = rsi and rsi < 30
+
+                # MACD Sell Signal: MACD line crosses below Signal line
+                macd_sell_signal = macd_line and signal_line and macd_line < signal_line
+
+                # RSI Sell Signal: RSI is above 70 (overbought)
+                rsi_sell_signal = rsi and rsi > 70
+
+                if (price_change <= dynamic_buy_threshold or macd_buy_signal or rsi_buy_signal) and balances[quote_currency] > 0:
                     buy_amount = (trade_percentage / 100) * balances[quote_currency] / current_price
                     if buy_amount > 0:
                         print(f"💰 Buying {buy_amount:.4f} {symbol}!")
-                        if place_order(symbol, "BUY", buy_amount):
+                        if await place_order(symbol, "BUY", buy_amount):
                             crypto_data[symbol]["total_trades"] += 1
                             crypto_data[symbol]["initial_price"] = current_price  # Reset reference price
 
-                elif price_change >= dynamic_sell_threshold and balances[symbol] > 0:
+                elif (price_change >= dynamic_sell_threshold or macd_sell_signal or rsi_sell_signal) and balances[symbol] > 0:
                     sell_amount = (trade_percentage / 100) * balances[symbol]
                     if sell_amount > 0:
                         print(f"💵 Selling {sell_amount:.4f} {symbol}!")
-                        if place_order(symbol, "SELL", sell_amount):
+                        if await place_order(symbol, "SELL", sell_amount):
                             crypto_data[symbol]["total_trades"] += 1
                             crypto_data[symbol]["total_profit"] += (current_price - crypto_data[symbol]["initial_price"]) * sell_amount
                             crypto_data[symbol]["initial_price"] = current_price  # Reset reference price
@@ -309,4 +393,4 @@ def trading_bot():
             save_state(symbol, list(crypto_data[symbol]["price_history"]), crypto_data[symbol]["initial_price"], crypto_data[symbol]["total_trades"], crypto_data[symbol]["total_profit"])
 
 if __name__ == "__main__":
-    trading_bot()
+    asyncio.run(trading_bot())

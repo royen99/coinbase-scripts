@@ -1,19 +1,156 @@
 # coinbase-scripts
 Coinbase crypto trading API scripts.
 
-As it's still under development it currently is based only on ETH (vs USDC). Support for other, or even multiple, crypto might be added later.
+Note that everything is still under development! Use these scripts as your own risk.
 
-✅ Directly makes the API request.\
+✅ Directly makes the API request (using JWT's).\
 ✅ Handles API responses & errors, printing available balances or errors properly.\
 ✅ Uses config.json for credentials, keeping them separate from the script.
 
 ## How It Works
 
+All scripts need at least a `config.json` file that has your Coinbase API credentials and a 
+
+### Config Example (config.json)
+```json
+{
+    "name": "organizations/{org_id}/apiKeys/{key_id}",
+    "privateKey": "-----BEGIN EC PRIVATE KEY-----\nYOUR PRIVATE KEY\n-----END EC PRIVATE KEY-----\n"
+}
+```
+
+See the `config.json.template` file for the full example (some scripts utilize additional settings).
+
+**Ensure the `config.json` is securely stored**
+
+### cb-trading-db.py
+The `cb-trading-db.py` script is the main project (see below for for scripts with less functionality).
+
+✅ Uses a PostgreSQL database backend for saving and loading price history and trading state.\
+✅ Asynchronous API requests, improving performance and responsiveness.\
+✅ Concurrent Price Fetching. Fetches prices for all cryptocurrencies simultaneously.\
+✅ Trades multiple cryptocurrencies with configurable settings.\
+✅ Moving Average Convergence Divergence (MACD) to identify trend direction and momentum.\
+✅ Relative Strength Index (RSI) to identify overbought and oversold conditions.\
+✅ Integrated MACD and RSI signals into the trading strategy.
+
+Additional settings (inside the `config.json`) are needed holding your database info and which coins you want to enable/disable.\
+You can adjust `trade_percentage` to control how much of your balance gets traded. 😘💸\
+**Fine-Tune Parameters**: Adjust the `volatility_window`, `trend_window`, and `stop_loss_percentage` to suit your risk tolerance and market conditions. 📊
+
+```json
+{
+  "name": "organizations/{org_id}/apiKeys/{key_id}",
+  "privateKey": "-----BEGIN EC PRIVATE KEY-----\nYOUR PRIVATE KEY\n-----END EC PRIVATE KEY-----\n",
+  "trade_percentage": 10,
+  "stop_loss_percentage": -10,
+  "database": {
+    "host": "your-database-host",
+    "port": "your-database-port",
+    "name": "your-database-name",
+    "user": "your-database-user",
+    "password": "your-database-password"
+  },
+  "coins": {
+    "ETH": {
+      "enabled": true,
+      "buy_percentage": -3,
+      "sell_percentage": 3,
+      "volatility_window": 10,
+      "trend_window": 26,
+      "macd_short_window": 12,
+      "macd_long_window": 26,
+      "macd_signal_window": 9,
+      "rsi_period": 14,
+      "min_order_sizes": {
+        "buy": 0.01,
+        "sell": 0.0001
+      }
+    },
+    "XRP": {
+      "enabled": true,
+      "buy_percentage": -5,
+      "sell_percentage": 5,
+      "volatility_window": 15,
+      "trend_window": 26,
+      "min_order_sizes": {
+        "buy": 0.01,
+        "sell": 1
+      }
+    },
+    "DOGE": {
+      "enabled": false,
+      "buy_percentage": -4,
+      "sell_percentage": 4,
+      "volatility_window": 10,
+      "trend_window": 20,
+      "min_order_sizes": {
+        "buy": 0.01,
+        "sell": 1
+      }
+    },
+    "SOL": {
+      "enabled": true,
+      "buy_percentage": -2,
+      "sell_percentage": 2,
+      "volatility_window": 5,
+      "trend_window": 26,
+      "min_order_sizes": {
+        "buy": 0.01,
+        "sell": 0.01
+      }
+    }
+  }
+}
+```
+
+The PostgreSQL table structure is expected as:
+```sql
+CREATE TABLE trading_state (
+    symbol TEXT PRIMARY KEY,
+    price_history TEXT,
+    initial_price REAL,
+    total_trades INTEGER,
+    total_profit REAL
+);
+```
+Example output:
+
+```
+🔍 Monitoring ETH... Initial Price: $2667.15
+🔍 Monitoring XRP... Initial Price: $2.45
+💰 Available Balances:
+  - ETH: 61.07145081738762922
+  - XRP: 630.2
+  - SOL: 720.7
+  - USDC: 310.3975527322856
+📈 ETH Price: $2667.05 (-3.03%)
+📊 Expected Buy Price for ETH: $2667.90
+📊 Expected Sell Price for ETH: $2832.94
+💰 Buying 0.0001 ETH!
+🚫 Buy order too small: $0.00 (minimum: $0.01)
+📊 ETH Performance - Total Trades: 12 | Total Profit: $815.00
+📈 XRP Price: $2.43 (2.40%)
+📊 Expected Buy Price for XRP: $2.25
+📊 Expected Sell Price for XRP: $2.49
+📊 XRP Performance - Total Trades: 0 | Total Profit: $0.00
+📈 SOL Price: $200.59 (5.57%)
+📊 Expected Buy Price for SOL: $186.21
+📊 Expected Sell Price for SOL: $193.81
+📊 SOL Performance - Total Trades: 0 | Total Profit: $0.00
+```
+
+The included `cb-trading-dashboard.py` can be run seperatly to provide (simple) dashboard for monitoring the price history.
+
+## More basic scripts
+
 ### cb-trading-percentage.py
-Monitors ETH price every 30 sec\
-If ETH drops by buy_percentage (-3%) → BUYS ETH\
-If ETH rises by sell_percentage (3%) → SELLS ETH\
-Uses market orders for instant execution.
+The *most simple* one, It does not keep state, nor any advanced calculations.\
+✅ Monitors ETH price every 30 sec\
+✅ If ETH drops by buy_percentage (-3%) → BUYS ETH\
+✅ If ETH rises by sell_percentage (3%) → SELLS ETH\
+✅ Uses market orders for instant execution.\
+✅ No database backend needed.
 
 ✔ Displays ETH & USDC Balances 💰\
 ✔ Prevents Trades if You Have No Balance 🚫\
@@ -54,39 +191,6 @@ To keep state, a `state.json` is created (if none exists) as:
 }
 ```
 
-The included `cb-trading-dashboard.py` can be run seperatly to provide (simple) dashboard for monitoring the price history.
-
-### cb-trading-database.py
-Similar as the `cb-trading-advanced.py` but this uses a PostgreSQL database for storing price history and trades.
-
-The table structure is expected as:
-```sql
-CREATE TABLE trading_state (
-    symbol TEXT PRIMARY KEY,
-    price_history TEXT,  -- Store as JSON or separate table for time-series data
-    initial_price REAL,
-    total_trades INTEGER,
-    total_profit REAL
-);
-```
-
-
-### Config Example (config.json)
-```
-{
-    "name": "organizations/{org_id}/apiKeys/{key_id}",
-    "privateKey": "-----BEGIN EC PRIVATE KEY-----\nYOUR PRIVATE KEY\n-----END EC PRIVATE KEY-----\n",
-    "buy_percentage": -3,
-    "sell_percentage": 3
-}
-```
-
-See the `config.json.template` file for the full example.
-
-**Ensure the `config.json` is safelyly stored.**
-You can adjust `trade_percentage` to control how much of your balance gets traded. 😘💸\
-**Fine-Tune Parameters**: Adjust the `volatility_window`, `trend_window`, and `stop_loss_percentage` to suit your risk tolerance and market conditions. 📊
-
 ## Example Outputs
 ```
 🔍 Monitoring ETH... Initial Price: $3000.00
@@ -115,3 +219,8 @@ You can adjust `trade_percentage` to control how much of your balance gets trade
 📊 Expected Buy Price for ETH: $1940.00
 📊 Expected Sell Price for ETH: $2060.00
 ```
+
+### cb-trading-rsi.py
+Similar as the `cb-trading-advanced.py` but also includes:
+
+✔ *Supports Multiple Cryptocurrencies*: Enabled/disabled is taked from the `config.json` file (see the template file).
