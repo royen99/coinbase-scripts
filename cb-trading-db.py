@@ -181,22 +181,38 @@ async def get_crypto_price(crypto_symbol):
     print(f"Error fetching {crypto_symbol} price: {data.get('error', 'Unknown error')}")
     return None
 
-async def get_balances():
-    """Fetch and display balances for all cryptocurrencies and USDC asynchronously."""
-    path = "/api/v3/brokerage/accounts"
-    data = await api_request("GET", path)
-    
-    balances = {symbol: 0.0 for symbol in crypto_symbols}
-    balances[quote_currency] = 0.0
+def update_balances(balances):
+    """Update the balances table in the database with the provided balances."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        for currency, available_balance in balances.items():
+            # Insert or update the balance in the database
+            cursor.execute("""
+            INSERT INTO balances (currency, available_balance)
+            VALUES (%s, %s)
+            ON CONFLICT (currency) DO UPDATE
+            SET available_balance = EXCLUDED.available_balance
+            """, (currency, available_balance))
+        conn.commit()
+    except Exception as e:
+        print(f"Error updating balances: {e}")
+    finally:
+        cursor.close()
+        conn.close()
 
+def get_balances():
+    """Fetch balances from Coinbase and return them as a dictionary."""
+    path = "/api/v3/brokerage/accounts"
+    data = api_request("GET", path)
+    
+    balances = {}
     if "accounts" in data:
         for account in data["accounts"]:
-            if account["currency"] in balances:
-                balances[account["currency"]] = float(account["available_balance"]["value"])
+            currency = account["currency"]
+            available_balance = float(account["available_balance"]["value"])
+            balances[currency] = available_balance
     
-    print(f"💰 Available Balances:")
-    for symbol, balance in balances.items():
-        print(f"  - {symbol}: {balance}")
     return balances
 
 async def place_order(crypto_symbol, side, amount):
@@ -355,7 +371,17 @@ async def trading_bot():
 
     while True:
         await asyncio.sleep(30)  # Wait before checking prices again
-        balances = await get_balances()  # Fetch balances for all cryptocurrencies and USDC
+
+        # Fetch balances
+        balances = get_balances()
+
+        # Log balances
+        print("💰 Available Balances:")
+        for currency, balance in balances.items():
+            print(f"  - {currency}: {balance}")
+
+        # Update balances in the database
+        update_balances(balances)
 
         # Fetch prices for all cryptocurrencies concurrently
         price_tasks = [get_crypto_price(symbol) for symbol in crypto_symbols]
