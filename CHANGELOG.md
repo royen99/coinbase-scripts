@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Trades Table**: Created a `trades` table to store trade history.
+- **Trade Logging**: Updated the bot to log trades in the `trades` table.
+
+### Changed
+- **Refactored `get_balances`**: Updated `get_balances` to return balances data for use in logging and database updates.
+- **Updated `update_balances`**: Modified `update_balances` to accept balances data as an argument.
+
+### Improved
+- **Efficiency**: Reduced API calls by reusing balances data for logging and database updates.
+- **Dashboard**: Added support for displaying trade history from the `trades` table.
+
+---
+
 ## [1.0.1]
 
 ### Added

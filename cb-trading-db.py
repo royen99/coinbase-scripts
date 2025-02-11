@@ -253,10 +253,32 @@ async def place_order(crypto_symbol, side, amount):
     if response.get("success", False):
         order_id = response["success_response"]["order_id"]
         print(f"✅ {side.upper()} Order Placed for {crypto_symbol}: {order_id}")
+
+        # Log the trade in the database
+        current_price = get_crypto_price(crypto_symbol)
+        if current_price:
+            log_trade(crypto_symbol, side, rounded_amount, current_price)
+
         return True
     else:
         print(f"❌ Order Failed for {crypto_symbol}: {response.get('error', 'Unknown error')}")
         return False
+
+def log_trade(symbol, side, amount, price):
+    """Log a trade in the trades table."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+        INSERT INTO trades (symbol, side, amount, price)
+        VALUES (%s, %s, %s, %s)
+        """, (symbol, side, amount, price))
+        conn.commit()
+    except Exception as e:
+        print(f"Error logging trade: {e}")
+    finally:
+        cursor.close()
+        conn.close()
 
 def calculate_volatility(price_history):
     """Calculate volatility as the standard deviation of price changes."""
