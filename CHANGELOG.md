@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.0.1]
 
 ### Added
 - **Asynchronous Programming**: Integrated `aiohttp` and `asyncio` to make API requests concurrently, improving performance and responsiveness.
@@ -16,11 +16,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **Missing `time` Module**: Added `import time` to resolve the `NameError` in the `build_jwt` function.
+- **MACD Calculation**: Corrected the MACD calculation to produce realistic values.
+- **RSI Calculation**: Confirmed that RSI values are accurate and meaningful.
 
 ### Changed
 - **API Requests**: Replaced `requests` with `aiohttp` for asynchronous HTTP requests.
 - **Function Updates**: Converted `api_request`, `get_crypto_price`, `get_balances`, `place_order`, and `trading_bot` to asynchronous functions.
 - **Configuration**: Added MACD and RSI settings to `config.json`
+
+### Improved
+- **Output Interpretation**: Added detailed explanations for MACD, RSI, and expected buy/sell prices.
 
 ### Removed
 - **Synchronous Requests**: Removed dependency on the `requests` library.
