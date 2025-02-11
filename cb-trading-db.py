@@ -284,13 +284,14 @@ def calculate_macd(prices, symbol, short_window=12, long_window=26, signal_windo
     macd_line = short_ema - long_ema
 
     # Calculate Signal line (EMA of MACD line)
-    # Create a list of MACD Line values for the signal window
-    macd_line_values = [short_ema - long_ema for short_ema, long_ema in zip(
-        calculate_ema(prices, short_window, return_all=True),
-        calculate_ema(prices, long_window, return_all=True)
-    ][-signal_window:]
+    # First, calculate the MACD Line values for the entire price history
+    macd_line_values = [
+        calculate_ema(prices[:i + 1], short_window) - calculate_ema(prices[:i + 1], long_window)
+        for i in range(long_window, len(prices))
+    ]
 
-    signal_line = calculate_ema(macd_line_values, signal_window)
+    # Use the last `signal_window` values of the MACD Line to calculate the Signal Line
+    signal_line = calculate_ema(macd_line_values[-signal_window:], signal_window)
 
     # Calculate MACD Histogram
     macd_histogram = macd_line - signal_line
