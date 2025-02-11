@@ -201,10 +201,10 @@ def update_balances(balances):
         cursor.close()
         conn.close()
 
-def get_balances():
+async def get_balances():
     """Fetch balances from Coinbase and return them as a dictionary."""
     path = "/api/v3/brokerage/accounts"
-    data = api_request("GET", path)
+    data = await api_request("GET", path)  # Await the API request
     
     balances = {}
     if "accounts" in data:
@@ -395,7 +395,7 @@ async def trading_bot():
         await asyncio.sleep(30)  # Wait before checking prices again
 
         # Fetch balances
-        balances = get_balances()
+        balances = await get_balances()  # Await the get_balances call
 
         # Log balances
         print("💰 Available Balances:")
