@@ -65,7 +65,8 @@ app.layout = html.Div([
 def update_price_chart(n, selected_coin):
     # Fetch price history from the database
     query = f"SELECT timestamp, price FROM price_history WHERE symbol = '{selected_coin}' ORDER BY timestamp DESC LIMIT 100"
-    df = pd.read_sql(query, engine)
+    with engine.connect() as connection:
+        df = pd.read_sql(query, connection)
 
     # Create the price chart
     figure = {
@@ -83,7 +84,8 @@ def update_price_chart(n, selected_coin):
 def update_trade_log(n, selected_coin):
     # Fetch recent trades from the database
     query = f"SELECT * FROM trades WHERE symbol = '{selected_coin}' ORDER BY timestamp DESC LIMIT 10"
-    df = pd.read_sql(query, engine)
+    with engine.connect() as connection:
+        df = pd.read_sql(query, connection)
 
     # Display the trade log (or a message if no trades exist)
     if df.empty:
@@ -103,7 +105,8 @@ def update_trade_log(n, selected_coin):
 def update_performance_metrics(n, selected_coin):
     # Fetch performance metrics from the database
     query = f"SELECT total_trades, total_profit FROM trading_state WHERE symbol = '{selected_coin}'"
-    result = engine.execute(query).fetchone()
+    with engine.connect() as connection:
+        result = connection.execute(db.text(query)).fetchone()
 
     # Display performance metrics (or a message if no data exists)
     if result is None:
@@ -122,7 +125,8 @@ def update_performance_metrics(n, selected_coin):
 def update_balance_portfolio(n):
     # Fetch balances from the database
     query = "SELECT currency, available_balance FROM balances"
-    df = pd.read_sql(query, engine)
+    with engine.connect() as connection:
+        df = pd.read_sql(query, connection)
 
     # Display balance and portfolio (or a message if no data exists)
     if df.empty:
