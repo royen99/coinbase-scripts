@@ -415,6 +415,17 @@ async def trading_bot():
             crypto_data[symbol]["price_history"].append(current_price)
             price_history = list(crypto_data[symbol]["price_history"])
             
+            # Get coin-specific settings
+            coin_settings = coins_config[symbol]
+            buy_threshold = coin_settings["buy_percentage"]
+            sell_threshold = coin_settings["sell_percentage"]
+            volatility_window = coin_settings["volatility_window"]
+            trend_window = coin_settings["trend_window"]
+            macd_short_window = coin_settings["macd_short_window"]
+            macd_long_window = coin_settings["macd_long_window"]
+            macd_signal_window = coin_settings["macd_signal_window"]
+            rsi_period = coin_settings["rsi_period"]
+
             # Ensure we have enough data for indicators
             if len(price_history) < max(macd_long_window + macd_signal_window, rsi_period + 1):
                 continue  # Skip if insufficient data
@@ -422,21 +433,14 @@ async def trading_bot():
             price_change = ((current_price - crypto_data[symbol]["initial_price"]) / crypto_data[symbol]["initial_price"]) * 100
             print(f"📈 {symbol} Price: ${current_price:.2f} ({price_change:.2f}%)")
 
-            # Get coin-specific settings
-            coin_settings = coins_config[symbol]
-            buy_threshold = coin_settings["buy_percentage"]
-            sell_threshold = coin_settings["sell_percentage"]
-            volatility_window = coin_settings["volatility_window"]
-            trend_window = coin_settings["trend_window"]
-
             # Calculate volatility and moving average
             volatility = calculate_volatility(price_history)
             volatility_factor = min(1.5, max(0.5, 1 + abs(volatility)))  # Cap extreme changes
             moving_avg = calculate_moving_average(price_history, trend_window)
 
             # Calculate MACD and RSI
-            macd_line, signal_line, macd_histogram = calculate_macd(price_history, symbol)
-            rsi = calculate_rsi(price_history, symbol)
+            macd_line, signal_line, macd_histogram = calculate_macd(price_history, symbol, macd_short_window, macd_long_window, macd_signal_window)
+            rsi = calculate_rsi(price_history, symbol, rsi_period)
 
             # Log MACD and RSI values (if available)
             if macd_line is not None and signal_line is not None and rsi is not None:
@@ -479,7 +483,6 @@ async def trading_bot():
                 else:
                     macd_confirmation[symbol]["buy"] = max(0, macd_confirmation[symbol]["buy"] - 1)
                     macd_confirmation[symbol]["sell"] = max(0, macd_confirmation[symbol]["sell"] - 1)
-
 
                 # Log trading signals
                 print(f"📊 {symbol} Trading Signals - MACD Buy: {macd_buy_signal}, RSI Buy: {rsi_buy_signal}, MACD Sell: {macd_sell_signal}, RSI Sell: {rsi_sell_signal}")
