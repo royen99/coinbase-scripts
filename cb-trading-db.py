@@ -468,6 +468,9 @@ async def trading_bot():
                 # RSI Sell Signal: RSI is above 70 (overbought)
                 rsi_sell_signal = rsi and rsi > 70
 
+                # Log trading signals
+                print(f"📊 {symbol} Trading Signals - MACD Buy: {macd_buy_signal}, RSI Buy: {rsi_buy_signal}, MACD Sell: {macd_sell_signal}, RSI Sell: {rsi_sell_signal}")
+
                 if (price_change <= dynamic_buy_threshold or macd_buy_signal or rsi_buy_signal) and balances[quote_currency] > 0:
                     buy_amount = (trade_percentage / 100) * balances[quote_currency] / current_price
                     if buy_amount > 0:
@@ -475,6 +478,8 @@ async def trading_bot():
                         if await place_order(symbol, "BUY", buy_amount):
                             crypto_data[symbol]["total_trades"] += 1
                             crypto_data[symbol]["initial_price"] = current_price  # Reset reference price
+                    else:
+                        print(f"🚫 Buy order too small: ${buy_amount:.2f} (minimum: ${coins_config[symbol]['min_order_sizes']['buy']:.2f})")
 
                 elif (price_change >= dynamic_sell_threshold or macd_sell_signal or rsi_sell_signal) and balances[symbol] > 0:
                     sell_amount = (trade_percentage / 100) * balances[symbol]
@@ -484,6 +489,8 @@ async def trading_bot():
                             crypto_data[symbol]["total_trades"] += 1
                             crypto_data[symbol]["total_profit"] += (current_price - crypto_data[symbol]["initial_price"]) * sell_amount
                             crypto_data[symbol]["initial_price"] = current_price  # Reset reference price
+                    else:
+                        print(f"🚫 Sell order too small: {sell_amount:.6f} {symbol} (minimum: {coins_config[symbol]['min_order_sizes']['sell']:.6f} {symbol})")
 
             # Log performance for each cryptocurrency
             print(f"📊 {symbol} Performance - Total Trades: {crypto_data[symbol]['total_trades']} | Total Profit: ${crypto_data[symbol]['total_profit']:.2f}")
