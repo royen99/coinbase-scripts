@@ -117,7 +117,6 @@ def load_state(symbol):
             """, (symbol, price_history_maxlen))
             price_history = [float(row[0]) for row in cursor.fetchall()]
 
-            print(f"💾 Loaded state for {symbol}: Initial Price: ${initial_price:.2f}, Total Trades: {total_trades}, Total Profit: ${total_profit:.2f}, Price History: {price_history}")
             return {
                 "price_history": deque(price_history, maxlen=price_history_maxlen),
                 "initial_price": initial_price,
@@ -384,7 +383,6 @@ async def trading_bot():
         state = load_state(symbol)
         if state:
             crypto_data[symbol] = state
-            print(f"🔍 Loaded state for {symbol}: {state}")
         else:
             initial_price = await get_crypto_price(symbol)
             if not initial_price:
