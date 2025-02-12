@@ -522,7 +522,7 @@ async def trading_bot():
                 # Execute buy order if MACD buy signal is confirmed
                 if (
                     (price_change <= dynamic_buy_threshold or  # Price threshold
-                    (macd_buy_signal and macd_confirmation[symbol]["buy"] >= 10 and rsi < 30))  # MACD + RSI filter
+                    (macd_buy_signal and macd_confirmation[symbol]["buy"] >= 5 and rsi < 30))  # MACD + RSI filter
                     and current_price > long_term_ma  # Trend filter
                     and balances[quote_currency] > 0  # Sufficient balance
                 ):
@@ -538,7 +538,7 @@ async def trading_bot():
                 # Execute sell order if MACD sell signal is confirmed
                 elif (
                     (price_change >= dynamic_sell_threshold or  # Price threshold
-                    (macd_sell_signal and macd_confirmation[symbol]["sell"] >= 10 and rsi > 70))  # MACD + RSI filter
+                    (macd_sell_signal and macd_confirmation[symbol]["sell"] >= 5 and rsi > 70))  # MACD + RSI filter
                     and current_price < long_term_ma  # Trend filter
                     and balances[symbol] > 0  # Sufficient balance
                 ):
