@@ -24,6 +24,10 @@
       "min_order_sizes": {
         "buy": 0.01,
         "sell": 0.0001
+      },
+      "precision": {
+          "price": 2,
+          "amount": 6
       }
     },
     "XRP": {
@@ -35,28 +39,10 @@
       "min_order_sizes": {
         "buy": 0.01,
         "sell": 1
-      }
-    },
-    "DOGE": {
-      "enabled": false,
-      "buy_percentage": -4,
-      "sell_percentage": 4,
-      "volatility_window": 10,
-      "trend_window": 26,
-      "min_order_sizes": {
-        "buy": 0.01,
-        "sell": 1
-      }
-    },
-    "SOL": {
-      "enabled": true,
-      "buy_percentage": -2,
-      "sell_percentage": 2,
-      "volatility_window": 5,
-      "trend_window": 26,
-      "min_order_sizes": {
-        "buy": 0.01,
-        "sell": 0.01
+      },
+      "precision": {
+          "price": 2,
+          "amount": 6
       }
     }
   }

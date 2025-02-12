@@ -10,14 +10,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **Trades Table**: Created a `trades` table to store trade history.
 - **Trade Logging**: Updated the bot to log trades in the `trades` table.
+- **Coin precision**: Specify number of decimals per coin in the `config.json` file.
 
 ### Changed
 - **Refactored `get_balances`**: Updated `get_balances` to return balances data for use in logging and database updates.
 - **Updated `update_balances`**: Modified `update_balances` to accept balances data as an argument.
+- **Trend Window**: Price history in the database need at least 200 entries for an accurate calculation.
 
 ### Improved
 - **Efficiency**: Reduced API calls by reusing balances data for logging and database updates.
 - **Dashboard**: Added support for displaying trade history from the `trades` table.
+- **MACD Calculation**: Corrected the MACD calculation to produce more realistic values.
+- **RSI Calculation**: Confirmed that RSI values are more accurate and meaningful.
 
 ---
 

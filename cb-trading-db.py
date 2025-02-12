@@ -11,6 +11,8 @@ from psycopg2.extras import Json # type: ignore
 from decimal import Decimal
 import numpy as np
 
+DEBUG_MODE = False  # Set to True for debugging
+
 # Load configuration from config.json
 with open("config.json", "r") as f:
     config = json.load(f)
@@ -117,7 +119,6 @@ def load_state(symbol):
             """, (symbol, price_history_maxlen))
             price_history = [float(row[0]) for row in cursor.fetchall()]
 
-            print(f"💾 Loaded state for {symbol}: Initial Price: ${initial_price:.2f}, Total Trades: {total_trades}, Total Profit: ${total_profit:.2f}, Price History: {price_history}")
             return {
                 "price_history": deque(price_history, maxlen=price_history_maxlen),
                 "initial_price": initial_price,
@@ -179,7 +180,7 @@ async def get_crypto_price(crypto_symbol):
     data = await api_request("GET", path)
     
     if "price" in data:
-        return float(data["price"])
+        return float(data["price"])  # Return the full precision price
     
     print(f"Error fetching {crypto_symbol} price: {data.get('error', 'Unknown error')}")
     return None
@@ -234,29 +235,33 @@ async def place_order(crypto_symbol, side, amount):
     min_order_sizes = coins_config[crypto_symbol]["min_order_sizes"]
     
     if side == "BUY":
-        rounded_amount = round(amount, 2)  # USDC should have 2 decimal places
+        # Round to 2 decimal places for quote currency (e.g., USDC)
+        rounded_amount = round(amount, 2)
         if rounded_amount < min_order_sizes["buy"]:
             print(f"🚫 Buy order too small: ${rounded_amount:.2f} (minimum: ${min_order_sizes['buy']:.2f})")
             return False
         order_data["order_configuration"]["market_market_ioc"]["quote_size"] = str(rounded_amount)
     else:  # SELL
-        rounded_amount = round(amount, 6)  # Cryptocurrency amount precision
+        # Round to the required precision for the base currency (e.g., ETH, BTC)
+        rounded_amount = round(amount, 6)  # Adjust based on the coin's precision
         if rounded_amount < min_order_sizes["sell"]:
             print(f"🚫 Sell order too small: {rounded_amount:.6f} {crypto_symbol} (minimum: {min_order_sizes['sell']:.6f} {crypto_symbol})")
             return False
         order_data["order_configuration"]["market_market_ioc"]["base_size"] = str(rounded_amount)
 
-    print(f"🛠️ Placing {side} order for {crypto_symbol}: {order_data}")  # Debugging: Print the full request payload
+    # Log the order details
+    print(f"🛠️ Placing {side} order for {crypto_symbol}: Amount = {rounded_amount}, Price = {await get_crypto_price(crypto_symbol)}")
 
     response = await api_request("POST", path, order_data)
 
-    print(f"🔄 Raw Response: {response}")  # Debugging: Print the full response
+    if DEBUG_MODE:
+        print(f"🔄 Raw Response: {response}")  # Only log raw response in debug mode
 
-    # Handle the response based on the new structure
+    # Handle the response
     if response.get("success", False):
         order_id = response["success_response"]["order_id"]
-        print(f"✅ {side.upper()} Order Placed for {crypto_symbol}: {order_id}")
-
+        print(f"✅ {side.upper()} Order Placed for {crypto_symbol}: Order ID = {order_id}")
+        
         # Log the trade in the database
         current_price = await get_crypto_price(crypto_symbol)
         if current_price:
@@ -382,7 +387,6 @@ async def trading_bot():
         state = load_state(symbol)
         if state:
             crypto_data[symbol] = state
-            print(f"🔍 Loaded state for {symbol}: {state}")
         else:
             initial_price = await get_crypto_price(symbol)
             if not initial_price:
@@ -518,7 +522,7 @@ async def trading_bot():
                 # Execute buy order if MACD buy signal is confirmed
                 if (
                     (price_change <= dynamic_buy_threshold or  # Price threshold
-                    (macd_buy_signal and macd_confirmation[symbol]["buy"] >= 3 and rsi < 30))  # MACD + RSI filter
+                    (macd_buy_signal and macd_confirmation[symbol]["buy"] >= 5 and rsi < 30))  # MACD + RSI filter
                     and current_price > long_term_ma  # Trend filter
                     and balances[quote_currency] > 0  # Sufficient balance
                 ):
@@ -534,7 +538,7 @@ async def trading_bot():
                 # Execute sell order if MACD sell signal is confirmed
                 elif (
                     (price_change >= dynamic_sell_threshold or  # Price threshold
-                    (macd_sell_signal and macd_confirmation[symbol]["sell"] >= 3 and rsi > 70))  # MACD + RSI filter
+                    (macd_sell_signal and macd_confirmation[symbol]["sell"] >= 5 and rsi > 70))  # MACD + RSI filter
                     and current_price < long_term_ma  # Trend filter
                     and balances[symbol] > 0  # Sufficient balance
                 ):
