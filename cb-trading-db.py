@@ -11,6 +11,8 @@ from psycopg2.extras import Json # type: ignore
 from decimal import Decimal
 import numpy as np
 
+DEBUG_MODE = False  # Set to True for debugging
+
 # Load configuration from config.json
 with open("config.json", "r") as f:
     config = json.load(f)
@@ -247,17 +249,19 @@ async def place_order(crypto_symbol, side, amount):
             return False
         order_data["order_configuration"]["market_market_ioc"]["base_size"] = str(rounded_amount)
 
-    print(f"🛠️ Placing {side} order for {crypto_symbol}: {order_data}")  # Debugging: Print the full request payload
+    # Log the order details
+    print(f"🛠️ Placing {side} order for {crypto_symbol}: Amount = {rounded_amount}, Price = {await get_crypto_price(crypto_symbol)}")
 
     response = await api_request("POST", path, order_data)
 
-    print(f"🔄 Raw Response: {response}")  # Debugging: Print the full response
+    if DEBUG_MODE:
+        print(f"🔄 Raw Response: {response}")  # Only log raw response in debug mode
 
-    # Handle the response based on the new structure
+    # Handle the response
     if response.get("success", False):
         order_id = response["success_response"]["order_id"]
-        print(f"✅ {side.upper()} Order Placed for {crypto_symbol}: {order_id}")
-
+        print(f"✅ {side.upper()} Order Placed for {crypto_symbol}: Order ID = {order_id}")
+        
         # Log the trade in the database
         current_price = await get_crypto_price(crypto_symbol)
         if current_price:
