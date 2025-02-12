@@ -450,9 +450,9 @@ async def trading_bot():
             expected_buy_price = crypto_data[symbol]["initial_price"] * (1 + dynamic_buy_threshold / 100)
             expected_sell_price = crypto_data[symbol]["initial_price"] * (1 + dynamic_sell_threshold / 100)
 
-            # Log expected prices
-            print(f"📊 Expected Buy Price for {symbol}: ${expected_buy_price:.2f}")
-            print(f"📊 Expected Sell Price for {symbol}: ${expected_sell_price:.2f}")
+            # Log expected prices and dynamic thresholds
+            print(f"📊 Expected Buy Price for {symbol}: ${expected_buy_price:.2f} (Dynamic Buy Threshold: {dynamic_buy_threshold:.2f}%)")
+            print(f"📊 Expected Sell Price for {symbol}: ${expected_sell_price:.2f} (Dynamic Sell Threshold: {dynamic_sell_threshold:.2f}%)")
 
             # Check if the price is close to the moving average
             if moving_avg and abs(current_price - moving_avg) < (0.02 * moving_avg):  # Only trade if price is within 2% of the moving average
