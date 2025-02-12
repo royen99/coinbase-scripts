@@ -284,8 +284,8 @@ def calculate_volatility(price_history):
     """Calculate volatility as the standard deviation of price changes."""
     if len(price_history) < 2:
         return 0.0
-    price_changes = [(price_history[i] - price_history[i - 1]) / price_history[i - 1] for i in range(1, len(price_history))]
-    return sum(price_changes) / len(price_changes)  # Average price change
+    price_changes = np.diff(price_history) / price_history[:-1]
+    return np.std(price_changes)  # Standard deviation of returns
 
 def calculate_moving_average(price_history, trend_window):
     """Calculate the moving average of prices."""
@@ -296,71 +296,63 @@ def calculate_moving_average(price_history, trend_window):
 def calculate_ema(prices, period, return_all=False):
     """Calculate the Exponential Moving Average (EMA) for a given period."""
     if len(prices) < period:
-        return None
+        return None if not return_all else []
 
     multiplier = 2 / (period + 1)
-    ema = sum(prices[:period]) / period  # Start with SMA
-    ema_values = [ema]
+    ema_values = [sum(prices[:period]) / period]  # Start with SMA
 
     for price in prices[period:]:
-        ema = (price - ema) * multiplier + ema
-        ema_values.append(ema)
+        ema_values.append((price - ema_values[-1]) * multiplier + ema_values[-1])
+
+    return ema_values if return_all else ema_values[-1]
 
     return ema_values if return_all else ema
 
 def calculate_macd(prices, symbol, short_window=12, long_window=26, signal_window=9):
-    """Calculate MACD and Signal Line."""
+    """Calculate MACD, Signal Line, and Histogram."""
     if len(prices) < long_window + signal_window:
         print(f"⚠️ Not enough data to calculate MACD for {symbol}. Required: {long_window + signal_window}, Available: {len(prices)}")
         return None, None, None
 
-    # Calculate short-term and long-term EMAs
-    short_ema = calculate_ema(prices, short_window)
-    long_ema = calculate_ema(prices, long_window)
+    # Compute EMA for the full dataset
+    short_ema = calculate_ema(prices, short_window, return_all=True)
+    long_ema = calculate_ema(prices, long_window, return_all=True)
 
-    # Calculate MACD line
-    macd_line = short_ema - long_ema
+    # Calculate MACD Line (difference between short and long EMA)
+    macd_line_values = [s - l for s, l in zip(short_ema, long_ema)]
 
-    # Calculate Signal line (EMA of MACD line)
-    # First, calculate the MACD Line values for the entire price history
-    macd_line_values = [
-        calculate_ema(prices[:i + 1], short_window) - calculate_ema(prices[:i + 1], long_window)
-        for i in range(long_window, len(prices))
-    ]
-
-    # Use the last `signal_window` values of the MACD Line to calculate the Signal Line
-    signal_line = calculate_ema(macd_line_values[-signal_window:], signal_window)
+    # Calculate Signal Line (EMA of MACD Line)
+    signal_line_values = calculate_ema(macd_line_values, signal_window, return_all=True)
 
     # Calculate MACD Histogram
-    macd_histogram = macd_line - signal_line
+    macd_histogram_values = [m - s for m, s in zip(macd_line_values[-len(signal_line_values):], signal_line_values)]
 
-    print(f"📊 {symbol} MACD Calculation - Short EMA: {short_ema:.2f}, Long EMA: {long_ema:.2f}, MACD Line: {macd_line:.2f}, Signal Line: {signal_line:.2f}, Histogram: {macd_histogram:.2f}")
-    return macd_line, signal_line, macd_histogram
+    print(f"📊 {symbol} MACD Calculation - Short EMA: {short_ema[-1]:.2f}, Long EMA: {long_ema[-1]:.2f}, "
+          f"MACD Line: {macd_line_values[-1]:.2f}, Signal Line: {signal_line_values[-1]:.2f}, "
+          f"Histogram: {macd_histogram_values[-1]:.2f}")
+
+    return macd_line_values[-1], signal_line_values[-1], macd_histogram_values[-1]
 
 def calculate_rsi(prices, symbol, period=14):
     """Calculate the Relative Strength Index (RSI)."""
-    if len(prices) < period:
-        print(f"⚠️ Not enough data to calculate RSI for {symbol}. Required: {period}, Available: {len(prices)}")
+    if len(prices) < period + 1:
+        print(f"⚠️ Not enough data to calculate RSI for {symbol}. Required: {period + 1}, Available: {len(prices)}")
         return None
 
-    gains = []
-    losses = []
+    gains = [max(prices[i] - prices[i - 1], 0) for i in range(1, len(prices))]
+    losses = [max(prices[i - 1] - prices[i], 0) for i in range(1, len(prices))]
 
-    for i in range(1, len(prices)):
-        change = prices[i] - prices[i - 1]
-        if change > 0:
-            gains.append(change)
-        else:
-            losses.append(abs(change))
+    # First Average Gain/Loss
+    avg_gain = sum(gains[:period]) / period
+    avg_loss = sum(losses[:period]) / period
 
-    avg_gain = sum(gains) / period
-    avg_loss = sum(losses) / period
+    # EMA smoothing for RSI
+    for i in range(period, len(gains)):
+        avg_gain = (avg_gain * (period - 1) + gains[i]) / period
+        avg_loss = (avg_loss * (period - 1) + losses[i]) / period
 
-    if avg_loss == 0:
-        rsi = 100  # Avoid division by zero
-    else:
-        rs = avg_gain / avg_loss
-        rsi = 100 - (100 / (1 + rs))
+    rs = avg_gain / avg_loss if avg_loss != 0 else float('inf')
+    rsi = 100 - (100 / (1 + rs))
 
     print(f"📊 {symbol} RSI Calculation - Avg Gain: {avg_gain:.2f}, Avg Loss: {avg_loss:.2f}, RSI: {rsi:.2f}")
     return rsi
