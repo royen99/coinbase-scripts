@@ -256,7 +256,7 @@ async def place_order(crypto_symbol, side, amount):
         print(f"✅ {side.upper()} Order Placed for {crypto_symbol}: {order_id}")
 
         # Log the trade in the database
-        current_price = get_crypto_price(crypto_symbol)
+        current_price = await get_crypto_price(crypto_symbol)
         if current_price:
             log_trade(crypto_symbol, side, rounded_amount, current_price)
 
@@ -265,7 +265,7 @@ async def place_order(crypto_symbol, side, amount):
         print(f"❌ Order Failed for {crypto_symbol}: {response.get('error', 'Unknown error')}")
         return False
 
-def log_trade(symbol, side, amount, price):
+async def log_trade(symbol, side, amount, price):
     """Log a trade in the trades table."""
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -360,6 +360,12 @@ def calculate_rsi(prices, symbol, period=14):
     print(f"📊 {symbol} RSI Calculation - Avg Gain: {avg_gain:.2f}, Avg Loss: {avg_loss:.2f}, RSI: {rsi:.2f}")
     return rsi
 
+def calculate_long_term_ma(price_history, period=200):
+    """Calculate the long-term moving average."""
+    if len(price_history) < period:
+        return None
+    return sum(price_history[-period:]) / period
+
 # Initialize crypto_data as a global variable
 crypto_data = {}
 
@@ -431,7 +437,11 @@ async def trading_bot():
             # Ensure we have enough data for indicators
             if len(price_history) < max(macd_long_window + macd_signal_window, rsi_period + 1):
                 continue  # Skip if insufficient data
-            
+
+            long_term_ma = calculate_long_term_ma(price_history, period=200)
+            if long_term_ma is None:
+                continue  # Skip if not enough data for long-term MA
+
             price_change = ((current_price - crypto_data[symbol]["initial_price"]) / crypto_data[symbol]["initial_price"]) * 100
             print(f"📈 {symbol} Price: ${current_price:.2f} ({price_change:.2f}%)")
 
@@ -493,7 +503,12 @@ async def trading_bot():
                 print(f"📊 {symbol} MACD Confirmation - Buy: {macd_confirmation[symbol]['buy']}, Sell: {macd_confirmation[symbol]['sell']}")
 
                 # Execute buy order if MACD buy signal is confirmed
-                if (price_change <= dynamic_buy_threshold or (macd_buy_signal and macd_confirmation[symbol]["buy"] >= 2)) and balances[quote_currency] > 0:
+                if (
+                    (price_change <= dynamic_buy_threshold or  # Price threshold
+                    (macd_buy_signal and macd_confirmation[symbol]["buy"] >= 3 and rsi < 30))  # MACD + RSI filter
+                    and current_price > long_term_ma  # Trend filter
+                    and balances[quote_currency] > 0  # Sufficient balance
+                ):
                     buy_amount = (trade_percentage / 100) * balances[quote_currency] / current_price
                     if buy_amount > 0:
                         print(f"💰 Buying {buy_amount:.4f} {symbol}!")
@@ -504,7 +519,12 @@ async def trading_bot():
                         print(f"🚫 Buy order too small: ${buy_amount:.2f} (minimum: ${coins_config[symbol]['min_order_sizes']['buy']:.2f})")
 
                 # Execute sell order if MACD sell signal is confirmed
-                elif (price_change >= dynamic_sell_threshold or (macd_sell_signal and macd_confirmation[symbol]["sell"] >= 2)) and balances[symbol] > 0:
+                elif (
+                    (price_change >= dynamic_sell_threshold or  # Price threshold
+                    (macd_sell_signal and macd_confirmation[symbol]["sell"] >= 3 and rsi > 70))  # MACD + RSI filter
+                    and current_price < long_term_ma  # Trend filter
+                    and balances[symbol] > 0  # Sufficient balance
+                ):
                     sell_amount = (trade_percentage / 100) * balances[symbol]
                     if sell_amount > 0:
                         print(f"💵 Selling {sell_amount:.4f} {symbol}!")
@@ -512,8 +532,6 @@ async def trading_bot():
                             crypto_data[symbol]["total_trades"] += 1
                             crypto_data[symbol]["total_profit"] += (current_price - crypto_data[symbol]["initial_price"]) * sell_amount
                             crypto_data[symbol]["initial_price"] = current_price  # Reset reference price
-                    else:
-                        print(f"🚫 Sell order too small: {sell_amount:.6f} {symbol} (minimum: {coins_config[symbol]['min_order_sizes']['sell']:.6f} {symbol})")
 
             # Log performance for each cryptocurrency
             print(f"📊 {symbol} Performance - Total Trades: {crypto_data[symbol]['total_trades']} | Total Profit: ${crypto_data[symbol]['total_profit']:.2f}")
