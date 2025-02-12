@@ -26,8 +26,8 @@
         "sell": 0.0001
       },
       "precision": {
-          "price": 2,  # Price precision
-          "amount": 6  # Amount precision for base currency
+          "price": 2,
+          "amount": 6
       }
     },
     "XRP": {
@@ -41,8 +41,8 @@
         "sell": 1
       },
       "precision": {
-          "price": 2,  # Price precision
-          "amount": 6  # Amount precision for base currency
+          "price": 2,
+          "amount": 6
       }
     }
   }
