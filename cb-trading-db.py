@@ -61,6 +61,7 @@ def save_price_history(symbol, price):
         VALUES (%s, %s)
         """, (symbol, price))
         conn.commit()
+        print(f"💾 Saved {symbol} price history: ${price:.2f}")
     except Exception as e:
         print(f"Error saving price history to database: {e}")
     finally:
@@ -116,6 +117,7 @@ def load_state(symbol):
             """, (symbol, price_history_maxlen))
             price_history = [float(row[0]) for row in cursor.fetchall()]
 
+            print(f"💾 Loaded state for {symbol}: Initial Price: ${initial_price:.2f}, Total Trades: {total_trades}, Total Profit: ${total_profit:.2f}, Price History: {price_history}")
             return {
                 "price_history": deque(price_history, maxlen=price_history_maxlen),
                 "initial_price": initial_price,
@@ -380,19 +382,20 @@ async def trading_bot():
         state = load_state(symbol)
         if state:
             crypto_data[symbol] = state
+            print(f"🔍 Loaded state for {symbol}: {state}")
         else:
             initial_price = await get_crypto_price(symbol)
             if not initial_price:
                 print(f"🚨 Failed to fetch initial {symbol} price. Skipping {symbol}.")
                 continue
             crypto_data[symbol] = {
-                "price_history": deque([initial_price], maxlen=price_history_maxlen),  # Initialize with initial price
+                "price_history": deque([initial_price], maxlen=price_history_maxlen),
                 "initial_price": initial_price,
                 "total_trades": 0,
                 "total_profit": 0.0,
             }
             save_state(symbol, initial_price, 0, 0.0)
-            print(f"🔍 Monitoring {symbol}... Initial Price: ${initial_price:.2f}")
+            print(f"🔍 Monitoring {symbol}... Initial Price: ${initial_price:.2f}, Price History: {crypto_data[symbol]['price_history']}")
 
     while True:
         await asyncio.sleep(30)  # Wait before checking prices again
@@ -413,8 +416,18 @@ async def trading_bot():
         prices = await asyncio.gather(*price_tasks)
 
         for symbol, current_price in zip(crypto_symbols, prices):
-            if not current_price or (symbol in crypto_data and (not crypto_data[symbol]["price_history"] or current_price == crypto_data[symbol]["price_history"][-1])):
-                continue  # Skip if price hasn't changed or is missing
+            if not current_price:
+                print(f"🚨 {symbol}: No price data. Skipping.")
+                continue
+            if symbol not in crypto_data:
+                print(f"🚨 {symbol}: Not in crypto_data. Skipping.")
+                continue
+            if not crypto_data[symbol]["price_history"]:
+                print(f"🚨 {symbol}: Empty price_history. Skipping.")
+                continue
+            if current_price == crypto_data[symbol]["price_history"][-1]:
+                print(f"🚨 {symbol}: Price unchanged. Skipping.")
+                continue
 
             # Save price history
             save_price_history(symbol, current_price)
