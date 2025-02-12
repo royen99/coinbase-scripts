@@ -9,6 +9,7 @@ from collections import deque
 import psycopg2 # type: ignore
 from psycopg2.extras import Json # type: ignore
 from decimal import Decimal
+import numpy as np
 
 # Load configuration from config.json
 with open("config.json", "r") as f:
@@ -60,6 +61,7 @@ def save_price_history(symbol, price):
         VALUES (%s, %s)
         """, (symbol, price))
         conn.commit()
+        print(f"💾 Saved {symbol} price history: ${price:.2f}")
     except Exception as e:
         print(f"Error saving price history to database: {e}")
     finally:
@@ -115,6 +117,7 @@ def load_state(symbol):
             """, (symbol, price_history_maxlen))
             price_history = [float(row[0]) for row in cursor.fetchall()]
 
+            print(f"💾 Loaded state for {symbol}: Initial Price: ${initial_price:.2f}, Total Trades: {total_trades}, Total Profit: ${total_profit:.2f}, Price History: {price_history}")
             return {
                 "price_history": deque(price_history, maxlen=price_history_maxlen),
                 "initial_price": initial_price,
@@ -181,22 +184,38 @@ async def get_crypto_price(crypto_symbol):
     print(f"Error fetching {crypto_symbol} price: {data.get('error', 'Unknown error')}")
     return None
 
-async def get_balances():
-    """Fetch and display balances for all cryptocurrencies and USDC asynchronously."""
-    path = "/api/v3/brokerage/accounts"
-    data = await api_request("GET", path)
-    
-    balances = {symbol: 0.0 for symbol in crypto_symbols}
-    balances[quote_currency] = 0.0
+def update_balances(balances):
+    """Update the balances table in the database with the provided balances."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        for currency, available_balance in balances.items():
+            # Insert or update the balance in the database
+            cursor.execute("""
+            INSERT INTO balances (currency, available_balance)
+            VALUES (%s, %s)
+            ON CONFLICT (currency) DO UPDATE
+            SET available_balance = EXCLUDED.available_balance
+            """, (currency, available_balance))
+        conn.commit()
+    except Exception as e:
+        print(f"Error updating balances: {e}")
+    finally:
+        cursor.close()
+        conn.close()
 
+async def get_balances():
+    """Fetch balances from Coinbase and return them as a dictionary."""
+    path = "/api/v3/brokerage/accounts"
+    data = await api_request("GET", path)  # Await the API request
+    
+    balances = {}
     if "accounts" in data:
         for account in data["accounts"]:
-            if account["currency"] in balances:
-                balances[account["currency"]] = float(account["available_balance"]["value"])
+            currency = account["currency"]
+            available_balance = float(account["available_balance"]["value"])
+            balances[currency] = available_balance
     
-    print(f"💰 Available Balances:")
-    for symbol, balance in balances.items():
-        print(f"  - {symbol}: {balance}")
     return balances
 
 async def place_order(crypto_symbol, side, amount):
@@ -237,125 +256,160 @@ async def place_order(crypto_symbol, side, amount):
     if response.get("success", False):
         order_id = response["success_response"]["order_id"]
         print(f"✅ {side.upper()} Order Placed for {crypto_symbol}: {order_id}")
+
+        # Log the trade in the database
+        current_price = await get_crypto_price(crypto_symbol)
+        if current_price:
+            log_trade(crypto_symbol, side, rounded_amount, current_price)
+
         return True
     else:
         print(f"❌ Order Failed for {crypto_symbol}: {response.get('error', 'Unknown error')}")
         return False
 
-def calculate_volatility(price_history):
-    """Calculate volatility as the standard deviation of price changes."""
-    if len(price_history) < 2:
+async def log_trade(symbol, side, amount, price):
+    """Log a trade in the trades table."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+        INSERT INTO trades (symbol, side, amount, price)
+        VALUES (%s, %s, %s, %s)
+        """, (symbol, side, amount, price))
+        conn.commit()
+    except Exception as e:
+        print(f"Error logging trade: {e}")
+    finally:
+        cursor.close()
+        conn.close()
+
+def calculate_volatility(price_history, volatility_window):
+    """Calculate volatility as the standard deviation of price changes over a specific window."""
+    if len(price_history) < volatility_window:
         return 0.0
-    price_changes = [(price_history[i] - price_history[i - 1]) / price_history[i - 1] for i in range(1, len(price_history))]
-    return sum(price_changes) / len(price_changes)  # Average price change
+    recent_prices = list(price_history)[-volatility_window:]
+    price_changes = np.diff(recent_prices) / recent_prices[:-1]  # Percentage changes
+    return np.std(price_changes)  # Standard deviation of returns
 
 def calculate_moving_average(price_history, trend_window):
-    """Calculate the moving average of prices."""
+    """Calculate the simple moving average (SMA) of prices."""
     if len(price_history) < trend_window:
         return None
-    return sum(price_history) / len(price_history)
+    return sum(price_history[-trend_window:]) / trend_window  # Use the last `trend_window` prices
 
 def calculate_ema(prices, period, return_all=False):
     """Calculate the Exponential Moving Average (EMA) for a given period."""
     if len(prices) < period:
-        return None
+        return None if not return_all else []
 
     multiplier = 2 / (period + 1)
-    ema = sum(prices[:period]) / period  # Start with SMA
-    ema_values = [ema]
+    ema_values = [sum(prices[:period]) / period]  # Start with SMA
 
     for price in prices[period:]:
-        ema = (price - ema) * multiplier + ema
-        ema_values.append(ema)
+        ema_values.append((price - ema_values[-1]) * multiplier + ema_values[-1])
 
-    return ema_values if return_all else ema
+    return ema_values if return_all else ema_values[-1]
 
 def calculate_macd(prices, symbol, short_window=12, long_window=26, signal_window=9):
-    """Calculate MACD and Signal Line."""
+    """Calculate MACD, Signal Line, and Histogram."""
     if len(prices) < long_window + signal_window:
         print(f"⚠️ Not enough data to calculate MACD for {symbol}. Required: {long_window + signal_window}, Available: {len(prices)}")
         return None, None, None
 
-    # Calculate short-term and long-term EMAs
-    short_ema = calculate_ema(prices, short_window)
-    long_ema = calculate_ema(prices, long_window)
+    # Compute EMA for the full dataset
+    short_ema = calculate_ema(prices, short_window, return_all=True)
+    long_ema = calculate_ema(prices, long_window, return_all=True)
 
-    # Calculate MACD line
-    macd_line = short_ema - long_ema
+    # Calculate MACD Line (difference between short and long EMA)
+    macd_line_values = [s - l for s, l in zip(short_ema, long_ema)]
 
-    # Calculate Signal line (EMA of MACD line)
-    # First, calculate the MACD Line values for the entire price history
-    macd_line_values = [
-        calculate_ema(prices[:i + 1], short_window) - calculate_ema(prices[:i + 1], long_window)
-        for i in range(long_window, len(prices))
-    ]
-
-    # Use the last `signal_window` values of the MACD Line to calculate the Signal Line
-    signal_line = calculate_ema(macd_line_values[-signal_window:], signal_window)
+    # Calculate Signal Line (EMA of MACD Line)
+    signal_line_values = calculate_ema(macd_line_values, signal_window, return_all=True)
 
     # Calculate MACD Histogram
-    macd_histogram = macd_line - signal_line
+    macd_histogram_values = [m - s for m, s in zip(macd_line_values[-len(signal_line_values):], signal_line_values)]
 
-    print(f"📊 {symbol} MACD Calculation - Short EMA: {short_ema:.2f}, Long EMA: {long_ema:.2f}, MACD Line: {macd_line:.2f}, Signal Line: {signal_line:.2f}, Histogram: {macd_histogram:.2f}")
-    return macd_line, signal_line, macd_histogram
+    # Log MACD values
+    print(f"📊 {symbol} MACD Calculation - Short EMA: {short_ema[-1]:.2f}, Long EMA: {long_ema[-1]:.2f}, "
+          f"MACD Line: {macd_line_values[-1]:.2f}, Signal Line: {signal_line_values[-1]:.2f}, "
+          f"Histogram: {macd_histogram_values[-1]:.2f}")
+
+    return macd_line_values[-1], signal_line_values[-1], macd_histogram_values[-1]
 
 def calculate_rsi(prices, symbol, period=14):
     """Calculate the Relative Strength Index (RSI)."""
-    if len(prices) < period:
-        print(f"⚠️ Not enough data to calculate RSI for {symbol}. Required: {period}, Available: {len(prices)}")
+    if len(prices) < period + 1:
+        print(f"⚠️ Not enough data to calculate RSI for {symbol}. Required: {period + 1}, Available: {len(prices)}")
         return None
 
-    gains = []
-    losses = []
+    # Calculate gains and losses
+    changes = np.diff(prices)
+    gains = np.maximum(changes, 0)
+    losses = np.maximum(-changes, 0)
 
-    for i in range(1, len(prices)):
-        change = prices[i] - prices[i - 1]
-        if change > 0:
-            gains.append(change)
-        else:
-            losses.append(abs(change))
+    # Calculate average gains and losses
+    avg_gain = np.mean(gains[:period])
+    avg_loss = np.mean(losses[:period])
 
-    avg_gain = sum(gains) / period
-    avg_loss = sum(losses) / period
+    # EMA smoothing for RSI
+    for i in range(period, len(gains)):
+        avg_gain = (avg_gain * (period - 1) + gains[i]) / period
+        avg_loss = (avg_loss * (period - 1) + losses[i]) / period
 
-    if avg_loss == 0:
-        rsi = 100  # Avoid division by zero
-    else:
-        rs = avg_gain / avg_loss
-        rsi = 100 - (100 / (1 + rs))
+    rs = avg_gain / avg_loss if avg_loss != 0 else float('inf')
+    rsi = 100 - (100 / (1 + rs))
 
     print(f"📊 {symbol} RSI Calculation - Avg Gain: {avg_gain:.2f}, Avg Loss: {avg_loss:.2f}, RSI: {rsi:.2f}")
     return rsi
 
+def calculate_long_term_ma(price_history, period=200):
+    """Calculate the long-term moving average."""
+    if len(price_history) < period:
+        return None
+    return sum(price_history[-period:]) / period
+
 # Initialize crypto_data as a global variable
 crypto_data = {}
 
+# Global variable to track MACD confirmation
+macd_confirmation = {symbol: {"buy": 0, "sell": 0} for symbol in crypto_symbols}
+
 async def trading_bot():
-    """Monitors multiple cryptocurrencies and trades based on technical indicators."""
-    global crypto_data
+    global crypto_data, macd_confirmation
 
     # Initialize initial prices for all cryptocurrencies
     for symbol in crypto_symbols:
         state = load_state(symbol)
         if state:
             crypto_data[symbol] = state
+            print(f"🔍 Loaded state for {symbol}: {state}")
         else:
             initial_price = await get_crypto_price(symbol)
             if not initial_price:
                 print(f"🚨 Failed to fetch initial {symbol} price. Skipping {symbol}.")
                 continue
             crypto_data[symbol] = {
-                "price_history": deque(maxlen=price_history_maxlen),
+                "price_history": deque([initial_price], maxlen=price_history_maxlen),
                 "initial_price": initial_price,
                 "total_trades": 0,
                 "total_profit": 0.0,
             }
             save_state(symbol, initial_price, 0, 0.0)
-            print(f"🔍 Monitoring {symbol}... Initial Price: ${initial_price:.2f}")
+            print(f"🔍 Monitoring {symbol}... Initial Price: ${initial_price:.2f}, Price History: {crypto_data[symbol]['price_history']}")
 
     while True:
         await asyncio.sleep(30)  # Wait before checking prices again
-        balances = await get_balances()  # Fetch balances for all cryptocurrencies and USDC
+
+        # Fetch balances
+        balances = await get_balances()
+
+        # Log balances
+        print("💰 Available Balances:")
+        for currency, balance in balances.items():
+            print(f"  - {currency}: {balance}")
+
+        # Update balances in the database
+        update_balances(balances)
 
         # Fetch prices for all cryptocurrencies concurrently
         price_tasks = [get_crypto_price(symbol) for symbol in crypto_symbols]
@@ -363,6 +417,16 @@ async def trading_bot():
 
         for symbol, current_price in zip(crypto_symbols, prices):
             if not current_price:
+                print(f"🚨 {symbol}: No price data. Skipping.")
+                continue
+            if symbol not in crypto_data:
+                print(f"🚨 {symbol}: Not in crypto_data. Skipping.")
+                continue
+            if not crypto_data[symbol]["price_history"]:
+                print(f"🚨 {symbol}: Empty price_history. Skipping.")
+                continue
+            if current_price == crypto_data[symbol]["price_history"][-1]:
+                print(f"🚨 {symbol}: Price unchanged ({current_price:.2f} == {crypto_data[symbol]['price_history'][-1]:.2f}). Skipping.")
                 continue
 
             # Save price history
@@ -371,64 +435,109 @@ async def trading_bot():
             # Update price history in memory
             crypto_data[symbol]["price_history"].append(current_price)
             price_history = list(crypto_data[symbol]["price_history"])
-            price_change = ((current_price - crypto_data[symbol]["initial_price"]) / crypto_data[symbol]["initial_price"]) * 100
-            print(f"📈 {symbol} Price: ${current_price:.2f} ({price_change:.2f}%)")
-
+            
             # Get coin-specific settings
             coin_settings = coins_config[symbol]
             buy_threshold = coin_settings["buy_percentage"]
             sell_threshold = coin_settings["sell_percentage"]
             volatility_window = coin_settings["volatility_window"]
             trend_window = coin_settings["trend_window"]
+            macd_short_window = coin_settings["macd_short_window"]
+            macd_long_window = coin_settings["macd_long_window"]
+            macd_signal_window = coin_settings["macd_signal_window"]
+            rsi_period = coin_settings["rsi_period"]
+
+            # Ensure we have enough data for indicators
+            if len(price_history) < max(macd_long_window + macd_signal_window, rsi_period + 1):
+                print(f"⚠️ {symbol}: Not enough data for indicators. Required: {max(macd_long_window + macd_signal_window, rsi_period + 1)}, Available: {len(price_history)}")
+                continue
+
+            long_term_ma = calculate_long_term_ma(price_history, period=200)
+            if long_term_ma is None:
+                print(f"⚠️ {symbol}: Not enough data for long-term MA. Skipping.")
+                continue
+
+            price_change = ((current_price - crypto_data[symbol]["initial_price"]) / crypto_data[symbol]["initial_price"]) * 100
+            print(f"📈 {symbol} Price: ${current_price:.2f} ({price_change:.2f}%)")
 
             # Calculate volatility and moving average
-            volatility = calculate_volatility(price_history)
+            volatility = calculate_volatility(price_history, volatility_window)
+            volatility_factor = min(1.5, max(0.5, 1 + abs(volatility)))  # Cap extreme changes
             moving_avg = calculate_moving_average(price_history, trend_window)
 
-            # Calculate MACD and RSI
-            macd_line, signal_line, macd_histogram = calculate_macd(price_history, symbol)
+            # Calculate indicators
+            macd_line, signal_line, macd_histogram = calculate_macd(
+                price_history, symbol, macd_short_window, macd_long_window, macd_signal_window
+            )
             rsi = calculate_rsi(price_history, symbol)
 
-            # Log MACD and RSI values (if available)
-            if macd_line is not None and signal_line is not None and rsi is not None:
-                print(f"📊 {symbol} MACD: {macd_line:.2f}, Signal: {signal_line:.2f}, Histogram: {macd_histogram:.2f}")
-                print(f"📊 {symbol} RSI: {rsi:.2f}")
+            # Log indicator values
+            print(f"📊 {symbol} Indicators - Volatility: {volatility:.2f}, Moving Avg: {moving_avg:.2f}, MACD: {macd_line:.2f}, Signal: {signal_line:.2f}, RSI: {rsi:.2f}")
 
             # Adjust thresholds based on volatility
-            dynamic_buy_threshold = buy_threshold * (1 + abs(volatility))
-            dynamic_sell_threshold = sell_threshold * (1 + abs(volatility))
+            dynamic_buy_threshold = buy_threshold * volatility_factor
+            dynamic_sell_threshold = sell_threshold * volatility_factor
 
             # Calculate expected buy/sell prices
             expected_buy_price = crypto_data[symbol]["initial_price"] * (1 + dynamic_buy_threshold / 100)
             expected_sell_price = crypto_data[symbol]["initial_price"] * (1 + dynamic_sell_threshold / 100)
 
             # Log expected prices
-            print(f"📊 Expected Buy Price for {symbol}: ${expected_buy_price:.2f}")
-            print(f"📊 Expected Sell Price for {symbol}: ${expected_sell_price:.2f}")
+            print(f"📊 Expected Buy Price for {symbol}: ${expected_buy_price:.2f} (Dynamic Buy Threshold: {dynamic_buy_threshold:.2f}%)")
+            print(f"📊 Expected Sell Price for {symbol}: ${expected_sell_price:.2f} (Dynamic Sell Threshold: {dynamic_sell_threshold:.2f}%)")
 
             # Check if the price is close to the moving average
             if moving_avg and abs(current_price - moving_avg) < (0.02 * moving_avg):  # Only trade if price is within 2% of the moving average
                 # MACD Buy Signal: MACD line crosses above Signal line
-                macd_buy_signal = macd_line and signal_line and macd_line > signal_line
-
+                macd_buy_signal = macd_line is not None and signal_line is not None and macd_line > signal_line
+                
                 # RSI Buy Signal: RSI is below 30 (oversold)
-                rsi_buy_signal = rsi and rsi < 30
-
+                rsi_buy_signal = rsi is not None and rsi < 30
+                
                 # MACD Sell Signal: MACD line crosses below Signal line
-                macd_sell_signal = macd_line and signal_line and macd_line < signal_line
-
+                macd_sell_signal = macd_line is not None and signal_line is not None and macd_line < signal_line
+                
                 # RSI Sell Signal: RSI is above 70 (overbought)
-                rsi_sell_signal = rsi and rsi > 70
+                rsi_sell_signal = rsi is not None and rsi > 70
 
-                if (price_change <= dynamic_buy_threshold or macd_buy_signal or rsi_buy_signal) and balances[quote_currency] > 0:
+                # MACD Confirmation Rule with decay instead of full reset
+                if macd_buy_signal:
+                    macd_confirmation[symbol]["buy"] += 1
+                    macd_confirmation[symbol]["sell"] = max(0, macd_confirmation[symbol]["sell"] - 1)
+                elif macd_sell_signal:
+                    macd_confirmation[symbol]["sell"] += 1
+                    macd_confirmation[symbol]["buy"] = max(0, macd_confirmation[symbol]["buy"] - 1)
+                else:
+                    macd_confirmation[symbol]["buy"] = max(0, macd_confirmation[symbol]["buy"] - 1)
+                    macd_confirmation[symbol]["sell"] = max(0, macd_confirmation[symbol]["sell"] - 1)
+
+                # Log trading signals
+                print(f"📊 {symbol} Trading Signals - MACD Buy: {macd_buy_signal}, RSI Buy: {rsi_buy_signal}, MACD Sell: {macd_sell_signal}, RSI Sell: {rsi_sell_signal}")
+                print(f"📊 {symbol} MACD Confirmation - Buy: {macd_confirmation[symbol]['buy']}, Sell: {macd_confirmation[symbol]['sell']}")
+
+                # Execute buy order if MACD buy signal is confirmed
+                if (
+                    (price_change <= dynamic_buy_threshold or  # Price threshold
+                    (macd_buy_signal and macd_confirmation[symbol]["buy"] >= 3 and rsi < 30))  # MACD + RSI filter
+                    and current_price > long_term_ma  # Trend filter
+                    and balances[quote_currency] > 0  # Sufficient balance
+                ):
                     buy_amount = (trade_percentage / 100) * balances[quote_currency] / current_price
                     if buy_amount > 0:
                         print(f"💰 Buying {buy_amount:.4f} {symbol}!")
                         if await place_order(symbol, "BUY", buy_amount):
                             crypto_data[symbol]["total_trades"] += 1
                             crypto_data[symbol]["initial_price"] = current_price  # Reset reference price
+                    else:
+                        print(f"🚫 Buy order too small: ${buy_amount:.2f} (minimum: ${coins_config[symbol]['min_order_sizes']['buy']:.2f})")
 
-                elif (price_change >= dynamic_sell_threshold or macd_sell_signal or rsi_sell_signal) and balances[symbol] > 0:
+                # Execute sell order if MACD sell signal is confirmed
+                elif (
+                    (price_change >= dynamic_sell_threshold or  # Price threshold
+                    (macd_sell_signal and macd_confirmation[symbol]["sell"] >= 3 and rsi > 70))  # MACD + RSI filter
+                    and current_price < long_term_ma  # Trend filter
+                    and balances[symbol] > 0  # Sufficient balance
+                ):
                     sell_amount = (trade_percentage / 100) * balances[symbol]
                     if sell_amount > 0:
                         print(f"💵 Selling {sell_amount:.4f} {symbol}!")

@@ -120,6 +120,21 @@ CREATE TABLE price_history (
     PRIMARY KEY (symbol, timestamp)
 );
 
+CREATE TABLE balances (
+    currency TEXT PRIMARY KEY,
+    available_balance REAL
+);
+
+CREATE TABLE trades (
+    id SERIAL PRIMARY KEY,
+    symbol TEXT,
+    side TEXT,
+    amount REAL,
+    price REAL,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+
 CREATE INDEX idx_symbol_timestamp ON price_history (symbol, timestamp);
 ```
 Example output:
