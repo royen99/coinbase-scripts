@@ -9,6 +9,7 @@ from collections import deque
 import psycopg2 # type: ignore
 from psycopg2.extras import Json # type: ignore
 from decimal import Decimal
+import numpy as np
 
 # Load configuration from config.json
 with open("config.json", "r") as f:
