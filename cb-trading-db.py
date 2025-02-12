@@ -386,7 +386,7 @@ async def trading_bot():
                 print(f"🚨 Failed to fetch initial {symbol} price. Skipping {symbol}.")
                 continue
             crypto_data[symbol] = {
-                "price_history": deque(maxlen=price_history_maxlen),
+                "price_history": deque([initial_price], maxlen=price_history_maxlen),  # Initialize with initial price
                 "initial_price": initial_price,
                 "total_trades": 0,
                 "total_profit": 0.0,
@@ -398,7 +398,7 @@ async def trading_bot():
         await asyncio.sleep(30)  # Wait before checking prices again
 
         # Fetch balances
-        balances = await get_balances()  # Await the get_balances call
+        balances = await get_balances()
 
         # Log balances
         print("💰 Available Balances:")
@@ -413,7 +413,7 @@ async def trading_bot():
         prices = await asyncio.gather(*price_tasks)
 
         for symbol, current_price in zip(crypto_symbols, prices):
-            if not current_price or (symbol in crypto_data and current_price == crypto_data[symbol]["price_history"][-1]):
+            if not current_price or (symbol in crypto_data and (not crypto_data[symbol]["price_history"] or current_price == crypto_data[symbol]["price_history"][-1])):
                 continue  # Skip if price hasn't changed or is missing
 
             # Save price history
