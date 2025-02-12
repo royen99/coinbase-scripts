@@ -368,9 +368,11 @@ def calculate_rsi(prices, symbol, period=14):
 # Initialize crypto_data as a global variable
 crypto_data = {}
 
+# Global variable to track MACD confirmation
+macd_confirmation = {symbol: {"buy": 0, "sell": 0} for symbol in crypto_symbols}
+
 async def trading_bot():
-    """Monitors multiple cryptocurrencies and trades based on technical indicators."""
-    global crypto_data
+    global crypto_data, macd_confirmation
 
     # Initialize initial prices for all cryptocurrencies
     for symbol in crypto_symbols:
@@ -450,7 +452,7 @@ async def trading_bot():
             expected_buy_price = crypto_data[symbol]["initial_price"] * (1 + dynamic_buy_threshold / 100)
             expected_sell_price = crypto_data[symbol]["initial_price"] * (1 + dynamic_sell_threshold / 100)
 
-            # Log expected prices and dynamic thresholds
+            # Log expected prices
             print(f"📊 Expected Buy Price for {symbol}: ${expected_buy_price:.2f} (Dynamic Buy Threshold: {dynamic_buy_threshold:.2f}%)")
             print(f"📊 Expected Sell Price for {symbol}: ${expected_sell_price:.2f} (Dynamic Sell Threshold: {dynamic_sell_threshold:.2f}%)")
 
@@ -468,10 +470,23 @@ async def trading_bot():
                 # RSI Sell Signal: RSI is above 70 (overbought)
                 rsi_sell_signal = rsi and rsi > 70
 
+                # MACD Confirmation Rule
+                if macd_buy_signal:
+                    macd_confirmation[symbol]["buy"] += 1
+                    macd_confirmation[symbol]["sell"] = 0  # Reset sell confirmation
+                elif macd_sell_signal:
+                    macd_confirmation[symbol]["sell"] += 1
+                    macd_confirmation[symbol]["buy"] = 0  # Reset buy confirmation
+                else:
+                    macd_confirmation[symbol]["buy"] = 0
+                    macd_confirmation[symbol]["sell"] = 0
+
                 # Log trading signals
                 print(f"📊 {symbol} Trading Signals - MACD Buy: {macd_buy_signal}, RSI Buy: {rsi_buy_signal}, MACD Sell: {macd_sell_signal}, RSI Sell: {rsi_sell_signal}")
+                print(f"📊 {symbol} MACD Confirmation - Buy: {macd_confirmation[symbol]['buy']}, Sell: {macd_confirmation[symbol]['sell']}")
 
-                if (price_change <= dynamic_buy_threshold or macd_buy_signal or rsi_buy_signal) and balances[quote_currency] > 0:
+                # Execute buy order if MACD buy signal is confirmed
+                if (price_change <= dynamic_buy_threshold or (macd_buy_signal and macd_confirmation[symbol]["buy"] >= 2)) and balances[quote_currency] > 0:
                     buy_amount = (trade_percentage / 100) * balances[quote_currency] / current_price
                     if buy_amount > 0:
                         print(f"💰 Buying {buy_amount:.4f} {symbol}!")
@@ -481,7 +496,8 @@ async def trading_bot():
                     else:
                         print(f"🚫 Buy order too small: ${buy_amount:.2f} (minimum: ${coins_config[symbol]['min_order_sizes']['buy']:.2f})")
 
-                elif (price_change >= dynamic_sell_threshold or macd_sell_signal or rsi_sell_signal) and balances[symbol] > 0:
+                # Execute sell order if MACD sell signal is confirmed
+                elif (price_change >= dynamic_sell_threshold or (macd_sell_signal and macd_confirmation[symbol]["sell"] >= 2)) and balances[symbol] > 0:
                     sell_amount = (trade_percentage / 100) * balances[symbol]
                     if sell_amount > 0:
                         print(f"💵 Selling {sell_amount:.4f} {symbol}!")
