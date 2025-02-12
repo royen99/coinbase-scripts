@@ -405,8 +405,8 @@ async def trading_bot():
         prices = await asyncio.gather(*price_tasks)
 
         for symbol, current_price in zip(crypto_symbols, prices):
-            if not current_price:
-                continue
+            if not current_price or (symbol in crypto_data and current_price == crypto_data[symbol]["price_history"][-1]):
+                continue  # Skip if price hasn't changed or is missing
 
             # Save price history
             save_price_history(symbol, current_price)
@@ -414,6 +414,11 @@ async def trading_bot():
             # Update price history in memory
             crypto_data[symbol]["price_history"].append(current_price)
             price_history = list(crypto_data[symbol]["price_history"])
+            
+            # Ensure we have enough data for indicators
+            if len(price_history) < max(macd_long_window + macd_signal_window, rsi_period + 1):
+                continue  # Skip if insufficient data
+            
             price_change = ((current_price - crypto_data[symbol]["initial_price"]) / crypto_data[symbol]["initial_price"]) * 100
             print(f"📈 {symbol} Price: ${current_price:.2f} ({price_change:.2f}%)")
 
@@ -426,6 +431,7 @@ async def trading_bot():
 
             # Calculate volatility and moving average
             volatility = calculate_volatility(price_history)
+            volatility_factor = min(1.5, max(0.5, 1 + abs(volatility)))  # Cap extreme changes
             moving_avg = calculate_moving_average(price_history, trend_window)
 
             # Calculate MACD and RSI
@@ -438,8 +444,8 @@ async def trading_bot():
                 print(f"📊 {symbol} RSI: {rsi:.2f}")
 
             # Adjust thresholds based on volatility
-            dynamic_buy_threshold = buy_threshold * (1 + abs(volatility))
-            dynamic_sell_threshold = sell_threshold * (1 + abs(volatility))
+            dynamic_buy_threshold = buy_threshold * volatility_factor
+            dynamic_sell_threshold = sell_threshold * volatility_factor
 
             # Calculate expected buy/sell prices
             expected_buy_price = crypto_data[symbol]["initial_price"] * (1 + dynamic_buy_threshold / 100)
@@ -452,27 +458,28 @@ async def trading_bot():
             # Check if the price is close to the moving average
             if moving_avg and abs(current_price - moving_avg) < (0.02 * moving_avg):  # Only trade if price is within 2% of the moving average
                 # MACD Buy Signal: MACD line crosses above Signal line
-                macd_buy_signal = macd_line and signal_line and macd_line > signal_line
-
+                macd_buy_signal = macd_line is not None and signal_line is not None and macd_line > signal_line
+                
                 # RSI Buy Signal: RSI is below 30 (oversold)
-                rsi_buy_signal = rsi and rsi < 30
-
+                rsi_buy_signal = rsi is not None and rsi < 30
+                
                 # MACD Sell Signal: MACD line crosses below Signal line
-                macd_sell_signal = macd_line and signal_line and macd_line < signal_line
-
+                macd_sell_signal = macd_line is not None and signal_line is not None and macd_line < signal_line
+                
                 # RSI Sell Signal: RSI is above 70 (overbought)
-                rsi_sell_signal = rsi and rsi > 70
+                rsi_sell_signal = rsi is not None and rsi > 70
 
-                # MACD Confirmation Rule
+                # MACD Confirmation Rule with decay instead of full reset
                 if macd_buy_signal:
                     macd_confirmation[symbol]["buy"] += 1
-                    macd_confirmation[symbol]["sell"] = 0  # Reset sell confirmation
+                    macd_confirmation[symbol]["sell"] = max(0, macd_confirmation[symbol]["sell"] - 1)
                 elif macd_sell_signal:
                     macd_confirmation[symbol]["sell"] += 1
-                    macd_confirmation[symbol]["buy"] = 0  # Reset buy confirmation
+                    macd_confirmation[symbol]["buy"] = max(0, macd_confirmation[symbol]["buy"] - 1)
                 else:
-                    macd_confirmation[symbol]["buy"] = 0
-                    macd_confirmation[symbol]["sell"] = 0
+                    macd_confirmation[symbol]["buy"] = max(0, macd_confirmation[symbol]["buy"] - 1)
+                    macd_confirmation[symbol]["sell"] = max(0, macd_confirmation[symbol]["sell"] - 1)
+
 
                 # Log trading signals
                 print(f"📊 {symbol} Trading Signals - MACD Buy: {macd_buy_signal}, RSI Buy: {rsi_buy_signal}, MACD Sell: {macd_sell_signal}, RSI Sell: {rsi_sell_signal}")
