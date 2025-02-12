@@ -147,20 +147,14 @@ Example output:
   - XRP: 630.2
   - SOL: 720.7
   - USDC: 310.3975527322856
-📈 ETH Price: $2667.05 (-3.03%)
-📊 Expected Buy Price for ETH: $2667.90
-📊 Expected Sell Price for ETH: $2832.94
-💰 Buying 0.0001 ETH!
-🚫 Buy order too small: $0.00 (minimum: $0.01)
-📊 ETH Performance - Total Trades: 12 | Total Profit: $815.00
-📈 XRP Price: $2.43 (2.40%)
-📊 Expected Buy Price for XRP: $2.25
-📊 Expected Sell Price for XRP: $2.49
-📊 XRP Performance - Total Trades: 0 | Total Profit: $0.00
-📈 SOL Price: $200.59 (5.57%)
-📊 Expected Buy Price for SOL: $186.21
-📊 Expected Sell Price for SOL: $193.81
-📊 SOL Performance - Total Trades: 0 | Total Profit: $0.00
+💾 Saved ETH price history: $2754.21
+📈 ETH Price: $2754.21 (0.15%)
+📊 ETH MACD Calculation - Short EMA: 2752.50, Long EMA: 2751.96, MACD Line: -0.92, Signal Line: -1.04, Histogram: 0.12
+📊 ETH RSI Calculation - Avg Gain: 0.91, Avg Loss: 0.73, RSI: 55.33
+📊 ETH Indicators - Volatility: 0.00, Moving Avg: 2682.71, MACD: -0.92, Signal: -1.04, RSI: 55.33
+📊 Expected Buy Price for ETH: $2667.45 (Dynamic Buy Threshold: -3.00%)
+📊 Expected Sell Price for ETH: $2832.55 (Dynamic Sell Threshold: 3.00%)
+📊 ETH Performance - Total Trades: 5 | Total Profit: $380.52
 ```
 
 ## More basic scripts
