@@ -179,7 +179,7 @@ async def get_crypto_price(crypto_symbol):
     data = await api_request("GET", path)
     
     if "price" in data:
-        return float(data["price"])
+        return float(data["price"])  # Return the full precision price
     
     print(f"Error fetching {crypto_symbol} price: {data.get('error', 'Unknown error')}")
     return None
@@ -234,13 +234,15 @@ async def place_order(crypto_symbol, side, amount):
     min_order_sizes = coins_config[crypto_symbol]["min_order_sizes"]
     
     if side == "BUY":
-        rounded_amount = round(amount, 2)  # USDC should have 2 decimal places
+        # Round to 2 decimal places for quote currency (e.g., USDC)
+        rounded_amount = round(amount, 2)
         if rounded_amount < min_order_sizes["buy"]:
             print(f"🚫 Buy order too small: ${rounded_amount:.2f} (minimum: ${min_order_sizes['buy']:.2f})")
             return False
         order_data["order_configuration"]["market_market_ioc"]["quote_size"] = str(rounded_amount)
     else:  # SELL
-        rounded_amount = round(amount, 6)  # Cryptocurrency amount precision
+        # Round to the required precision for the base currency (e.g., ETH, BTC)
+        rounded_amount = round(amount, 6)  # Adjust based on the coin's precision
         if rounded_amount < min_order_sizes["sell"]:
             print(f"🚫 Sell order too small: {rounded_amount:.6f} {crypto_symbol} (minimum: {min_order_sizes['sell']:.6f} {crypto_symbol})")
             return False

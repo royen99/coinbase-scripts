@@ -24,7 +24,11 @@
       "min_order_sizes": {
         "buy": 0.01,
         "sell": 0.0001
-      }
+      },
+        "precision": {
+            "price": 2,  # Price precision
+            "amount": 6  # Amount precision for base currency
+        }
     },
     "XRP": {
       "enabled": true,
@@ -35,7 +39,11 @@
       "min_order_sizes": {
         "buy": 0.01,
         "sell": 1
-      }
+      },
+        "precision": {
+            "price": 2,  # Price precision
+            "amount": 6  # Amount precision for base currency
+        }
     },
     "DOGE": {
       "enabled": false,
