@@ -281,18 +281,19 @@ def log_trade(symbol, side, amount, price):
         cursor.close()
         conn.close()
 
-def calculate_volatility(price_history):
-    """Calculate volatility as the standard deviation of price changes."""
-    if len(price_history) < 2:
+def calculate_volatility(price_history, volatility_window):
+    """Calculate volatility as the standard deviation of price changes over a specific window."""
+    if len(price_history) < volatility_window:
         return 0.0
-    price_changes = np.diff(price_history) / price_history[:-1]
+    recent_prices = list(price_history)[-volatility_window:]
+    price_changes = np.diff(recent_prices) / recent_prices[:-1]  # Percentage changes
     return np.std(price_changes)  # Standard deviation of returns
 
 def calculate_moving_average(price_history, trend_window):
-    """Calculate the moving average of prices."""
+    """Calculate the simple moving average (SMA) of prices."""
     if len(price_history) < trend_window:
         return None
-    return sum(price_history) / len(price_history)
+    return sum(price_history[-trend_window:]) / trend_window  # Use the last `trend_window` prices
 
 def calculate_ema(prices, period, return_all=False):
     """Calculate the Exponential Moving Average (EMA) for a given period."""
@@ -306,8 +307,6 @@ def calculate_ema(prices, period, return_all=False):
         ema_values.append((price - ema_values[-1]) * multiplier + ema_values[-1])
 
     return ema_values if return_all else ema_values[-1]
-
-    return ema_values if return_all else ema
 
 def calculate_macd(prices, symbol, short_window=12, long_window=26, signal_window=9):
     """Calculate MACD, Signal Line, and Histogram."""
@@ -328,6 +327,7 @@ def calculate_macd(prices, symbol, short_window=12, long_window=26, signal_windo
     # Calculate MACD Histogram
     macd_histogram_values = [m - s for m, s in zip(macd_line_values[-len(signal_line_values):], signal_line_values)]
 
+    # Log MACD values
     print(f"📊 {symbol} MACD Calculation - Short EMA: {short_ema[-1]:.2f}, Long EMA: {long_ema[-1]:.2f}, "
           f"MACD Line: {macd_line_values[-1]:.2f}, Signal Line: {signal_line_values[-1]:.2f}, "
           f"Histogram: {macd_histogram_values[-1]:.2f}")
@@ -340,12 +340,14 @@ def calculate_rsi(prices, symbol, period=14):
         print(f"⚠️ Not enough data to calculate RSI for {symbol}. Required: {period + 1}, Available: {len(prices)}")
         return None
 
-    gains = [max(prices[i] - prices[i - 1], 0) for i in range(1, len(prices))]
-    losses = [max(prices[i - 1] - prices[i], 0) for i in range(1, len(prices))]
+    # Calculate gains and losses
+    changes = np.diff(prices)
+    gains = np.maximum(changes, 0)
+    losses = np.maximum(-changes, 0)
 
-    # First Average Gain/Loss
-    avg_gain = sum(gains[:period]) / period
-    avg_loss = sum(losses[:period]) / period
+    # Calculate average gains and losses
+    avg_gain = np.mean(gains[:period])
+    avg_loss = np.mean(losses[:period])
 
     # EMA smoothing for RSI
     for i in range(period, len(gains)):
@@ -434,13 +436,17 @@ async def trading_bot():
             print(f"📈 {symbol} Price: ${current_price:.2f} ({price_change:.2f}%)")
 
             # Calculate volatility and moving average
-            volatility = calculate_volatility(price_history)
+            volatility = calculate_volatility(price_history, volatility_window)
             volatility_factor = min(1.5, max(0.5, 1 + abs(volatility)))  # Cap extreme changes
             moving_avg = calculate_moving_average(price_history, trend_window)
 
-            # Calculate MACD and RSI
-            macd_line, signal_line, macd_histogram = calculate_macd(price_history, symbol, macd_short_window, macd_long_window, macd_signal_window)
-            rsi = calculate_rsi(price_history, symbol, rsi_period)
+            # Calculate indicators
+            volatility = calculate_volatility(price_history)
+            moving_avg = calculate_moving_average(price_history, trend_window=26)
+            macd_line, signal_line, macd_histogram = calculate_macd(
+                price_history, symbol, macd_short_window, macd_long_window, macd_signal_window
+            )
+            rsi = calculate_rsi(price_history, symbol)
 
             # Log MACD and RSI values (if available)
             if macd_line is not None and signal_line is not None and rsi is not None:
