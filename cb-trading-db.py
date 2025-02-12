@@ -426,7 +426,7 @@ async def trading_bot():
                 print(f"🚨 {symbol}: Empty price_history. Skipping.")
                 continue
             if current_price == crypto_data[symbol]["price_history"][-1]:
-                print(f"🚨 {symbol}: Price unchanged. Skipping.")
+                print(f"🚨 {symbol}: Price unchanged ({current_price:.2f} == {crypto_data[symbol]['price_history'][-1]:.2f}). Skipping.")
                 continue
 
             # Save price history
@@ -449,11 +449,13 @@ async def trading_bot():
 
             # Ensure we have enough data for indicators
             if len(price_history) < max(macd_long_window + macd_signal_window, rsi_period + 1):
-                continue  # Skip if insufficient data
+                print(f"⚠️ {symbol}: Not enough data for indicators. Required: {max(macd_long_window + macd_signal_window, rsi_period + 1)}, Available: {len(price_history)}")
+                continue
 
             long_term_ma = calculate_long_term_ma(price_history, period=200)
             if long_term_ma is None:
-                continue  # Skip if not enough data for long-term MA
+                print(f"⚠️ {symbol}: Not enough data for long-term MA. Skipping.")
+                continue
 
             price_change = ((current_price - crypto_data[symbol]["initial_price"]) / crypto_data[symbol]["initial_price"]) * 100
             print(f"📈 {symbol} Price: ${current_price:.2f} ({price_change:.2f}%)")
@@ -469,10 +471,8 @@ async def trading_bot():
             )
             rsi = calculate_rsi(price_history, symbol)
 
-            # Log MACD and RSI values (if available)
-            if macd_line is not None and signal_line is not None and rsi is not None:
-                print(f"📊 {symbol} MACD: {macd_line:.2f}, Signal: {signal_line:.2f}, Histogram: {macd_histogram:.2f}")
-                print(f"📊 {symbol} RSI: {rsi:.2f}")
+            # Log indicator values
+            print(f"📊 {symbol} Indicators - Volatility: {volatility:.2f}, Moving Avg: {moving_avg:.2f}, MACD: {macd_line:.2f}, Signal: {signal_line:.2f}, RSI: {rsi:.2f}")
 
             # Adjust thresholds based on volatility
             dynamic_buy_threshold = buy_threshold * volatility_factor
