@@ -441,8 +441,6 @@ async def trading_bot():
             moving_avg = calculate_moving_average(price_history, trend_window)
 
             # Calculate indicators
-            volatility = calculate_volatility(price_history)
-            moving_avg = calculate_moving_average(price_history, trend_window=26)
             macd_line, signal_line, macd_histogram = calculate_macd(
                 price_history, symbol, macd_short_window, macd_long_window, macd_signal_window
             )
