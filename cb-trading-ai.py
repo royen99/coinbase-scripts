@@ -42,26 +42,6 @@ def get_db_connection():
         host=DB_HOST, port=DB_PORT, database=DB_NAME, user=DB_USER, password=DB_PASSWORD
     )
 
-def query_ollama_verbose(prompt, model="mistral"):
-    """Query the AI model for a detailed trading decision."""
-    url = "http://192.168.1.22:11434/api/generate"
-    payload = {"model": model, "prompt": prompt, "stream": False}
-
-    try:
-        response = requests.post(url, json=payload)
-        result = response.json()
-        ai_response = result.get("response", "").strip()
-        
-        # Extract decision (first word) and keep explanation
-        ai_parts = ai_response.split("\n", 1)
-        decision = ai_parts[0].strip().upper()
-        explanation = ai_parts[1].strip() if len(ai_parts) > 1 else "No explanation provided."
-        
-        return decision, explanation
-    except Exception as e:
-        print(f"🚨 AI Query Error: {e}")
-        return "HOLD", "AI unavailable, defaulting to HOLD."
-
 def build_jwt(uri):
     """Generate a JWT token for Coinbase API authentication."""
     private_key_bytes = key_secret.encode("utf-8")
@@ -257,6 +237,26 @@ def calculate_rsi(prices, symbol, period=14):
     print(f"📊 {symbol} RSI Calculation - Avg Gain: {avg_gain:.2f}, Avg Loss: {avg_loss:.2f}, RSI: {rsi:.2f}")
     return rsi
 
+def query_ollama_verbose(prompt, model="mistral"):
+    """Query the AI model for a detailed trading decision."""
+    url = "http://localhost:11434/api/generate"
+    payload = {"model": model, "prompt": prompt, "stream": False}
+
+    try:
+        response = requests.post(url, json=payload)
+        result = response.json()
+        ai_response = result.get("response", "").strip()
+        
+        # Extract decision (first word) and keep explanation
+        ai_parts = ai_response.split("\n", 1)
+        decision = ai_parts[0].strip().upper()
+        explanation = ai_parts[1].strip() if len(ai_parts) > 1 else "No explanation provided."
+        
+        return decision, explanation
+    except Exception as e:
+        print(f"🚨 AI Query Error: {e}")
+        return "HOLD", "AI unavailable, defaulting to HOLD."
+
 async def trading_bot():
     global crypto_data
     
@@ -264,6 +264,8 @@ async def trading_bot():
 
     while True:
         await asyncio.sleep(30)
+
+        print("\n🔄 Starting New Trading Cycle...\n")
 
         # Fetch balances
         balances = await get_balances()
@@ -286,7 +288,9 @@ async def trading_bot():
             macd_line, signal_line, macd_histogram = calculate_macd(price_history, symbol)
             rsi = calculate_rsi(price_history, symbol)
 
-            # Create AI Prompt
+            # Create AI Prompt (short log for debugging)
+            print(f"🤖 Asking AI for {symbol}: Price={current_price}, MACD={macd_line}, RSI={rsi}")
+
             ai_prompt = f"""
             Given the following market data:
             - {symbol} Current Price: {current_price}
@@ -310,13 +314,18 @@ async def trading_bot():
             # Execute AI-driven trade
             if ai_decision == "BUY" and balances.get(quote_currency, 0) > 0:
                 buy_amount = (trade_percentage / 100) * balances[quote_currency] / current_price
+                print(f"🟢 Buying {symbol}: {buy_amount:.4f} units at ${current_price:.2f}")
                 await place_order(symbol, "BUY", buy_amount)
 
             elif ai_decision == "SELL" and balances.get(symbol, 0) > 0:
                 sell_amount = (trade_percentage / 100) * balances[symbol]
+                print(f"🔴 Selling {symbol}: {sell_amount:.4f} units at ${current_price:.2f}")
                 await place_order(symbol, "SELL", sell_amount)
 
-        print(f"✅ AI Trading Cycle Completed!")
+            else:
+                print(f"⚪ AI chose to HOLD {symbol} this cycle.")
+
+        print("\n✅ AI Trading Cycle Completed! Waiting for next round...\n")
         await asyncio.sleep(10)
 
 if __name__ == "__main__":
