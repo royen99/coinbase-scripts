@@ -425,6 +425,9 @@ async def trading_bot():
             ai_decision, ai_explanation = query_ollama_verbose(ai_prompt)
 
             # Log AI response
+            print(f"🤖 AI Decision for {symbol}: {ai_decision}")
+            print(f"📢 AI Explanation: {ai_explanation}")
+
             if ai_decision == "BUY" and balances.get(quote_currency, 0) > 0:
                 buy_amount = (trade_percentage / 100) * balances[quote_currency] / current_price
                 print(f"🟢 Buying {symbol}: {buy_amount:.4f} units at ${current_price:.2f}")
