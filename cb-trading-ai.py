@@ -44,7 +44,7 @@ def get_db_connection():
 
 def query_ollama(prompt, model="mistral"):
     """Query the AI model via Ollama for trading decisions."""
-    url = "http://localhost:11434/api/generate"
+    url = "http://192.168.1.22:11434/api/generate"
     payload = {"model": model, "prompt": prompt, "stream": False}
     
     try:
