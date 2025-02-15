@@ -82,6 +82,55 @@ async def api_request(method, path, body=None):
                 return await response.json()
             return {"error": await response.text()}
 
+def load_state(symbol):
+    """Load the trading state from the PostgreSQL database."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        # Load trading metrics from trading_state
+        cursor.execute("""
+        SELECT initial_price, total_trades, total_profit
+        FROM trading_state
+        WHERE symbol = %s
+        """, (symbol,))
+        row = cursor.fetchone()
+
+        if row:
+            # Convert decimal.Decimal to float if necessary
+            initial_price = float(row[0]) if isinstance(row[0], Decimal) else row[0]
+            total_trades = int(row[1])
+            total_profit = float(row[2]) if isinstance(row[2], Decimal) else row[2]
+
+            # Load price history from price_history table
+            cursor.execute("""
+            SELECT price
+            FROM price_history
+            WHERE symbol = %s
+            ORDER BY timestamp DESC
+            LIMIT %s
+            """, (symbol, price_history_maxlen))
+            price_history = [float(row[0]) for row in cursor.fetchall()]
+
+            return {
+                "price_history": deque(price_history, maxlen=price_history_maxlen),
+                "initial_price": initial_price,
+                "total_trades": total_trades,
+                "total_profit": total_profit,
+            }
+        return None
+    except Exception as e:
+        print(f"Error loading state from database: {e}")
+        return None
+    finally:
+        cursor.close()
+        conn.close()
+
+# Initialize price_history with maxlen equal to the larger of volatility_window and trend_window
+price_history_maxlen = max(
+    max(settings.get("volatility_window", 10) for settings in coins_config.values()),
+    max(settings.get("trend_window", 20) for settings in coins_config.values())
+)
+
 async def log_trade(symbol, side, amount, price):
     """Log a trade in the trades table."""
     conn = get_db_connection()
@@ -260,7 +309,21 @@ def query_ollama_verbose(prompt, model="QuantFactory/Theia-Llama-3.1-8B-v1-GGUF"
 async def trading_bot():
     global crypto_data
     
-    crypto_data = {symbol: {"price_history": deque(maxlen=200), "initial_price": None} for symbol in crypto_symbols}
+    crypto_data = {}
+
+    print("\n📂 Loading historical price data from database...\n")
+
+    for symbol in crypto_symbols:
+        state = load_state(symbol)  # Load past data from DB
+        if state and len(state["price_history"]) > 0:
+            crypto_data[symbol] = state
+            print(f"✅ {symbol}: Loaded {len(state['price_history'])} past prices from DB.")
+        else:
+            # If no past data, initialize empty
+            crypto_data[symbol] = {"price_history": deque(maxlen=200), "initial_price": None}
+            print(f"⚠️ {symbol}: No historical data found. Collecting new prices...")
+
+    print("\n🚀 Bot initialized! Starting live trading...\n")
 
     while True:
         await asyncio.sleep(30)
@@ -281,7 +344,10 @@ async def trading_bot():
             price_history = crypto_data[symbol]["price_history"]
             price_history.append(current_price)
 
-            if len(price_history) < 20:
+            print(f"📊 {symbol}: Price History Length = {len(price_history)}")
+
+            if len(price_history) < 20:  # Not enough data for MACD & RSI
+                print(f"⚠️ {symbol}: Not enough data yet. Need at least 20 prices.")
                 continue
 
             # Calculate MACD and RSI
