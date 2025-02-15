@@ -350,9 +350,12 @@ async def trading_bot():
                 print(f"⚠️ {symbol}: Not enough data yet. Need at least 20 prices.")
                 continue
 
-            # Calculate MACD and RSI
-            macd_line, signal_line, macd_histogram = calculate_macd(price_history, symbol)
-            rsi = calculate_rsi(price_history, symbol)
+            # 🛠️ Convert deque to list before using indicators
+            price_list = list(price_history)
+
+            # Calculate MACD and RSI using the corrected list
+            macd_line, signal_line, macd_histogram = calculate_macd(price_list, symbol)
+            rsi = calculate_rsi(price_list, symbol)
 
             # Create AI Prompt (short log for debugging)
             print(f"🤖 Asking AI for {symbol}: Price={current_price}, MACD={macd_line}, RSI={rsi}")
