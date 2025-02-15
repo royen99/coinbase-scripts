@@ -237,7 +237,7 @@ def calculate_rsi(prices, symbol, period=14):
     print(f"📊 {symbol} RSI Calculation - Avg Gain: {avg_gain:.2f}, Avg Loss: {avg_loss:.2f}, RSI: {rsi:.2f}")
     return rsi
 
-def query_ollama_verbose(prompt, model="mistral"):
+def query_ollama_verbose(prompt, model="QuantFactory/Theia-Llama-3.1-8B-v1-GGUF"):
     """Query the AI model for a detailed trading decision."""
     url = "http://localhost:11434/api/generate"
     payload = {"model": model, "prompt": prompt, "stream": False}
