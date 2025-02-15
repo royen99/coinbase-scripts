@@ -42,18 +42,25 @@ def get_db_connection():
         host=DB_HOST, port=DB_PORT, database=DB_NAME, user=DB_USER, password=DB_PASSWORD
     )
 
-def query_ollama(prompt, model="mistral"):
-    """Query the AI model via Ollama for trading decisions."""
+def query_ollama_verbose(prompt, model="mistral"):
+    """Query the AI model for a detailed trading decision."""
     url = "http://192.168.1.22:11434/api/generate"
     payload = {"model": model, "prompt": prompt, "stream": False}
-    
+
     try:
         response = requests.post(url, json=payload)
         result = response.json()
-        return result.get("response", "").strip()
+        ai_response = result.get("response", "").strip()
+        
+        # Extract decision (first word) and keep explanation
+        ai_parts = ai_response.split("\n", 1)
+        decision = ai_parts[0].strip().upper()
+        explanation = ai_parts[1].strip() if len(ai_parts) > 1 else "No explanation provided."
+        
+        return decision, explanation
     except Exception as e:
         print(f"🚨 AI Query Error: {e}")
-        return "HOLD"  # Default to HOLD if AI fails
+        return "HOLD", "AI unavailable, defaulting to HOLD."
 
 def build_jwt(uri):
     """Generate a JWT token for Coinbase API authentication."""
@@ -272,7 +279,6 @@ async def trading_bot():
             price_history = crypto_data[symbol]["price_history"]
             price_history.append(current_price)
 
-            # Ensure we have enough data before making AI decisions
             if len(price_history) < 20:
                 continue
 
@@ -283,7 +289,7 @@ async def trading_bot():
             # Create AI Prompt
             ai_prompt = f"""
             Given the following market data:
-            - {symbol} Price: {current_price}
+            - {symbol} Current Price: {current_price}
             - MACD Line: {macd_line}
             - Signal Line: {signal_line}
             - MACD Histogram: {macd_histogram}
@@ -291,11 +297,17 @@ async def trading_bot():
             - Available USDC: {balances.get(quote_currency, 0)}
             - Available {symbol}: {balances.get(symbol, 0)}
 
-            Should I BUY, SELL, or HOLD? Provide a single-word decision.
+            Analyze the trend and explain whether I should BUY, SELL, or HOLD.
+            Provide your decision as the first word (BUY, SELL, HOLD) followed by an explanation.
             """
 
-            ai_decision = query_ollama(ai_prompt).upper()
+            ai_decision, ai_explanation = query_ollama_verbose(ai_prompt)
 
+            # Log AI response
+            print(f"🤖 AI Decision for {symbol}: {ai_decision}")
+            print(f"📢 AI Explanation: {ai_explanation}")
+
+            # Execute AI-driven trade
             if ai_decision == "BUY" and balances.get(quote_currency, 0) > 0:
                 buy_amount = (trade_percentage / 100) * balances[quote_currency] / current_price
                 await place_order(symbol, "BUY", buy_amount)
