@@ -286,7 +286,7 @@ def calculate_rsi(prices, symbol, period=14):
     print(f"📊 {symbol} RSI Calculation - Avg Gain: {avg_gain:.2f}, Avg Loss: {avg_loss:.2f}, RSI: {rsi:.2f}")
     return rsi
 
-def query_ollama_verbose(prompt, model="QuantFactory/Theia-Llama-3.1-8B-v1-GGUF"):
+def query_ollama_verbose(prompt, model="mistral"):
     """Query the AI model for a detailed trading decision."""
     url = "http://192.168.1.22:11434/api/generate"
     payload = {"model": model, "prompt": prompt, "stream": False}
@@ -360,9 +360,17 @@ async def trading_bot():
             # Create AI Prompt (short log for debugging)
             print(f"🤖 Asking AI for {symbol}: Price={current_price}, MACD={macd_line}, RSI={rsi}")
 
+            # Calculate price change from initial price
+            initial_price = crypto_data[symbol]["initial_price"]
+            price_change = ((current_price - initial_price) / initial_price) * 100 if initial_price else 0
+
+            print(f"📊 {symbol}: Initial Price = {initial_price}, Price Change = {price_change:.2f}%")
+
             ai_prompt = f"""
             Given the following market data:
             - {symbol} Current Price: {current_price}
+            - Initial Price: {initial_price}
+            - Price Change: {price_change:.2f}%
             - MACD Line: {macd_line}
             - Signal Line: {signal_line}
             - MACD Histogram: {macd_histogram}
