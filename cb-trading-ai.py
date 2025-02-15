@@ -82,6 +82,43 @@ async def api_request(method, path, body=None):
                 return await response.json()
             return {"error": await response.text()}
 
+def save_price_history(symbol, price):
+    """Save price history to the PostgreSQL database."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+        INSERT INTO price_history (symbol, price)
+        VALUES (%s, %s)
+        """, (symbol, price))
+        conn.commit()
+        print(f"💾 Saved {symbol} price history: ${price:.2f}")
+    except Exception as e:
+        print(f"Error saving price history to database: {e}")
+    finally:
+        cursor.close()
+        conn.close()
+
+def save_state(symbol, initial_price, total_trades, total_profit):
+    """Save the trading state to the PostgreSQL database."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+        INSERT INTO trading_state (symbol, initial_price, total_trades, total_profit)
+        VALUES (%s, %s, %s, %s)
+        ON CONFLICT (symbol) DO UPDATE
+        SET initial_price = EXCLUDED.initial_price,
+            total_trades = EXCLUDED.total_trades,
+            total_profit = EXCLUDED.total_profit
+        """, (symbol, initial_price, total_trades, total_profit))
+        conn.commit()
+    except Exception as e:
+        print(f"Error saving state to database: {e}")
+    finally:
+        cursor.close()
+        conn.close()
+
 def load_state(symbol):
     """Load the trading state from the PostgreSQL database."""
     conn = get_db_connection()
@@ -344,6 +381,9 @@ async def trading_bot():
             price_history = crypto_data[symbol]["price_history"]
             price_history.append(current_price)
 
+            # ✅ Save price to the database
+            save_price_history(symbol, current_price)
+
             print(f"📊 {symbol}: Price History Length = {len(price_history)}")
 
             if len(price_history) < 20:  # Not enough data for MACD & RSI
@@ -385,19 +425,26 @@ async def trading_bot():
             ai_decision, ai_explanation = query_ollama_verbose(ai_prompt)
 
             # Log AI response
-            print(f"🤖 AI Decision for {symbol}: {ai_decision}")
-            print(f"📢 AI Explanation: {ai_explanation}")
-
-            # Execute AI-driven trade
             if ai_decision == "BUY" and balances.get(quote_currency, 0) > 0:
                 buy_amount = (trade_percentage / 100) * balances[quote_currency] / current_price
                 print(f"🟢 Buying {symbol}: {buy_amount:.4f} units at ${current_price:.2f}")
-                await place_order(symbol, "BUY", buy_amount)
+                if await place_order(symbol, "BUY", buy_amount):
+                    crypto_data[symbol]["total_trades"] += 1
+                    crypto_data[symbol]["initial_price"] = current_price  # Reset reference price
+
+                    # ✅ Save updated state after buying
+                    save_state(symbol, crypto_data[symbol]["initial_price"], crypto_data[symbol]["total_trades"], crypto_data[symbol]["total_profit"])
 
             elif ai_decision == "SELL" and balances.get(symbol, 0) > 0:
                 sell_amount = (trade_percentage / 100) * balances[symbol]
                 print(f"🔴 Selling {symbol}: {sell_amount:.4f} units at ${current_price:.2f}")
-                await place_order(symbol, "SELL", sell_amount)
+                if await place_order(symbol, "SELL", sell_amount):
+                    crypto_data[symbol]["total_trades"] += 1
+                    crypto_data[symbol]["total_profit"] += (current_price - crypto_data[symbol]["initial_price"]) * sell_amount
+                    crypto_data[symbol]["initial_price"] = current_price  # Reset reference price
+
+                    # ✅ Save updated state after selling
+                    save_state(symbol, crypto_data[symbol]["initial_price"], crypto_data[symbol]["total_trades"], crypto_data[symbol]["total_profit"])
 
             else:
                 print(f"⚪ AI chose to HOLD {symbol} this cycle.")
