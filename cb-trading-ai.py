@@ -239,7 +239,7 @@ def calculate_rsi(prices, symbol, period=14):
 
 def query_ollama_verbose(prompt, model="QuantFactory/Theia-Llama-3.1-8B-v1-GGUF"):
     """Query the AI model for a detailed trading decision."""
-    url = "http://localhost:11434/api/generate"
+    url = "http://192.168.1.22:11434/api/generate"
     payload = {"model": model, "prompt": prompt, "stream": False}
 
     try:
