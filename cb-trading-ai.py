@@ -92,7 +92,7 @@ def save_price_history(symbol, price):
         VALUES (%s, %s)
         """, (symbol, price))
         conn.commit()
-        print(f"💾 Saved {symbol} price history: ${price:.2f}")
+        print(f"💾 Saved {symbol} price history: ${price}")
     except Exception as e:
         print(f"Error saving price history to database: {e}")
     finally:
@@ -237,7 +237,7 @@ async def place_order(crypto_symbol, side, amount):
         # Round to 2 decimal places for quote currency (e.g., USDC)
         rounded_amount = round(amount, 2)
         if rounded_amount < min_order_sizes["buy"]:
-            print(f"🚫 Buy order too small: ${rounded_amount:.2f} (minimum: ${min_order_sizes['buy']:.2f})")
+            print(f"🚫 Buy order too small: ${rounded_amount} (minimum: ${min_order_sizes['buy']})")
             return False
         order_data["order_configuration"]["market_market_ioc"]["quote_size"] = str(rounded_amount)
     else:  # SELL
@@ -271,6 +271,14 @@ async def place_order(crypto_symbol, side, amount):
         print(f"❌ Order Failed for {crypto_symbol}: {response.get('error', 'Unknown error')}")
         return False
 
+def calculate_volatility(price_history, volatility_window):
+    """Calculate volatility as the standard deviation of price changes over a specific window."""
+    if len(price_history) < volatility_window:
+        return 0.0
+    recent_prices = list(price_history)[-volatility_window:]
+    price_changes = np.diff(recent_prices) / recent_prices[:-1]  # Percentage changes
+    return np.std(price_changes)  # Standard deviation of returns
+
 def calculate_macd(prices, symbol, short_window=12, long_window=26, signal_window=9):
     """Calculate MACD, Signal Line, and Histogram."""
     if len(prices) < long_window + signal_window:
@@ -291,9 +299,9 @@ def calculate_macd(prices, symbol, short_window=12, long_window=26, signal_windo
     macd_histogram_values = [m - s for m, s in zip(macd_line_values[-len(signal_line_values):], signal_line_values)]
 
     # Log MACD values
-    print(f"📊 {symbol} MACD Calculation - Short EMA: {short_ema[-1]:.2f}, Long EMA: {long_ema[-1]:.2f}, "
-          f"MACD Line: {macd_line_values[-1]:.2f}, Signal Line: {signal_line_values[-1]:.2f}, "
-          f"Histogram: {macd_histogram_values[-1]:.2f}")
+    print(f"📊 {symbol} MACD Calculation - Short EMA: {short_ema[-1]}, Long EMA: {long_ema[-1]}, "
+          f"MACD Line: {macd_line_values[-1]}, Signal Line: {signal_line_values[-1]}, "
+          f"Histogram: {macd_histogram_values[-1]}")
 
     return macd_line_values[-1], signal_line_values[-1], macd_histogram_values[-1]
 
@@ -320,7 +328,7 @@ def calculate_rsi(prices, symbol, period=14):
     rs = avg_gain / avg_loss if avg_loss != 0 else float('inf')
     rsi = 100 - (100 / (1 + rs))
 
-    print(f"📊 {symbol} RSI Calculation - Avg Gain: {avg_gain:.2f}, Avg Loss: {avg_loss:.2f}, RSI: {rsi:.2f}")
+    print(f"📊 {symbol} RSI Calculation - Avg Gain: {avg_gain}, Avg Loss: {avg_loss}, RSI: {rsi}")
     return rsi
 
 def query_ollama_verbose(prompt, model="mistral"):
@@ -397,6 +405,18 @@ async def trading_bot():
             macd_line, signal_line, macd_histogram = calculate_macd(price_list, symbol)
             rsi = calculate_rsi(price_list, symbol)
 
+            # Get coin-specific settings
+            coin_settings = coins_config[symbol]
+            buy_threshold = coin_settings["buy_percentage"]
+            sell_threshold = coin_settings["sell_percentage"]
+            volatility_window = coin_settings["volatility_window"]
+            volatility = calculate_volatility(price_history, volatility_window)
+            volatility_factor = min(1.5, max(0.5, 1 + abs(volatility)))  # Cap extreme changes
+
+            # Adjust thresholds based on volatility
+            dynamic_buy_threshold = buy_threshold * volatility_factor
+            dynamic_sell_threshold = sell_threshold * volatility_factor
+
             # Create AI Prompt (short log for debugging)
             print(f"🤖 Asking AI for {symbol}: Price={current_price}, MACD={macd_line}, RSI={rsi}")
 
@@ -404,13 +424,13 @@ async def trading_bot():
             initial_price = crypto_data[symbol]["initial_price"]
             price_change = ((current_price - initial_price) / initial_price) * 100 if initial_price else 0
 
-            print(f"📊 {symbol}: Initial Price = {initial_price}, Price Change = {price_change:.2f}%")
+            print(f"📊 {symbol}: Initial Price = {initial_price}, Price Change = {price_change}%")
 
             ai_prompt = f"""
             Given the following market data:
             - {symbol} Current Price: {current_price}
             - Initial Price: {initial_price}
-            - Price Change: {price_change:.2f}%
+            - Price Change: {price_change}%
             - MACD Line: {macd_line}
             - Signal Line: {signal_line}
             - MACD Histogram: {macd_histogram}
@@ -423,14 +443,13 @@ async def trading_bot():
             """
 
             ai_decision, ai_explanation = query_ollama_verbose(ai_prompt)
-
             # Log AI response
             print(f"🤖 AI Decision for {symbol}: {ai_decision}")
             print(f"📢 AI Explanation: {ai_explanation}")
 
-            if ai_decision == "BUY" and balances.get(quote_currency, 0) > 0:
+            if price_change <= dynamic_buy_threshold and ai_decision == "BUY" and balances.get(quote_currency, 0) > 0:
                 buy_amount = (trade_percentage / 100) * balances[quote_currency] / current_price
-                print(f"🟢 Buying {symbol}: {buy_amount:.4f} units at ${current_price:.2f}")
+                print(f"🟢 Buying {symbol}: {buy_amount:.4f} units at ${current_price}")
                 if await place_order(symbol, "BUY", buy_amount):
                     crypto_data[symbol]["total_trades"] += 1
                     crypto_data[symbol]["initial_price"] = current_price  # Reset reference price
@@ -438,9 +457,9 @@ async def trading_bot():
                     # ✅ Save updated state after buying
                     save_state(symbol, crypto_data[symbol]["initial_price"], crypto_data[symbol]["total_trades"], crypto_data[symbol]["total_profit"])
 
-            elif ai_decision == "SELL" and balances.get(symbol, 0) > 0:
+            elif price_change >= dynamic_sell_threshold and ai_decision == "SELL" and balances.get(symbol, 0) > 0:
                 sell_amount = (trade_percentage / 100) * balances[symbol]
-                print(f"🔴 Selling {symbol}: {sell_amount:.4f} units at ${current_price:.2f}")
+                print(f"🔴 Selling {symbol}: {sell_amount:.4f} units at ${current_price}")
                 if await place_order(symbol, "SELL", sell_amount):
                     crypto_data[symbol]["total_trades"] += 1
                     crypto_data[symbol]["total_profit"] += (current_price - crypto_data[symbol]["initial_price"]) * sell_amount
