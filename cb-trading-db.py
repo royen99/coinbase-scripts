@@ -20,7 +20,8 @@ with open("config.json", "r") as f:
 key_name = config["name"]
 key_secret = config["privateKey"]
 quote_currency = "USDC"
-trade_percentage = config.get("trade_percentage", 10)  # % of available balance to trade
+buy_percentage = config.get("buy_percentage", 10)  # % of available balance to buy
+sell_percentage = config.get("sell_percentage", 10)  # % of available balance to sell
 stop_loss_percentage = config.get("stop_loss_percentage", -10)  # Stop-loss threshold
 
 request_host = "api.coinbase.com"
@@ -63,7 +64,6 @@ def save_price_history(symbol, price):
         VALUES (%s, %s)
         """, (symbol, price))
         conn.commit()
-        print(f"💾 Saved {symbol} price history: ${price:.2f}")
     except Exception as e:
         print(f"Error saving price history to database: {e}")
     finally:
@@ -335,11 +335,6 @@ def calculate_macd(prices, symbol, short_window=12, long_window=26, signal_windo
     # Calculate MACD Histogram
     macd_histogram_values = [m - s for m, s in zip(macd_line_values[-len(signal_line_values):], signal_line_values)]
 
-    # Log MACD values
-    print(f"📊 {symbol} MACD Calculation - Short EMA: {short_ema[-1]:.2f}, Long EMA: {long_ema[-1]:.2f}, "
-          f"MACD Line: {macd_line_values[-1]:.2f}, Signal Line: {signal_line_values[-1]:.2f}, "
-          f"Histogram: {macd_histogram_values[-1]:.2f}")
-
     return macd_line_values[-1], signal_line_values[-1], macd_histogram_values[-1]
 
 def calculate_rsi(prices, symbol, period=14):
@@ -364,8 +359,6 @@ def calculate_rsi(prices, symbol, period=14):
 
     rs = avg_gain / avg_loss if avg_loss != 0 else float('inf')
     rsi = 100 - (100 / (1 + rs))
-
-    print(f"📊 {symbol} RSI Calculation - Avg Gain: {avg_gain:.2f}, Avg Loss: {avg_loss:.2f}, RSI: {rsi:.2f}")
     return rsi
 
 def calculate_long_term_ma(price_history, period=200):
@@ -400,7 +393,7 @@ async def trading_bot():
                 "total_profit": 0.0,
             }
             save_state(symbol, initial_price, 0, 0.0)
-            print(f"🔍 Monitoring {symbol}... Initial Price: ${initial_price:.2f}, Price History: {crypto_data[symbol]['price_history']}")
+            print(f"🔍 Monitoring {symbol}... Initial Price: ${initial_price}, Price History: {crypto_data[symbol]['price_history']}")
 
     while True:
         await asyncio.sleep(30)  # Wait before checking prices again
@@ -431,7 +424,7 @@ async def trading_bot():
                 print(f"🚨 {symbol}: Empty price_history. Skipping.")
                 continue
             if current_price == crypto_data[symbol]["price_history"][-1]:
-                print(f"🚨 {symbol}: Price unchanged ({current_price:.2f} == {crypto_data[symbol]['price_history'][-1]:.2f}). Skipping.")
+                print(f"🚨 {symbol}: Price unchanged ({current_price} == {crypto_data[symbol]['price_history'][-1]}). Skipping.")
                 continue
 
             # Save price history
@@ -463,7 +456,8 @@ async def trading_bot():
                 continue
 
             price_change = ((current_price - crypto_data[symbol]["initial_price"]) / crypto_data[symbol]["initial_price"]) * 100
-            print(f"📈 {symbol} Price: ${current_price:.2f} ({price_change:.2f}%)")
+            price_precision = coins_config[symbol]["precision"]["price"]  # Get the decimal places from config
+            print(f"📈 {symbol} Price: ${current_price:.{price_precision}f} ({price_change:.2f}%)")
 
             # Calculate volatility and moving average
             volatility = calculate_volatility(price_history, volatility_window)
@@ -477,7 +471,7 @@ async def trading_bot():
             rsi = calculate_rsi(price_history, symbol)
 
             # Log indicator values
-            print(f"📊 {symbol} Indicators - Volatility: {volatility:.2f}, Moving Avg: {moving_avg:.2f}, MACD: {macd_line:.2f}, Signal: {signal_line:.2f}, RSI: {rsi:.2f}")
+            print(f"📊 {symbol} Indicators - Volatility: {volatility:.4f}, Moving Avg: {moving_avg:.4f}, MACD: {macd_line:.4f}, Signal: {signal_line:.4f}, RSI: {rsi:.2f}")
 
             # Adjust thresholds based on volatility
             dynamic_buy_threshold = buy_threshold * volatility_factor
@@ -488,8 +482,8 @@ async def trading_bot():
             expected_sell_price = crypto_data[symbol]["initial_price"] * (1 + dynamic_sell_threshold / 100)
 
             # Log expected prices
-            print(f"📊 Expected Buy Price for {symbol}: ${expected_buy_price:.2f} (Dynamic Buy Threshold: {dynamic_buy_threshold:.2f}%)")
-            print(f"📊 Expected Sell Price for {symbol}: ${expected_sell_price:.2f} (Dynamic Sell Threshold: {dynamic_sell_threshold:.2f}%)")
+            print(f"📊 Expected Buy Price for {symbol}: ${expected_buy_price:.6f} (Dynamic Buy Threshold: {dynamic_buy_threshold:.2f}%)")
+            print(f"📊 Expected Sell Price for {symbol}: ${expected_sell_price:.6f} (Dynamic Sell Threshold: {dynamic_sell_threshold:.2f}%)")
 
             # Check if the price is close to the moving average
             if moving_avg and abs(current_price - moving_avg) < (0.02 * moving_avg):  # Only trade if price is within 2% of the moving average
@@ -527,14 +521,14 @@ async def trading_bot():
                     and current_price < long_term_ma  # Trend filter
                     and balances[quote_currency] > 0  # Sufficient balance
                 ):
-                    buy_amount = (trade_percentage / 100) * balances[quote_currency] / current_price
+                    buy_amount = (buy_percentage / 100) * balances[quote_currency] / current_price
                     if buy_amount > 0:
                         print(f"💰 Buying {buy_amount:.4f} {symbol}!")
                         if await place_order(symbol, "BUY", buy_amount, current_price):
                             crypto_data[symbol]["total_trades"] += 1
                             crypto_data[symbol]["initial_price"] = current_price  # Reset reference price
                     else:
-                        print(f"🚫 Buy order too small: ${buy_amount:.2f} (minimum: ${coins_config[symbol]['min_order_sizes']['buy']:.2f})")
+                        print(f"🚫 Buy order too small: ${buy_amount} (minimum: ${coins_config[symbol]['min_order_sizes']['buy']})")
 
                 # Execute sell order if MACD sell signal is confirmed
                 elif (
@@ -543,7 +537,7 @@ async def trading_bot():
                     and current_price > long_term_ma  # Trend filter
                     and balances[symbol] > 0  # Sufficient balance
                 ):
-                    sell_amount = (trade_percentage / 100) * balances[symbol]
+                    sell_amount = (sell_percentage / 100) * balances[symbol]
                     if sell_amount > 0:
                         print(f"💵 Selling {sell_amount:.4f} {symbol}!")
                         if await place_order(symbol, "SELL", sell_amount):

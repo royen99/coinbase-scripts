@@ -1,7 +1,8 @@
 {
   "name": "organizations/{org_id}/apiKeys/{key_id}",
   "privateKey": "-----BEGIN EC PRIVATE KEY-----\nYOUR PRIVATE KEY\n-----END EC PRIVATE KEY-----\n",
-  "trade_percentage": 10,
+  "buy_percentage": 10,
+  "sell_percentage": 10,
   "stop_loss_percentage": -10,
   "database": {
     "host": "your-database-host",

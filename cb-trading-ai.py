@@ -21,7 +21,8 @@ with open("config.json", "r") as f:
 key_name = config["name"]
 key_secret = config["privateKey"]
 quote_currency = "USDC"
-trade_percentage = config.get("trade_percentage", 10)  # % of available balance to trade
+buy_percentage = config.get("buy_percentage", 10)  # % of available balance to buy
+sell_percentage = config.get("sell_percentage", 10)  # % of available balance to sell
 stop_loss_percentage = config.get("stop_loss_percentage", -10)  # Stop-loss threshold
 
 request_host = "api.coinbase.com"
@@ -218,7 +219,7 @@ async def get_balances():
     
     return balances
 
-async def place_order(crypto_symbol, side, amount):
+async def place_order(crypto_symbol, side, amount, current_price):
     """Place a buy/sell order for the specified cryptocurrency asynchronously."""
     path = "/api/v3/brokerage/orders"
     
@@ -246,7 +247,8 @@ async def place_order(crypto_symbol, side, amount):
         if rounded_amount < min_order_sizes["sell"]:
             print(f"🚫 Sell order too small: {rounded_amount:.6f} {crypto_symbol} (minimum: {min_order_sizes['sell']:.6f} {crypto_symbol})")
             return False
-        order_data["order_configuration"]["market_market_ioc"]["base_size"] = str(rounded_amount)
+        quote_cost = round(current_price * amount, 2)  # Convert to USDC
+        order_data["order_configuration"]["market_market_ioc"]["quote_size"] = str(quote_cost)
 
     # Log the order details
     print(f"🛠️ Placing {side} order for {crypto_symbol}: Amount = {rounded_amount}, Price = {await get_crypto_price(crypto_symbol)}")
@@ -448,9 +450,9 @@ async def trading_bot():
             print(f"📢 AI Explanation: {ai_explanation}")
 
             if price_change <= dynamic_buy_threshold and ai_decision == "BUY" and balances.get(quote_currency, 0) > 0:
-                buy_amount = (trade_percentage / 100) * balances[quote_currency] / current_price
+                buy_amount = (buy_percentage / 100) * balances[quote_currency] / current_price
                 print(f"🟢 Buying {symbol}: {buy_amount:.4f} units at ${current_price}")
-                if await place_order(symbol, "BUY", buy_amount):
+                if await place_order(symbol, "BUY", buy_amount, current_price):
                     crypto_data[symbol]["total_trades"] += 1
                     crypto_data[symbol]["initial_price"] = current_price  # Reset reference price
 
@@ -458,7 +460,7 @@ async def trading_bot():
                     save_state(symbol, crypto_data[symbol]["initial_price"], crypto_data[symbol]["total_trades"], crypto_data[symbol]["total_profit"])
 
             elif price_change >= dynamic_sell_threshold and ai_decision == "SELL" and balances.get(symbol, 0) > 0:
-                sell_amount = (trade_percentage / 100) * balances[symbol]
+                sell_amount = (sell_percentage / 100) * balances[symbol]
                 print(f"🔴 Selling {symbol}: {sell_amount:.4f} units at ${current_price}")
                 if await place_order(symbol, "SELL", sell_amount):
                     crypto_data[symbol]["total_trades"] += 1

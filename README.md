@@ -34,6 +34,27 @@ The `cb-trading-db.py` script is the main project (see below for for scripts wit
 ✅ Relative Strength Index (RSI) to identify overbought and oversold conditions.\
 ✅ Integrated MACD and RSI signals into the trading strategy.
 
+🔍 **Trading Logic Buy**: Depending on the buy/thresholds set, it would perform a (buy) trade if:
+- The price change <= The dynamic buy threshold and
+- A positive MACD Buy Signal and
+- At least 5 MACD (buy) Confirmations are set and
+- RSI is below 30 and
+- Current Price is *lower* then the Long Term Moiving average and
+- There is Sufficient balance for USDC to meet the minimum trade amount.
+
+🔍 **Trading Logic Sell**: Depending on the buy/thresholds set, it would perform a (buy) trade if:
+- The price change >= The dynamic buy threshold and
+- A positive MACD Sell Signal and
+- At least 5 MACD (sell) Confirmations are set and
+- RSI is above 70 and
+- Current Price is *higher* then the Long Term Moiving average and
+- There is Sufficient balance for the crypto currency to meet the minimum trade amount.
+
+🚨 Note that the various indicators will only function with enough data points (depending on your settings).\
+Without enough price history you will see log lines such as:\
+⚠️ LTC: Not enough data for indicators. Required: 51, Available: 46.\
+⚠️ ETH: Not enough data for long-term MA. Skipping.
+
 Additional settings (inside the `config.json`) are needed holding your database info and which coins you want to enable/disable.\
 You can adjust `trade_percentage` to control how much of your balance gets traded. 😘💸\
 **Fine-Tune Parameters**: Adjust the `volatility_window`, `trend_window`, and `stop_loss_percentage` to suit your risk tolerance and market conditions. 📊
@@ -42,7 +63,8 @@ You can adjust `trade_percentage` to control how much of your balance gets trade
 {
   "name": "organizations/{org_id}/apiKeys/{key_id}",
   "privateKey": "-----BEGIN EC PRIVATE KEY-----\nYOUR PRIVATE KEY\n-----END EC PRIVATE KEY-----\n",
-  "trade_percentage": 10,
+  "buy_percentage": 10,
+  "sell_percentage": 10,
   "stop_loss_percentage": -10,
   "database": {
     "host": "your-database-host",
@@ -170,72 +192,13 @@ The *most simple* one, It does not keep state, nor any advanced calculations.\
 ✔ Displays ETH & USDC Balances 💰\
 ✔ Prevents Trades if You Have No Balance 🚫\
 ✔ Still Trades ETH & USDC Based on Price Changes 📊\
-✔ Trades a percentage of your available ETH or USDC balance.
+✔ Trades a percentage of your available ETH or USDC balance.\
 ✔ *Minimum Order*: Makes sure an order meets Coinbase's minimum amounts.
 
-### cb-trading-advanced.py
-Similar as the `cb-trading-percentage.py` but also includes:\
+### [EXPIRIMENTAL] cb-trading-AI.py
+Almost similar as the `cb-trading-percentage.py` but:
 
-✔ *Dynamic Thresholds*: The buy/sell thresholds are adjusted based on recent price volatility.\
-✔ *Trend Filter*: Trades are only executed if the price is close to the moving average, avoiding trades during strong trends.\
-✔ *Stop-Loss*: A stop-loss mechanism is added to limit losses if the price drops significantly.\
-✔ *Performance Tracking*: Tracks the total number of trades and cumulative profit/loss.
+✔ *AI LLM Decision*: Instead of using the MACD/RSI indicators, these are fed to an ollama backend.
 
-### cb-trading-multiple.py
-Similar as the `cb-trading-advanced.py` but also includes:\
-
-✔ *Supports Multiple Cryptocurrencies*: The script monitors and trades all cryptocurrencies specified in the `crypto_symbols` list.\
-✔ *Independent Tracking for Each Cryptocurrency*: Each cryptocurrency has its own `price_history`, `initial_price`, `total_trades`, and `total_profit` tracking.\
-✔ *Keeps State*: Can reuse values like `initial_price`, `price_history`, `total_trades`, and `total_profit` if it gets restarted.
-
-To keep state, a `state.json` is created (if none exists) as:
-```json
-{
-  "ETH": {
-    "price_history": [2000.0, 1980.0, 1990.0],
-    "initial_price": 2000.0,
-    "total_trades": 2,
-    "total_profit": 20.0
-  },
-  "XRP": {
-    "price_history": [0.5, 0.49, 0.48],
-    "initial_price": 0.5,
-    "total_trades": 1,
-    "total_profit": -0.02
-  }
-}
-```
-
-## Example Outputs
-```
-🔍 Monitoring ETH... Initial Price: $3000.00
-💰 Available Balance - ETH: 1.5 | USDC: 1000.00
-📈 ETH Price: $2910.00 (-3.00%)
-🚫 Buy order too small: $0.01 (minimum: $0.01)
-💰 Buying 0.0344 ETH!
-✅ BUY Order Placed: abc1234
-
-💰 Available Balance - ETH: 1.6 | USDC: 970.00
-📈 ETH Price: $3090.00 (3.00%)
-💵 Selling 0.1600 ETH!
-✅ SELL Order Placed: xyz5678
-🚫 Sell order too small: 0.000050 ETH (minimum: 0.000100 ETH)
-🚨 Stop-loss triggered! Selling 0.2739 ETH!
-📊 Total Trades: 12 | Total Profit: $541.20
-
-💰 Available Balances:
-  - ETH: 730.041680797387629226
-  - XRP: 40.2
-  - DOGE: 640.5
-  - SOL: 210.1
-  - USDC: 79.3424226884312
-
-📈 ETH Price: $1980.00 (-1.00%)
-📊 Expected Buy Price for ETH: $1940.00
-📊 Expected Sell Price for ETH: $2060.00
-```
-
-### cb-trading-rsi.py
-Similar as the `cb-trading-advanced.py` but also includes:
-
-✔ *Supports Multiple Cryptocurrencies*: Enabled/disabled is taked from the `config.json` file (see the template file).
+There is still a failsafe that would perform an actual trade based on the buy/sell threshold set in the `config.json`.\
+The AI part is far from stable and (during testing) using a basic `mistral` model.

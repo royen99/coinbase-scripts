@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Buy and Sell**: Conditions where inverted.
+- **Quote Currency**: When buying, `buy_amount` should be in USDC, not the `symbol`.
+
 ### Added
 - **Trades Table**: Created a `trades` table to store trade history.
 - **Trade Logging**: Updated the bot to log trades in the `trades` table.
@@ -16,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Refactored `get_balances`**: Updated `get_balances` to return balances data for use in logging and database updates.
 - **Updated `update_balances`**: Modified `update_balances` to accept balances data as an argument.
 - **Trend Window**: Price history in the database need at least 200 entries for an accurate calculation.
+- **Rounding**: Display coin prices in full decimals, not rounded to to 2.
 
 ### Improved
 - **Efficiency**: Reduced API calls by reusing balances data for logging and database updates.
