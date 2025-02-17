@@ -266,7 +266,7 @@ async def place_order(crypto_symbol, side, amount, current_price):
         # Log the trade in the database
         current_price = await get_crypto_price(crypto_symbol)
         if current_price:
-            log_trade(crypto_symbol, side, rounded_amount, current_price)
+            await log_trade(crypto_symbol, side, rounded_amount, current_price)
 
         return True
     else:
