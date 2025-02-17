@@ -523,7 +523,7 @@ async def trading_bot():
                 if (
                     (price_change <= dynamic_buy_threshold and  # Price threshold
                     (macd_buy_signal and macd_confirmation[symbol]["buy"] >= 5 and rsi < 30))  # MACD + RSI filter
-                    and current_price > long_term_ma  # Trend filter
+                    and current_price < long_term_ma  # Trend filter
                     and balances[quote_currency] > 0  # Sufficient balance
                 ):
                     buy_amount = (trade_percentage / 100) * balances[quote_currency] / current_price
@@ -539,7 +539,7 @@ async def trading_bot():
                 elif (
                     (price_change >= dynamic_sell_threshold and  # Price threshold
                     (macd_sell_signal and macd_confirmation[symbol]["sell"] >= 5 and rsi > 70))  # MACD + RSI filter
-                    and current_price < long_term_ma  # Trend filter
+                    and current_price > long_term_ma  # Trend filter
                     and balances[symbol] > 0  # Sufficient balance
                 ):
                     sell_amount = (trade_percentage / 100) * balances[symbol]

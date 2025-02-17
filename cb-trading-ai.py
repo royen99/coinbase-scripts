@@ -1,0 +1,478 @@
+import jwt
+import aiohttp
+import asyncio
+import secrets
+import json
+import time
+import requests
+from cryptography.hazmat.primitives import serialization
+from collections import deque
+import psycopg2 # type: ignore
+from psycopg2.extras import Json # type: ignore
+from decimal import Decimal
+import numpy as np
+
+DEBUG_MODE = False  # Set to True for debugging
+
+# Load configuration from config.json
+with open("config.json", "r") as f:
+    config = json.load(f)
+
+key_name = config["name"]
+key_secret = config["privateKey"]
+quote_currency = "USDC"
+trade_percentage = config.get("trade_percentage", 10)  # % of available balance to trade
+stop_loss_percentage = config.get("stop_loss_percentage", -10)  # Stop-loss threshold
+
+request_host = "api.coinbase.com"
+
+# Load coin-specific settings
+coins_config = config.get("coins", {})
+crypto_symbols = [symbol for symbol, settings in coins_config.items() if settings.get("enabled", False)]
+
+# Database connection parameters
+DB_HOST = config["database"]["host"]
+DB_PORT = config["database"]["port"]
+DB_NAME = config["database"]["name"]
+DB_USER = config["database"]["user"]
+DB_PASSWORD = config["database"]["password"]
+
+def get_db_connection():
+    return psycopg2.connect(
+        host=DB_HOST, port=DB_PORT, database=DB_NAME, user=DB_USER, password=DB_PASSWORD
+    )
+
+def build_jwt(uri):
+    """Generate a JWT token for Coinbase API authentication."""
+    private_key_bytes = key_secret.encode("utf-8")
+    private_key = serialization.load_pem_private_key(private_key_bytes, password=None)
+
+    jwt_payload = {
+        "sub": key_name,
+        "iss": "cdp",
+        "nbf": int(time.time()),
+        "exp": int(time.time()) + 120,
+        "uri": uri,
+    }
+
+    jwt_token = jwt.encode(
+        jwt_payload,
+        private_key,
+        algorithm="ES256",
+        headers={"kid": key_name, "nonce": secrets.token_hex()},
+    )
+
+    return jwt_token if isinstance(jwt_token, str) else jwt_token.decode("utf-8")
+
+async def api_request(method, path, body=None):
+    """Send authenticated requests to Coinbase API asynchronously."""
+    uri = f"{method} {request_host}{path}"
+    jwt_token = build_jwt(uri)
+
+    headers = {
+        "Authorization": f"Bearer {jwt_token}",
+        "Content-Type": "application/json",
+        "CB-VERSION": "2024-02-05"
+    }
+
+    url = f"https://{request_host}{path}"
+    async with aiohttp.ClientSession() as session:
+        async with session.request(method, url, headers=headers, json=body) as response:
+            if response.status == 200:
+                return await response.json()
+            return {"error": await response.text()}
+
+def save_price_history(symbol, price):
+    """Save price history to the PostgreSQL database."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+        INSERT INTO price_history (symbol, price)
+        VALUES (%s, %s)
+        """, (symbol, price))
+        conn.commit()
+        print(f"💾 Saved {symbol} price history: ${price}")
+    except Exception as e:
+        print(f"Error saving price history to database: {e}")
+    finally:
+        cursor.close()
+        conn.close()
+
+def save_state(symbol, initial_price, total_trades, total_profit):
+    """Save the trading state to the PostgreSQL database."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+        INSERT INTO trading_state (symbol, initial_price, total_trades, total_profit)
+        VALUES (%s, %s, %s, %s)
+        ON CONFLICT (symbol) DO UPDATE
+        SET initial_price = EXCLUDED.initial_price,
+            total_trades = EXCLUDED.total_trades,
+            total_profit = EXCLUDED.total_profit
+        """, (symbol, initial_price, total_trades, total_profit))
+        conn.commit()
+    except Exception as e:
+        print(f"Error saving state to database: {e}")
+    finally:
+        cursor.close()
+        conn.close()
+
+def load_state(symbol):
+    """Load the trading state from the PostgreSQL database."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        # Load trading metrics from trading_state
+        cursor.execute("""
+        SELECT initial_price, total_trades, total_profit
+        FROM trading_state
+        WHERE symbol = %s
+        """, (symbol,))
+        row = cursor.fetchone()
+
+        if row:
+            # Convert decimal.Decimal to float if necessary
+            initial_price = float(row[0]) if isinstance(row[0], Decimal) else row[0]
+            total_trades = int(row[1])
+            total_profit = float(row[2]) if isinstance(row[2], Decimal) else row[2]
+
+            # Load price history from price_history table
+            cursor.execute("""
+            SELECT price
+            FROM price_history
+            WHERE symbol = %s
+            ORDER BY timestamp DESC
+            LIMIT %s
+            """, (symbol, price_history_maxlen))
+            price_history = [float(row[0]) for row in cursor.fetchall()]
+
+            return {
+                "price_history": deque(price_history, maxlen=price_history_maxlen),
+                "initial_price": initial_price,
+                "total_trades": total_trades,
+                "total_profit": total_profit,
+            }
+        return None
+    except Exception as e:
+        print(f"Error loading state from database: {e}")
+        return None
+    finally:
+        cursor.close()
+        conn.close()
+
+# Initialize price_history with maxlen equal to the larger of volatility_window and trend_window
+price_history_maxlen = max(
+    max(settings.get("volatility_window", 10) for settings in coins_config.values()),
+    max(settings.get("trend_window", 20) for settings in coins_config.values())
+)
+
+async def log_trade(symbol, side, amount, price):
+    """Log a trade in the trades table."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+        INSERT INTO trades (symbol, side, amount, price)
+        VALUES (%s, %s, %s, %s)
+        """, (symbol, side, amount, price))
+        conn.commit()
+    except Exception as e:
+        print(f"Error logging trade: {e}")
+    finally:
+        cursor.close()
+        conn.close()
+
+async def get_crypto_price(crypto_symbol):
+    """Fetch cryptocurrency price from Coinbase asynchronously."""
+    path = f"/api/v3/brokerage/products/{crypto_symbol}-{quote_currency}"
+    data = await api_request("GET", path)
+    
+    return float(data["price"]) if "price" in data else None
+
+def calculate_ema(prices, period, return_all=False):
+    """Calculate the Exponential Moving Average (EMA) for a given period."""
+    if len(prices) < period:
+        return None if not return_all else []
+
+    multiplier = 2 / (period + 1)
+    ema_values = [sum(prices[:period]) / period]  # Start with SMA
+
+    for price in prices[period:]:
+        ema_values.append((price - ema_values[-1]) * multiplier + ema_values[-1])
+
+    return ema_values if return_all else ema_values[-1]
+
+async def get_balances():
+    """Fetch balances from Coinbase and return them as a dictionary."""
+    path = "/api/v3/brokerage/accounts"
+    data = await api_request("GET", path)  # Await the API request
+    
+    balances = {}
+    if "accounts" in data:
+        for account in data["accounts"]:
+            currency = account["currency"]
+            available_balance = float(account["available_balance"]["value"])
+            balances[currency] = available_balance
+    
+    return balances
+
+async def place_order(crypto_symbol, side, amount):
+    """Place a buy/sell order for the specified cryptocurrency asynchronously."""
+    path = "/api/v3/brokerage/orders"
+    
+    order_data = {
+        "client_order_id": secrets.token_hex(16),
+        "product_id": f"{crypto_symbol}-{quote_currency}",
+        "side": side,
+        "order_configuration": {
+            "market_market_ioc": {}
+        }
+    }
+    
+    min_order_sizes = coins_config[crypto_symbol]["min_order_sizes"]
+    
+    if side == "BUY":
+        # Round to 2 decimal places for quote currency (e.g., USDC)
+        rounded_amount = round(amount, 2)
+        if rounded_amount < min_order_sizes["buy"]:
+            print(f"🚫 Buy order too small: ${rounded_amount} (minimum: ${min_order_sizes['buy']})")
+            return False
+        order_data["order_configuration"]["market_market_ioc"]["quote_size"] = str(rounded_amount)
+    else:  # SELL
+        # Round to the required precision for the base currency (e.g., ETH, BTC)
+        rounded_amount = round(amount, 6)  # Adjust based on the coin's precision
+        if rounded_amount < min_order_sizes["sell"]:
+            print(f"🚫 Sell order too small: {rounded_amount:.6f} {crypto_symbol} (minimum: {min_order_sizes['sell']:.6f} {crypto_symbol})")
+            return False
+        order_data["order_configuration"]["market_market_ioc"]["base_size"] = str(rounded_amount)
+
+    # Log the order details
+    print(f"🛠️ Placing {side} order for {crypto_symbol}: Amount = {rounded_amount}, Price = {await get_crypto_price(crypto_symbol)}")
+
+    response = await api_request("POST", path, order_data)
+
+    if DEBUG_MODE:
+        print(f"🔄 Raw Response: {response}")  # Only log raw response in debug mode
+
+    # Handle the response
+    if response.get("success", False):
+        order_id = response["success_response"]["order_id"]
+        print(f"✅ {side.upper()} Order Placed for {crypto_symbol}: Order ID = {order_id}")
+        
+        # Log the trade in the database
+        current_price = await get_crypto_price(crypto_symbol)
+        if current_price:
+            log_trade(crypto_symbol, side, rounded_amount, current_price)
+
+        return True
+    else:
+        print(f"❌ Order Failed for {crypto_symbol}: {response.get('error', 'Unknown error')}")
+        return False
+
+def calculate_volatility(price_history, volatility_window):
+    """Calculate volatility as the standard deviation of price changes over a specific window."""
+    if len(price_history) < volatility_window:
+        return 0.0
+    recent_prices = list(price_history)[-volatility_window:]
+    price_changes = np.diff(recent_prices) / recent_prices[:-1]  # Percentage changes
+    return np.std(price_changes)  # Standard deviation of returns
+
+def calculate_macd(prices, symbol, short_window=12, long_window=26, signal_window=9):
+    """Calculate MACD, Signal Line, and Histogram."""
+    if len(prices) < long_window + signal_window:
+        print(f"⚠️ Not enough data to calculate MACD for {symbol}. Required: {long_window + signal_window}, Available: {len(prices)}")
+        return None, None, None
+
+    # Compute EMA for the full dataset
+    short_ema = calculate_ema(prices, short_window, return_all=True)
+    long_ema = calculate_ema(prices, long_window, return_all=True)
+
+    # Calculate MACD Line (difference between short and long EMA)
+    macd_line_values = [s - l for s, l in zip(short_ema, long_ema)]
+
+    # Calculate Signal Line (EMA of MACD Line)
+    signal_line_values = calculate_ema(macd_line_values, signal_window, return_all=True)
+
+    # Calculate MACD Histogram
+    macd_histogram_values = [m - s for m, s in zip(macd_line_values[-len(signal_line_values):], signal_line_values)]
+
+    # Log MACD values
+    print(f"📊 {symbol} MACD Calculation - Short EMA: {short_ema[-1]}, Long EMA: {long_ema[-1]}, "
+          f"MACD Line: {macd_line_values[-1]}, Signal Line: {signal_line_values[-1]}, "
+          f"Histogram: {macd_histogram_values[-1]}")
+
+    return macd_line_values[-1], signal_line_values[-1], macd_histogram_values[-1]
+
+def calculate_rsi(prices, symbol, period=14):
+    """Calculate the Relative Strength Index (RSI)."""
+    if len(prices) < period + 1:
+        print(f"⚠️ Not enough data to calculate RSI for {symbol}. Required: {period + 1}, Available: {len(prices)}")
+        return None
+
+    # Calculate gains and losses
+    changes = np.diff(prices)
+    gains = np.maximum(changes, 0)
+    losses = np.maximum(-changes, 0)
+
+    # Calculate average gains and losses
+    avg_gain = np.mean(gains[:period])
+    avg_loss = np.mean(losses[:period])
+
+    # EMA smoothing for RSI
+    for i in range(period, len(gains)):
+        avg_gain = (avg_gain * (period - 1) + gains[i]) / period
+        avg_loss = (avg_loss * (period - 1) + losses[i]) / period
+
+    rs = avg_gain / avg_loss if avg_loss != 0 else float('inf')
+    rsi = 100 - (100 / (1 + rs))
+
+    print(f"📊 {symbol} RSI Calculation - Avg Gain: {avg_gain}, Avg Loss: {avg_loss}, RSI: {rsi}")
+    return rsi
+
+def query_ollama_verbose(prompt, model="mistral"):
+    """Query the AI model for a detailed trading decision."""
+    url = "http://192.168.1.22:11434/api/generate"
+    payload = {"model": model, "prompt": prompt, "stream": False}
+
+    try:
+        response = requests.post(url, json=payload)
+        result = response.json()
+        ai_response = result.get("response", "").strip()
+        
+        # Extract decision (first word) and keep explanation
+        ai_parts = ai_response.split("\n", 1)
+        decision = ai_parts[0].strip().upper()
+        explanation = ai_parts[1].strip() if len(ai_parts) > 1 else "No explanation provided."
+        
+        return decision, explanation
+    except Exception as e:
+        print(f"🚨 AI Query Error: {e}")
+        return "HOLD", "AI unavailable, defaulting to HOLD."
+
+async def trading_bot():
+    global crypto_data
+    
+    crypto_data = {}
+
+    print("\n📂 Loading historical price data from database...\n")
+
+    for symbol in crypto_symbols:
+        state = load_state(symbol)  # Load past data from DB
+        if state and len(state["price_history"]) > 0:
+            crypto_data[symbol] = state
+            print(f"✅ {symbol}: Loaded {len(state['price_history'])} past prices from DB.")
+        else:
+            # If no past data, initialize empty
+            crypto_data[symbol] = {"price_history": deque(maxlen=200), "initial_price": None}
+            print(f"⚠️ {symbol}: No historical data found. Collecting new prices...")
+
+    print("\n🚀 Bot initialized! Starting live trading...\n")
+
+    while True:
+        await asyncio.sleep(30)
+
+        print("\n🔄 Starting New Trading Cycle...\n")
+
+        # Fetch balances
+        balances = await get_balances()
+        
+        # Fetch latest prices for all symbols
+        price_tasks = [get_crypto_price(symbol) for symbol in crypto_symbols]
+        prices = await asyncio.gather(*price_tasks)
+
+        for symbol, current_price in zip(crypto_symbols, prices):
+            if not current_price:
+                continue
+            
+            price_history = crypto_data[symbol]["price_history"]
+            price_history.append(current_price)
+
+            # ✅ Save price to the database
+            save_price_history(symbol, current_price)
+
+            print(f"📊 {symbol}: Price History Length = {len(price_history)}")
+
+            if len(price_history) < 20:  # Not enough data for MACD & RSI
+                print(f"⚠️ {symbol}: Not enough data yet. Need at least 20 prices.")
+                continue
+
+            # 🛠️ Convert deque to list before using indicators
+            price_list = list(price_history)
+
+            # Calculate MACD and RSI using the corrected list
+            macd_line, signal_line, macd_histogram = calculate_macd(price_list, symbol)
+            rsi = calculate_rsi(price_list, symbol)
+
+            # Get coin-specific settings
+            coin_settings = coins_config[symbol]
+            buy_threshold = coin_settings["buy_percentage"]
+            sell_threshold = coin_settings["sell_percentage"]
+            volatility_window = coin_settings["volatility_window"]
+            volatility = calculate_volatility(price_history, volatility_window)
+            volatility_factor = min(1.5, max(0.5, 1 + abs(volatility)))  # Cap extreme changes
+
+            # Adjust thresholds based on volatility
+            dynamic_buy_threshold = buy_threshold * volatility_factor
+            dynamic_sell_threshold = sell_threshold * volatility_factor
+
+            # Create AI Prompt (short log for debugging)
+            print(f"🤖 Asking AI for {symbol}: Price={current_price}, MACD={macd_line}, RSI={rsi}")
+
+            # Calculate price change from initial price
+            initial_price = crypto_data[symbol]["initial_price"]
+            price_change = ((current_price - initial_price) / initial_price) * 100 if initial_price else 0
+
+            print(f"📊 {symbol}: Initial Price = {initial_price}, Price Change = {price_change}%")
+
+            ai_prompt = f"""
+            Given the following market data:
+            - {symbol} Current Price: {current_price}
+            - Initial Price: {initial_price}
+            - Price Change: {price_change}%
+            - MACD Line: {macd_line}
+            - Signal Line: {signal_line}
+            - MACD Histogram: {macd_histogram}
+            - RSI: {rsi}
+            - Available USDC: {balances.get(quote_currency, 0)}
+            - Available {symbol}: {balances.get(symbol, 0)}
+
+            Analyze the trend and explain whether I should BUY, SELL, or HOLD.
+            Provide your decision as the first word (BUY, SELL, HOLD) followed by an explanation.
+            """
+
+            ai_decision, ai_explanation = query_ollama_verbose(ai_prompt)
+            # Log AI response
+            print(f"🤖 AI Decision for {symbol}: {ai_decision}")
+            print(f"📢 AI Explanation: {ai_explanation}")
+
+            if price_change <= dynamic_buy_threshold and ai_decision == "BUY" and balances.get(quote_currency, 0) > 0:
+                buy_amount = (trade_percentage / 100) * balances[quote_currency] / current_price
+                print(f"🟢 Buying {symbol}: {buy_amount:.4f} units at ${current_price}")
+                if await place_order(symbol, "BUY", buy_amount):
+                    crypto_data[symbol]["total_trades"] += 1
+                    crypto_data[symbol]["initial_price"] = current_price  # Reset reference price
+
+                    # ✅ Save updated state after buying
+                    save_state(symbol, crypto_data[symbol]["initial_price"], crypto_data[symbol]["total_trades"], crypto_data[symbol]["total_profit"])
+
+            elif price_change >= dynamic_sell_threshold and ai_decision == "SELL" and balances.get(symbol, 0) > 0:
+                sell_amount = (trade_percentage / 100) * balances[symbol]
+                print(f"🔴 Selling {symbol}: {sell_amount:.4f} units at ${current_price}")
+                if await place_order(symbol, "SELL", sell_amount):
+                    crypto_data[symbol]["total_trades"] += 1
+                    crypto_data[symbol]["total_profit"] += (current_price - crypto_data[symbol]["initial_price"]) * sell_amount
+                    crypto_data[symbol]["initial_price"] = current_price  # Reset reference price
+
+                    # ✅ Save updated state after selling
+                    save_state(symbol, crypto_data[symbol]["initial_price"], crypto_data[symbol]["total_trades"], crypto_data[symbol]["total_profit"])
+
+            else:
+                print(f"⚪ AI chose to HOLD {symbol} this cycle.")
+
+        print("\n✅ AI Trading Cycle Completed! Waiting for next round...\n")
+        await asyncio.sleep(10)
+
+if __name__ == "__main__":
+    asyncio.run(trading_bot())
