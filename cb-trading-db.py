@@ -64,7 +64,6 @@ def save_price_history(symbol, price):
         VALUES (%s, %s)
         """, (symbol, price))
         conn.commit()
-        print(f"💾 Saved {symbol} price history: ${price}")
     except Exception as e:
         print(f"Error saving price history to database: {e}")
     finally:
@@ -471,7 +470,7 @@ async def trading_bot():
             rsi = calculate_rsi(price_history, symbol)
 
             # Log indicator values
-            print(f"📊 {symbol} Indicators - Volatility: {volatility:.4f}, Moving Avg: {moving_avg:.4f}, MACD: {macd_line}, Signal: {signal_line:.4f}, RSI: {rsi:.2f}")
+            print(f"📊 {symbol} Indicators - Volatility: {volatility:.4f}, Moving Avg: {moving_avg:.4f}, MACD: {macd_line:.4f}, Signal: {signal_line:.4f}, RSI: {rsi:.2f}")
 
             # Adjust thresholds based on volatility
             dynamic_buy_threshold = buy_threshold * volatility_factor
