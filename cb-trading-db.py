@@ -456,7 +456,7 @@ async def trading_bot():
                 continue
 
             price_change = ((current_price - crypto_data[symbol]["initial_price"]) / crypto_data[symbol]["initial_price"]) * 100
-            print(f"📈 {symbol} Price: ${current_price} ({price_change:.2f}%)")
+            print(f"📈 {symbol} Price: ${current_price:.6f} ({price_change:.2f}%)")
 
             # Calculate volatility and moving average
             volatility = calculate_volatility(price_history, volatility_window)
