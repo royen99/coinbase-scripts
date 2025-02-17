@@ -471,7 +471,7 @@ async def trading_bot():
             rsi = calculate_rsi(price_history, symbol)
 
             # Log indicator values
-            print(f"📊 {symbol} Indicators - Volatility: {volatility}, Moving Avg: {moving_avg}, MACD: {macd_line}, Signal: {signal_line}, RSI: {rsi:.2f}")
+            print(f"📊 {symbol} Indicators - Volatility: {volatility:.4f}, Moving Avg: {moving_avg:.4f}, MACD: {macd_line}, Signal: {signal_line:.4f}, RSI: {rsi:.2f}")
 
             # Adjust thresholds based on volatility
             dynamic_buy_threshold = buy_threshold * volatility_factor
@@ -482,8 +482,8 @@ async def trading_bot():
             expected_sell_price = crypto_data[symbol]["initial_price"] * (1 + dynamic_sell_threshold / 100)
 
             # Log expected prices
-            print(f"📊 Expected Buy Price for {symbol}: ${expected_buy_price} (Dynamic Buy Threshold: {dynamic_buy_threshold:.2f}%)")
-            print(f"📊 Expected Sell Price for {symbol}: ${expected_sell_price} (Dynamic Sell Threshold: {dynamic_sell_threshold:.2f}%)")
+            print(f"📊 Expected Buy Price for {symbol}: ${expected_buy_price:.6f} (Dynamic Buy Threshold: {dynamic_buy_threshold:.2f}%)")
+            print(f"📊 Expected Sell Price for {symbol}: ${expected_sell_price:.6f} (Dynamic Sell Threshold: {dynamic_sell_threshold:.2f}%)")
 
             # Check if the price is close to the moving average
             if moving_avg and abs(current_price - moving_avg) < (0.02 * moving_avg):  # Only trade if price is within 2% of the moving average
