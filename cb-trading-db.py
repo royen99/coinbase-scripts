@@ -29,6 +29,7 @@ request_host = "api.coinbase.com"
 # Load coin-specific settings
 coins_config = config.get("coins", {})
 crypto_symbols = [symbol for symbol, settings in coins_config.items() if settings.get("enabled", False)]
+price_precision = coins_config[symbol]["precision"]["price"]  # Get the decimal places from config
 
 # Initialize price_history with maxlen equal to the larger of volatility_window and trend_window
 price_history_maxlen = max(
@@ -456,7 +457,7 @@ async def trading_bot():
                 continue
 
             price_change = ((current_price - crypto_data[symbol]["initial_price"]) / crypto_data[symbol]["initial_price"]) * 100
-            print(f"📈 {symbol} Price: ${current_price:.6f} ({price_change:.2f}%)")
+            print(f"📈 {symbol} Price: ${current_price:.{price_precision}f} ({price_change:.2f}%)")
 
             # Calculate volatility and moving average
             volatility = calculate_volatility(price_history, volatility_window)
