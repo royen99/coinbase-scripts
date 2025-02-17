@@ -55,6 +55,17 @@ Without enough price history you will see log lines such as:\
 ⚠️ LTC: Not enough data for indicators. Required: 51, Available: 46.\
 ⚠️ ETH: Not enough data for long-term MA. Skipping.
 
+🔄 **Testing Stratagy**: The `main` branch of this project is running 24/7 against an actual Coinbase wallet, doing actual trades (with a moderate sized wallet) with currently the following coins enabled:
+- ETH
+- XRP
+- DOGE
+- SOL
+- GODS
+- BONK
+- HONEY
+- MATIC
+- LTC
+
 Additional settings (inside the `config.json`) are needed holding your database info and which coins you want to enable/disable.\
 You can adjust `trade_percentage` to control how much of your balance gets traded. 😘💸\
 **Fine-Tune Parameters**: Adjust the `volatility_window`, `trend_window`, and `stop_loss_percentage` to suit your risk tolerance and market conditions. 📊
@@ -76,50 +87,41 @@ You can adjust `trade_percentage` to control how much of your balance gets trade
   "coins": {
     "ETH": {
       "enabled": true,
-      "buy_percentage": -3,
-      "sell_percentage": 3,
-      "volatility_window": 10,
-      "trend_window": 26,
+      "buy_percentage": -4,
+      "sell_percentage": 5,
+      "volatility_window": 20,
+      "trend_window": 200,
       "macd_short_window": 12,
       "macd_long_window": 26,
       "macd_signal_window": 9,
-      "rsi_period": 14,
+      "rsi_period": 50,
       "min_order_sizes": {
         "buy": 0.01,
-        "sell": 0.0001
+        "sell": 0.001
+      },
+      "precision": {
+        "price": 2,
+        "amount": 6
       }
     },
     "XRP": {
       "enabled": true,
       "buy_percentage": -5,
       "sell_percentage": 5,
-      "volatility_window": 15,
-      "trend_window": 26,
+      "volatility_window": 20,
+      "trend_window": 200,
+      "macd_short_window": 12,
+      "macd_long_window": 26,
+      "macd_signal_window": 9,
+      "rsi_period": 50,
+
       "min_order_sizes": {
-        "buy": 0.01,
+        "buy": 1,
         "sell": 1
-      }
-    },
-    "DOGE": {
-      "enabled": false,
-      "buy_percentage": -4,
-      "sell_percentage": 4,
-      "volatility_window": 10,
-      "trend_window": 20,
-      "min_order_sizes": {
-        "buy": 0.01,
-        "sell": 1
-      }
-    },
-    "SOL": {
-      "enabled": true,
-      "buy_percentage": -2,
-      "sell_percentage": 2,
-      "volatility_window": 5,
-      "trend_window": 26,
-      "min_order_sizes": {
-        "buy": 0.01,
-        "sell": 0.01
+      },
+      "precision": {
+        "price": 2,
+        "amount": 6
       }
     }
   }
@@ -169,14 +171,13 @@ Example output:
   - XRP: 630.2
   - SOL: 720.7
   - USDC: 310.3975527322856
-💾 Saved ETH price history: $2754.21
-📈 ETH Price: $2754.21 (0.15%)
-📊 ETH MACD Calculation - Short EMA: 2752.50, Long EMA: 2751.96, MACD Line: -0.92, Signal Line: -1.04, Histogram: 0.12
-📊 ETH RSI Calculation - Avg Gain: 0.91, Avg Loss: 0.73, RSI: 55.33
-📊 ETH Indicators - Volatility: 0.00, Moving Avg: 2682.71, MACD: -0.92, Signal: -1.04, RSI: 55.33
-📊 Expected Buy Price for ETH: $2667.45 (Dynamic Buy Threshold: -3.00%)
-📊 Expected Sell Price for ETH: $2832.55 (Dynamic Sell Threshold: 3.00%)
-📊 ETH Performance - Total Trades: 5 | Total Profit: $380.52
+📈 ETH Price: $2757.07 (0.26%)
+📊 ETH Indicators - Volatility: 0.0009, Moving Avg: 2725.5225, MACD: -4.2645, Signal: -4.4649, RSI: 64.10
+📊 Expected Buy Price for ETH: $2639.902765 (Dynamic Buy Threshold: -4.00%)
+📊 Expected Sell Price for ETH: $2887.621544 (Dynamic Sell Threshold: 5.00%)
+📊 ETH Trading Signals - MACD Buy: True, RSI Buy: False, MACD Sell: False, RSI Sell: False
+📊 ETH MACD Confirmation - Buy: 15, Sell: 3
+📊 ETH Performance - Total Trades: 6 | Total Profit: $270.52
 ```
 
 ## More basic scripts
@@ -195,8 +196,8 @@ The *most simple* one, It does not keep state, nor any advanced calculations.\
 ✔ Trades a percentage of your available ETH or USDC balance.\
 ✔ *Minimum Order*: Makes sure an order meets Coinbase's minimum amounts.
 
-### [EXPIRIMENTAL] cb-trading-AI.py
-Almost similar as the `cb-trading-percentage.py` but:
+### [EXPERIMENTAL] cb-trading-ai.py
+Almost similar as the `cb-trading-db.py` but:
 
 ✔ *AI LLM Decision*: Instead of using the MACD/RSI indicators, these are fed to an ollama backend.
 
