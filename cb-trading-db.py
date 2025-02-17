@@ -219,7 +219,7 @@ async def get_balances():
     
     return balances
 
-async def place_order(crypto_symbol, side, amount):
+async def place_order(crypto_symbol, side, amount, current_price):
     """Place a buy/sell order for the specified cryptocurrency asynchronously."""
     path = "/api/v3/brokerage/orders"
     
@@ -238,9 +238,10 @@ async def place_order(crypto_symbol, side, amount):
         # Round to 2 decimal places for quote currency (e.g., USDC)
         rounded_amount = round(amount, 2)
         if rounded_amount < min_order_sizes["buy"]:
-            print(f"🚫 Buy order too small: ${rounded_amount:.2f} (minimum: ${min_order_sizes['buy']:.2f})")
+            print(f"🚫 Buy order too small: ${rounded_amount} (minimum: ${min_order_sizes['buy']})")
             return False
-        order_data["order_configuration"]["market_market_ioc"]["quote_size"] = str(rounded_amount)
+        quote_cost = round(current_price * amount, 2)  # Convert to USDC
+        order_data["order_configuration"]["market_market_ioc"]["quote_size"] = str(quote_cost)
     else:  # SELL
         # Round to the required precision for the base currency (e.g., ETH, BTC)
         rounded_amount = round(amount, 6)  # Adjust based on the coin's precision
@@ -529,7 +530,7 @@ async def trading_bot():
                     buy_amount = (trade_percentage / 100) * balances[quote_currency] / current_price
                     if buy_amount > 0:
                         print(f"💰 Buying {buy_amount:.4f} {symbol}!")
-                        if await place_order(symbol, "BUY", buy_amount):
+                        if await place_order(symbol, "BUY", buy_amount, current_price):
                             crypto_data[symbol]["total_trades"] += 1
                             crypto_data[symbol]["initial_price"] = current_price  # Reset reference price
                     else:
