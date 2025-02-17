@@ -50,6 +50,11 @@ The `cb-trading-db.py` script is the main project (see below for for scripts wit
 - Current Price is *higher* then the Long Term Moiving average and
 - There is Sufficient balance for the crypto currency to meet the minimum trade amount.
 
+🚨 Note that the various indicators will only function with enough data points (depending on your settings).\
+Without enough price history you will see log lines such as:\
+⚠️ LTC: Not enough data for indicators. Required: 51, Available: 46.\
+⚠️ ETH: Not enough data for long-term MA. Skipping.
+
 Additional settings (inside the `config.json`) are needed holding your database info and which coins you want to enable/disable.\
 You can adjust `trade_percentage` to control how much of your balance gets traded. 😘💸\
 **Fine-Tune Parameters**: Adjust the `volatility_window`, `trend_window`, and `stop_loss_percentage` to suit your risk tolerance and market conditions. 📊
