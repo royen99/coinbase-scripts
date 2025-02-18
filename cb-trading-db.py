@@ -521,14 +521,19 @@ async def trading_bot():
                     and current_price < long_term_ma  # Trend filter
                     and balances[quote_currency] > 0  # Sufficient balance
                 ):
-                    buy_amount = (buy_percentage / 100) * balances[quote_currency] / current_price
-                    if buy_amount > 0:
-                        print(f"💰 Buying {buy_amount:.4f} {symbol}!")
-                        if await place_order(symbol, "BUY", buy_amount, current_price):
-                            crypto_data[symbol]["total_trades"] += 1
-                            crypto_data[symbol]["initial_price"] = current_price  # Reset reference price
-                    else:
-                        print(f"🚫 Buy order too small: ${buy_amount} (minimum: ${coins_config[symbol]['min_order_sizes']['buy']})")
+                    quote_cost = round((buy_percentage / 100) * balances[quote_currency], 2)  # Directly in USDC
+
+                    # Ensure we have enough balance and meet minimum order size
+                    if quote_cost < coins_config[symbol]["min_order_sizes"]["buy"]:
+                        print(f"🚫 Buy order too small: ${quote_cost:.2f} (minimum: ${coins_config[symbol]['min_order_sizes']['buy']})")
+                        continue
+
+                    buy_amount = quote_cost / current_price  # Convert to coin amount
+                    print(f"💰 Buying {buy_amount:.6f} {symbol} (${quote_cost:.2f} USDC)!")
+
+                    if await place_order(symbol, "BUY", buy_amount, current_price):
+                        crypto_data[symbol]["total_trades"] += 1
+                        crypto_data[symbol]["initial_price"] = current_price  # Reset reference price
 
                 # Execute sell order if MACD sell signal is confirmed
                 elif (
