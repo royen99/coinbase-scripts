@@ -533,7 +533,8 @@ async def trading_bot():
 
                     if await place_order(symbol, "BUY", buy_amount, current_price):
                         crypto_data[symbol]["total_trades"] += 1
-                        crypto_data[symbol]["initial_price"] = current_price  # Reset reference price
+                        crypto_data[symbol]["buy_threshold"] *= 2  # Double the buy threshold
+                        coin_settings["buy_percentage"] *= 2  # Persist the change
 
                 # Execute sell order if MACD sell signal is confirmed
                 elif (
