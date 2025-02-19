@@ -235,8 +235,8 @@ async def place_order(crypto_symbol, side, amount, current_price):
     min_order_sizes = coins_config[crypto_symbol]["min_order_sizes"]
     
     if side == "BUY":
-        # Round to 2 decimal places for quote currency (e.g., USDC)
-        rounded_amount = round(amount, 2)
+        # Round to 4 decimal places for quote currency (e.g., USDC)
+        rounded_amount = round(amount, 4)
         if rounded_amount < min_order_sizes["buy"]:
             print(f"🚫 Buy order too small: ${rounded_amount} (minimum: ${min_order_sizes['buy']})")
             return False
