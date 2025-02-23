@@ -235,8 +235,8 @@ async def place_order(crypto_symbol, side, amount, current_price):
     min_order_sizes = coins_config[crypto_symbol]["min_order_sizes"]
     
     if side == "BUY":
-        # Round to 2 decimal places for quote currency (e.g., USDC)
-        rounded_amount = round(amount, 2)
+        # Round to 4 decimal places for quote currency (e.g., USDC)
+        rounded_amount = round(amount, 4)
         if rounded_amount < min_order_sizes["buy"]:
             print(f"🚫 Buy order too small: ${rounded_amount} (minimum: ${min_order_sizes['buy']})")
             return False
@@ -267,6 +267,7 @@ async def place_order(crypto_symbol, side, amount, current_price):
         current_price = await get_crypto_price(crypto_symbol)
         if current_price:
             await log_trade(crypto_symbol, side, rounded_amount, current_price)
+            await update_bot_status(f"{side} {crypto_symbol} @ ${current_price}", True)
 
         return True
     else:
@@ -288,6 +289,14 @@ async def log_trade(symbol, side, amount, price):
     finally:
         cursor.close()
         conn.close()
+
+async def update_bot_status(last_trade, active):
+    conn = await get_db_connection()
+    await conn.execute(
+        "UPDATE bot_status SET last_trade = $1, active = $2 WHERE id = 1",
+        last_trade, active
+    )
+    await conn.close()
 
 def calculate_volatility(price_history, volatility_window):
     """Calculate volatility as the standard deviation of price changes over a specific window."""
@@ -486,18 +495,18 @@ async def trading_bot():
             print(f"📊 Expected Sell Price for {symbol}: ${expected_sell_price:.6f} (Dynamic Sell Threshold: {dynamic_sell_threshold:.2f}%)")
 
             # Check if the price is close to the moving average
-            if moving_avg and abs(current_price - moving_avg) < (0.02 * moving_avg):  # Only trade if price is within 2% of the moving average
+            if moving_avg and abs(current_price - moving_avg) < (0.05 * moving_avg):  # Only trade if price is within 5% of the moving average
                 # MACD Buy Signal: MACD line crosses above Signal line
                 macd_buy_signal = macd_line is not None and signal_line is not None and macd_line > signal_line
                 
-                # RSI Buy Signal: RSI is below 30 (oversold)
-                rsi_buy_signal = rsi is not None and rsi < 30
+                # RSI Buy Signal: RSI is below 35 (oversold)
+                rsi_buy_signal = rsi is not None and rsi < 35
                 
                 # MACD Sell Signal: MACD line crosses below Signal line
                 macd_sell_signal = macd_line is not None and signal_line is not None and macd_line < signal_line
                 
                 # RSI Sell Signal: RSI is above 70 (overbought)
-                rsi_sell_signal = rsi is not None and rsi > 70
+                rsi_sell_signal = rsi is not None and rsi > 65
 
                 # MACD Confirmation Rule with decay instead of full reset
                 if macd_buy_signal:
@@ -517,23 +526,28 @@ async def trading_bot():
                 # Execute buy order if MACD buy signal is confirmed
                 if (
                     (price_change <= dynamic_buy_threshold and  # Price threshold
-                    (macd_buy_signal and macd_confirmation[symbol]["buy"] >= 5 and rsi < 30))  # MACD + RSI filter
+                    (macd_buy_signal and macd_confirmation[symbol]["buy"] >= 5 and rsi < 35))  # MACD + RSI filter
                     and current_price < long_term_ma  # Trend filter
                     and balances[quote_currency] > 0  # Sufficient balance
                 ):
-                    buy_amount = (buy_percentage / 100) * balances[quote_currency] / current_price
-                    if buy_amount > 0:
-                        print(f"💰 Buying {buy_amount:.4f} {symbol}!")
-                        if await place_order(symbol, "BUY", buy_amount, current_price):
-                            crypto_data[symbol]["total_trades"] += 1
-                            crypto_data[symbol]["initial_price"] = current_price  # Reset reference price
-                    else:
-                        print(f"🚫 Buy order too small: ${buy_amount} (minimum: ${coins_config[symbol]['min_order_sizes']['buy']})")
+                    quote_cost = round((buy_percentage / 100) * balances[quote_currency], 2)  # Directly in USDC
+
+                    # Ensure we have enough balance and meet minimum order size
+                    if quote_cost < coins_config[symbol]["min_order_sizes"]["buy"]:
+                        print(f"🚫 Buy order too small: ${quote_cost:.2f} (minimum: ${coins_config[symbol]['min_order_sizes']['buy']})")
+                        continue
+
+                    buy_amount = quote_cost / current_price  # Convert to coin amount
+                    print(f"💰 Buying {buy_amount:.6f} {symbol} (${quote_cost:.2f} USDC)!")
+
+                    if await place_order(symbol, "BUY", buy_amount, current_price):
+                        crypto_data[symbol]["total_trades"] += 1
+                        coin_settings["buy_percentage"] *= 2  # Persist the change
 
                 # Execute sell order if MACD sell signal is confirmed
                 elif (
                     (price_change >= dynamic_sell_threshold and  # Price threshold
-                    (macd_sell_signal and macd_confirmation[symbol]["sell"] >= 5 and rsi > 70))  # MACD + RSI filter
+                    (macd_sell_signal and macd_confirmation[symbol]["sell"] >= 5 and rsi > 65))  # MACD + RSI filter
                     and current_price > long_term_ma  # Trend filter
                     and balances[symbol] > 0  # Sufficient balance
                 ):

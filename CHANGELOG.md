@@ -15,12 +15,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Trades Table**: Created a `trades` table to store trade history.
 - **Trade Logging**: Updated the bot to log trades in the `trades` table.
 - **Coin precision**: Specify number of decimals per coin in the `config.json` file.
+- **Bot status**: Preperations for a live DashBoard with extra functionality (work in progress).
 
 ### Changed
 - **Refactored `get_balances`**: Updated `get_balances` to return balances data for use in logging and database updates.
 - **Updated `update_balances`**: Modified `update_balances` to accept balances data as an argument.
 - **Trend Window**: Price history in the database need at least 200 entries for an accurate calculation.
 - **Rounding**: Display coin prices in full decimals, not rounded to to 2.
+- **Increase Percentage**: When bought at a the threshold, double it for a next buy. 
 
 ### Improved
 - **Efficiency**: Reduced API calls by reusing balances data for logging and database updates.
