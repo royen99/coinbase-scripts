@@ -267,7 +267,6 @@ async def place_order(crypto_symbol, side, amount, current_price):
         current_price = await get_crypto_price(crypto_symbol)
         if current_price:
             await log_trade(crypto_symbol, side, rounded_amount, current_price)
-            await update_bot_status(f"{side} {crypto_symbol} @ ${current_price}", True)
 
         return True
     else:
@@ -289,14 +288,6 @@ async def log_trade(symbol, side, amount, price):
     finally:
         cursor.close()
         conn.close()
-
-async def update_bot_status(last_trade, active):
-    conn = get_db_connection()
-    conn.execute(
-        "UPDATE bot_status SET last_trade = $1, active = $2 WHERE id = 1",
-        last_trade, active
-    )
-    await conn.close()
 
 def calculate_volatility(price_history, volatility_window):
     """Calculate volatility as the standard deviation of price changes over a specific window."""
