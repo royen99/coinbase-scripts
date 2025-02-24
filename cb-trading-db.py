@@ -291,8 +291,8 @@ async def log_trade(symbol, side, amount, price):
         conn.close()
 
 async def update_bot_status(last_trade, active):
-    conn = await get_db_connection()
-    await conn.execute(
+    conn = get_db_connection()
+    conn.execute(
         "UPDATE bot_status SET last_trade = $1, active = $2 WHERE id = 1",
         last_trade, active
     )
