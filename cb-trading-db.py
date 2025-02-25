@@ -517,14 +517,27 @@ async def trading_bot():
                 # Check how long since the last buy
                 time_since_last_buy = time.time() - crypto_data[symbol].get("last_buy_time", 0)
 
-                # 🔥 Gradual Adjustments: Move `initial_price` 10% closer to `long_term_ma`
-                if time_since_last_buy > 3600 and current_price > long_term_ma:
+                # 🔥 Gradual Adjustments: Move `initial_price` 10% closer to `long_term_ma` during a sustained uptrend
+                # 🔥🔥🔥WARNING: the value of 900 is for testing, main branch needs to have 3600 🔥🔥🔥
+                if time_since_last_buy > 900 and current_price > long_term_ma and current_price > crypto_data[symbol]["initial_price"]:
                     new_initial_price = (
                         0.9 * crypto_data[symbol]["initial_price"] + 0.1 * long_term_ma
                     )
                     print(f"📈 {symbol} Adjusting Initial Price Towards MA: {crypto_data[symbol]['initial_price']:.{price_precision}f} → {new_initial_price:.{price_precision}f}")
                     crypto_data[symbol]["initial_price"] = new_initial_price
                 
+                # 🔽 Adjust Initial Price Downwards in a Sustained Downtrend (If Holdings < 1 USDC)
+                # 🔥🔥🔥WARNING: the value of 900 is for testing, main branch needs to have 3600 🔥🔥🔥
+                elif (
+                    time_since_last_buy > 900 and  # Time check
+                    balances[symbol] * current_price < 1 and  # Holdings worth less than $1 USDC
+                    current_price < long_term_ma and  # Confirm downtrend
+                    current_price < crypto_data[symbol]["initial_price"]  # Prevent premature resets
+                ):
+                    new_initial_price = (0.9 * crypto_data[symbol]["initial_price"] + 0.1 * current_price)  # Move closer to the current price
+                    print(f"📉 {symbol} Adjusting Initial Price Downwards: {crypto_data[symbol]['initial_price']:.{price_precision}f} → {new_initial_price:.{price_precision}f}")
+                    crypto_data[symbol]["initial_price"] = new_initial_price
+
                 # Execute buy order if MACD buy signal is confirmed
                 if (
                     (price_change <= dynamic_buy_threshold and  # Price threshold
