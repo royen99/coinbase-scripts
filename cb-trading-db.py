@@ -530,7 +530,7 @@ async def trading_bot():
                 # 🔥🔥🔥WARNING: the value of 900 is for testing, main branch needs to have 3600 🔥🔥🔥
                 elif (
                     time_since_last_buy > 900 and  # Time check
-                    balances[symbol] * current_price < 1 and  # Holdings worth less than $1 USDC
+                    balances.get(symbol, 0) * current_price < 1 and  # Holdings worth less than $1 USDC
                     current_price < long_term_ma and  # Confirm downtrend
                     current_price < crypto_data[symbol]["initial_price"]  # Prevent premature resets
                 ):
