@@ -570,7 +570,7 @@ async def trading_bot():
                     sell_amount = (sell_percentage / 100) * balances[symbol]
                     if sell_amount > 0:
                         print(f"💵 Selling {sell_amount:.4f} {symbol}!")
-                        if await place_order(symbol, "SELL", sell_amount):
+                        if await place_order(symbol, "SELL", sell_amount, current_price):
                             crypto_data[symbol]["total_trades"] += 1
                             crypto_data[symbol]["total_profit"] += (current_price - crypto_data[symbol]["initial_price"]) * sell_amount
 
