@@ -518,8 +518,7 @@ async def trading_bot():
                 time_since_last_buy = time.time() - crypto_data[symbol].get("last_buy_time", 0)
 
                 # 🔥 Gradual Adjustments: Move `initial_price` 10% closer to `long_term_ma` during a sustained uptrend
-                # 🔥🔥🔥WARNING: the value of 900 is for testing, main branch needs to have 3600 🔥🔥🔥
-                if time_since_last_buy > 900 and current_price > long_term_ma * 1.05 and current_price > crypto_data[symbol]["initial_price"]:
+                if time_since_last_buy > 3600 and current_price > long_term_ma * 1.05 and current_price > crypto_data[symbol]["initial_price"]:
                     new_initial_price = (
                         0.9 * crypto_data[symbol]["initial_price"] + 0.1 * long_term_ma
                     )
@@ -527,9 +526,8 @@ async def trading_bot():
                     crypto_data[symbol]["initial_price"] = new_initial_price
                 
                 # 🔽 Adjust Initial Price Downwards in a Sustained Downtrend (If Holdings < 1 USDC)
-                # 🔥🔥🔥WARNING: the value of 900 is for testing, main branch needs to have 3600 🔥🔥🔥
                 elif (
-                    time_since_last_buy > 900 and  # Time check
+                    time_since_last_buy > 3600 and  # Time check
                     balances.get(symbol, 0) * current_price < 1 and  # Holdings worth less than $1 USDC
                     current_price < long_term_ma and  # Confirm downtrend
                     current_price < crypto_data[symbol]["initial_price"] * 1.10 # Prevent premature resets
