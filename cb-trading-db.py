@@ -578,7 +578,7 @@ async def trading_bot():
                 elif (
                     time_since_last_buy > 3600 and  # Time check
                     balances.get(symbol, 0) * current_price < 1 and  # Holdings worth less than $1 USDC
-                    current_price < long_term_ma * 0.95 and  # Confirm downtrend
+                    # current_price < long_term_ma * 0.95 and  # Confirm downtrend
                     current_price < crypto_data[symbol]["initial_price"] * 0.95 # Prevent premature resets
                 ):
                     new_initial_price = (0.9 * crypto_data[symbol]["initial_price"] + 0.1 * current_price)  # Move closer to the current price
