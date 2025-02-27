@@ -512,7 +512,29 @@ async def trading_bot():
 
                 # Log trading signals
                 print(f"📊 {symbol} Trading Signals - MACD Buy: {macd_buy_signal}, RSI Buy: {rsi_buy_signal}, MACD Sell: {macd_sell_signal}, RSI Sell: {rsi_sell_signal}")
-                print(f"📊 {symbol} MACD Confirmation - Buy: {macd_confirmation[symbol]['buy']}, Sell: {macd_confirmation[symbol]['sell']}")
+                # print(f"📊 {symbol} MACD Confirmation - Buy: {macd_confirmation[symbol]['buy']}, Sell: {macd_confirmation[symbol]['sell']}")
+
+                # Check how long since the last buy
+                time_since_last_buy = time.time() - crypto_data[symbol].get("last_buy_time", 0)
+
+                # 🔥 Gradual Adjustments: Move `initial_price` 10% closer to `long_term_ma` during a sustained uptrend
+                if time_since_last_buy > 3600 and current_price > long_term_ma * 1.05 and current_price > crypto_data[symbol]["initial_price"]:
+                    new_initial_price = (
+                        0.9 * crypto_data[symbol]["initial_price"] + 0.1 * long_term_ma
+                    )
+                    print(f"📈 {symbol} Adjusting Initial Price Towards MA: {crypto_data[symbol]['initial_price']:.{price_precision}f} → {new_initial_price:.{price_precision}f}")
+                    crypto_data[symbol]["initial_price"] = new_initial_price
+                
+                # 🔽 Adjust Initial Price Downwards in a Sustained Downtrend (If Holdings < 1 USDC)
+                elif (
+                    time_since_last_buy > 3600 and  # Time check
+                    balances.get(symbol, 0) * current_price < 1 and  # Holdings worth less than $1 USDC
+                    current_price < long_term_ma * 0.95 and  # Confirm downtrend
+                    current_price < crypto_data[symbol]["initial_price"] * 0.95 # Prevent premature resets
+                ):
+                    new_initial_price = (0.9 * crypto_data[symbol]["initial_price"] + 0.1 * current_price)  # Move closer to the current price
+                    print(f"📉 {symbol} Adjusting Initial Price Downwards: {crypto_data[symbol]['initial_price']:.{price_precision}f} → {new_initial_price:.{price_precision}f}")
+                    crypto_data[symbol]["initial_price"] = new_initial_price
 
                 # Execute buy order if MACD buy signal is confirmed
                 if (
@@ -533,22 +555,27 @@ async def trading_bot():
 
                     if await place_order(symbol, "BUY", buy_amount, current_price):
                         crypto_data[symbol]["total_trades"] += 1
+                        crypto_data[symbol]["last_buy_time"] = time.time()  # ⏳ Track last buy time
                         coin_settings["buy_percentage"] *= 2  # Persist the change
 
                 # Execute sell order if MACD sell signal is confirmed
                 elif (
-                    (price_change >= dynamic_sell_threshold and  # Price threshold
-                    (macd_sell_signal and macd_confirmation[symbol]["sell"] >= 5 and rsi > 65))  # MACD + RSI filter
-                    and current_price > long_term_ma  # Trend filter
-                    and balances[symbol] > 0  # Sufficient balance
+                    (price_change >= dynamic_sell_threshold or  # Price threshold
+                    (macd_sell_signal and macd_confirmation[symbol]["sell"] >= 5 and rsi > 65))  # ✅ MACD + RSI filter
+                    and abs(price_change - dynamic_sell_threshold) <= 0.01 * dynamic_sell_threshold  # ✅ Price is within 1% of threshold
+                    and current_price > long_term_ma  # ✅ Trend filter
+                    and balances[symbol] > 0  # ✅ Sufficient balance
                 ):
                     sell_amount = (sell_percentage / 100) * balances[symbol]
                     if sell_amount > 0:
                         print(f"💵 Selling {sell_amount:.4f} {symbol}!")
-                        if await place_order(symbol, "SELL", sell_amount):
+                        if await place_order(symbol, "SELL", sell_amount, current_price):
                             crypto_data[symbol]["total_trades"] += 1
                             crypto_data[symbol]["total_profit"] += (current_price - crypto_data[symbol]["initial_price"]) * sell_amount
-                            crypto_data[symbol]["initial_price"] = current_price  # Reset reference price
+
+                            # 🔥 Reset initial price to long-term MA to allow re-entry
+                            crypto_data[symbol]["initial_price"] = long_term_ma
+                            print(f"🔄 {symbol} Initial Price Reset to Long-Term MA: {long_term_ma:.{price_precision}f}")
 
             # Log performance for each cryptocurrency
             print(f"📊 {symbol} Performance - Total Trades: {crypto_data[symbol]['total_trades']} | Total Profit: ${crypto_data[symbol]['total_profit']:.2f}")
