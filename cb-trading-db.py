@@ -235,13 +235,23 @@ async def place_order(crypto_symbol, side, amount, current_price):
     min_order_sizes = coins_config[crypto_symbol]["min_order_sizes"]
     
     if side == "BUY":
-        # Round to 4 decimal places for quote currency (e.g., USDC)
-        rounded_amount = round(amount, 4)
-        if rounded_amount < min_order_sizes["buy"]:
-            print(f"🚫 Buy order too small: ${rounded_amount} (minimum: ${min_order_sizes['buy']})")
+        # Get precision settings for this coin
+        amount_precision = coins_config[crypto_symbol].get("precision", {}).get("amount", 6)
+
+        # Calculate total cost in USDC **before** rounding amount
+        quote_cost = round(current_price * amount, 2)
+
+        # Ensure buy order is above minimum required buy amount
+        if quote_cost < min_order_sizes["buy"]:
+            print(f"🚫 Buy order too small: ${quote_cost} (minimum: ${min_order_sizes['buy']})")
             return False
-        quote_cost = round(current_price * amount, 2)  # Convert to USDC
+        
+        # Round amount according to precision
+        rounded_amount = round(amount, amount_precision)
+
+        # Assign quote_size (amount in USDC) for API order
         order_data["order_configuration"]["market_market_ioc"]["quote_size"] = str(quote_cost)
+
     else:  # SELL
         # Round to the required precision for the base currency (e.g., ETH, BTC)
         rounded_amount = round(amount, 6)  # Adjust based on the coin's precision
