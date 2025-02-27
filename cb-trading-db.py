@@ -512,7 +512,7 @@ async def trading_bot():
 
                 # Log trading signals
                 print(f"📊 {symbol} Trading Signals - MACD Buy: {macd_buy_signal}, RSI Buy: {rsi_buy_signal}, MACD Sell: {macd_sell_signal}, RSI Sell: {rsi_sell_signal}")
-                print(f"📊 {symbol} MACD Confirmation - Buy: {macd_confirmation[symbol]['buy']}, Sell: {macd_confirmation[symbol]['sell']}")
+                # print(f"📊 {symbol} MACD Confirmation - Buy: {macd_confirmation[symbol]['buy']}, Sell: {macd_confirmation[symbol]['sell']}")
 
                 # Check how long since the last buy
                 time_since_last_buy = time.time() - crypto_data[symbol].get("last_buy_time", 0)
@@ -560,10 +560,11 @@ async def trading_bot():
 
                 # Execute sell order if MACD sell signal is confirmed
                 elif (
-                    (price_change >= dynamic_sell_threshold and  # Price threshold
-                    (macd_sell_signal and macd_confirmation[symbol]["sell"] >= 5 and rsi > 65))  # MACD + RSI filter
-                    and current_price > long_term_ma  # Trend filter
-                    and balances[symbol] > 0  # Sufficient balance
+                    (price_change >= dynamic_sell_threshold or  # Price threshold
+                    (macd_sell_signal and macd_confirmation[symbol]["sell"] >= 5 and rsi > 65))  # ✅ MACD + RSI filter
+                    and abs(price_change - dynamic_sell_threshold) <= 0.01 * dynamic_sell_threshold  # ✅ Price is within 1% of threshold
+                    and current_price > long_term_ma  # ✅ Trend filter
+                    and balances[symbol] > 0  # ✅ Sufficient balance
                 ):
                     sell_amount = (sell_percentage / 100) * balances[symbol]
                     if sell_amount > 0:
