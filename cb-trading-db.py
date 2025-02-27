@@ -517,8 +517,9 @@ async def trading_bot():
             )
             rsi = calculate_rsi(price_history, symbol)
 
-            # Log indicator values
-            print(f"📊 {symbol} Indicators - Volatility: {volatility:.4f}, Moving Avg: {moving_avg:.4f}, MACD: {macd_line:.4f}, Signal: {signal_line:.4f}, RSI: {rsi:.2f}")
+            if DEBUG_MODE:
+                # Log indicator values
+                print(f"📊 {symbol} Indicators - Volatility: {volatility:.4f}, Moving Avg: {moving_avg:.4f}, MACD: {macd_line:.4f}, Signal: {signal_line:.4f}, RSI: {rsi:.2f}")
 
             # Adjust thresholds based on volatility
             dynamic_buy_threshold = buy_threshold * volatility_factor
@@ -557,9 +558,10 @@ async def trading_bot():
                     macd_confirmation[symbol]["buy"] = max(0, macd_confirmation[symbol]["buy"] - 1)
                     macd_confirmation[symbol]["sell"] = max(0, macd_confirmation[symbol]["sell"] - 1)
 
-                # Log trading signals
-                print(f"📊 {symbol} Trading Signals - MACD Buy: {macd_buy_signal}, RSI Buy: {rsi_buy_signal}, MACD Sell: {macd_sell_signal}, RSI Sell: {rsi_sell_signal}")
-                # print(f"📊 {symbol} MACD Confirmation - Buy: {macd_confirmation[symbol]['buy']}, Sell: {macd_confirmation[symbol]['sell']}")
+                if DEBUG_MODE:
+                    # Log trading signals if debug is set
+                    print(f"📊 {symbol} Trading Signals - MACD Buy: {macd_buy_signal}, RSI Buy: {rsi_buy_signal}, MACD Sell: {macd_sell_signal}, RSI Sell: {rsi_sell_signal}")
+                    print(f"📊 {symbol} MACD Confirmation - Buy: {macd_confirmation[symbol]['buy']}, Sell: {macd_confirmation[symbol]['sell']}")
 
                 # Check how long since the last buy
                 time_since_last_buy = time.time() - crypto_data[symbol].get("last_buy_time", 0)
@@ -605,7 +607,7 @@ async def trading_bot():
                         crypto_data[symbol]["last_buy_time"] = time.time()  # ⏳ Track last buy time
                         coin_settings["buy_percentage"] *= 2  # Persist the change
 
-                # Execute sell order if MACD sell signal is confirmed
+                # Execute sell order if sell signals are confirmed or dynamic_sell_threshold was reached
                 elif (
                     (price_change >= dynamic_sell_threshold or  # Price threshold
                     (macd_sell_signal and macd_confirmation[symbol]["sell"] >= 5 and rsi > 65))  # ✅ MACD + RSI filter
