@@ -471,7 +471,7 @@ async def trading_bot():
                 print(f"🚨 {symbol}: Empty price_history. Skipping.")
                 continue
             if current_price == crypto_data[symbol]["price_history"][-1]:
-                print(f"🚨 {symbol}: Price unchanged ({current_price} == {crypto_data[symbol]['price_history'][-1]}). Skipping.")
+                print(f"🚨 {symbol}: Price unchanged ({current_price:.{price_precision}f} == {crypto_data[symbol]['price_history'][-1]}). Skipping.")
                 continue
 
             # Save price history
@@ -530,8 +530,8 @@ async def trading_bot():
             expected_sell_price = crypto_data[symbol]["initial_price"] * (1 + dynamic_sell_threshold / 100)
 
             # Log expected prices
-            print(f"📊 Expected Buy Price for {symbol}: ${expected_buy_price:.6f} (Dynamic Buy Threshold: {dynamic_buy_threshold:.2f}%)")
-            print(f"📊 Expected Sell Price for {symbol}: ${expected_sell_price:.6f} (Dynamic Sell Threshold: {dynamic_sell_threshold:.2f}%)")
+            print(f"📊 Expected Buy Price for {symbol}: ${expected_buy_price:.{price_precision}f} (Dynamic Buy Threshold: {dynamic_buy_threshold:.2f}%)")
+            print(f"📊 Expected Sell Price for {symbol}: ${expected_sell_price:.{price_precision}f} (Dynamic Sell Threshold: {dynamic_sell_threshold:.2f}%)")
 
             # Check if the price is close to the moving average
             if moving_avg and abs(current_price - moving_avg) < (0.05 * moving_avg):  # Only trade if price is within 5% of the moving average
