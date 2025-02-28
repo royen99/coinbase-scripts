@@ -4,6 +4,7 @@ import asyncio
 import secrets
 import json
 import time
+import requests
 from cryptography.hazmat.primitives import serialization
 from collections import deque
 import psycopg2 # type: ignore
@@ -53,6 +54,31 @@ def get_db_connection():
         password=DB_PASSWORD
     )
     return conn
+
+# Load Telegram settings from config.json
+TELEGRAM_CONFIG = config.get("telegram", {})
+
+def send_telegram_notification(message):
+    """Send notification to Telegram if enabled in config.json."""
+    if not TELEGRAM_CONFIG.get("enabled", False):
+        return  # 🔕 Notifications are disabled
+
+    bot_token = TELEGRAM_CONFIG.get("bot_token")
+    chat_id = TELEGRAM_CONFIG.get("chat_id")
+    
+    if not bot_token or not chat_id:
+        print("⚠️ Telegram notification skipped: Missing bot token or chat ID in config.json")
+        return
+    
+    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    payload = {"chat_id": chat_id, "text": message}
+    
+    try:
+        response = requests.post(url, json=payload)
+        if response.status_code != 200:
+            print(f"❌ Telegram Error: {response.text}")
+    except Exception as e:
+        print(f"❌ Telegram Notification Failed: {e}")
 
 def save_price_history(symbol, price):
     """Save price history to the PostgreSQL database."""
@@ -290,6 +316,7 @@ async def place_order(crypto_symbol, side, amount, current_price):
         return True
     else:
         print(f"❌ Order Failed for {crypto_symbol}: {response.get('error', 'Unknown error')}")
+        send_telegram_notification("⚠️ Order Failed for {crypto_symbol}!!!")
         return False
 
 async def log_trade(symbol, side, amount, price):
@@ -621,6 +648,9 @@ async def trading_bot():
                         crypto_data[symbol]["last_buy_time"] = time.time()  # ⏳ Track last buy time
                         coin_settings["buy_percentage"] *= 2  # Persist the change
 
+                        message = f"✅ *BOUGHT {buy_amount:.4f} {symbol}* at *${current_price:.2f}* USDC"
+                        send_telegram_notification(message)
+
                 # Execute sell order if sell signals are confirmed or dynamic_sell_threshold was reached
                 elif (
                     price_change >= dynamic_sell_threshold  # ✅ Always sell if price threshold is hit!
@@ -661,6 +691,9 @@ async def trading_bot():
                             # 🔥 Reset initial price to long-term MA to allow re-entry
                             crypto_data[symbol]["initial_price"] = long_term_ma
                             print(f"🔄 {symbol} Initial Price Reset to Long-Term MA: {long_term_ma:.{price_precision}f}")
+
+                            message = f"🚀 *SOLD {sell_amount:.4f} {symbol}* at *${current_price:.2f}* USDC"
+                            send_telegram_notification(message)
 
             else:
                 deviation = abs(current_price - moving_avg)  # Calculate deviation
