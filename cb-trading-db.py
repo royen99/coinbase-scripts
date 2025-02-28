@@ -609,12 +609,14 @@ async def trading_bot():
 
                 # Execute sell order if sell signals are confirmed or dynamic_sell_threshold was reached
                 elif (
-                    (price_change >= dynamic_sell_threshold or  # Price threshold
-                    (macd_sell_signal and macd_confirmation[symbol]["sell"] >= 5 and rsi > 65))  # ✅ MACD + RSI filter
-                    and abs(price_change - dynamic_sell_threshold) <= 0.01 * dynamic_sell_threshold  # ✅ Price is within 1% of threshold
-                    and current_price > long_term_ma  # ✅ Trend filter
-                    and balances[symbol] > 0  # ✅ Sufficient balance
-                ):
+                    price_change >= dynamic_sell_threshold  # ✅ Always sell if price threshold is hit!
+                    or (
+                        macd_sell_signal  
+                        and macd_confirmation[symbol]["sell"] >= 5  
+                        and rsi > 65
+                    )  # ✅ OR allow MACD + RSI if it's close to threshold
+                ) and balances[symbol] > 0:  # ✅ Ensure we have balance
+
                     sell_amount = (sell_percentage / 100) * balances[symbol]
                     if sell_amount > 0:
                         print(f"💵 Selling {sell_amount:.4f} {symbol}!")
