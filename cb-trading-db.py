@@ -386,8 +386,6 @@ def calculate_long_term_ma(price_history, period=200):
         return None
     return sum(price_history[-period:]) / period
 
-import psycopg2  # Ensure psycopg2 is imported
-
 def get_weighted_avg_buy_price(symbol):
     """Fetch the weighted average buy price since the last sell from the database."""
     conn = get_db_connection()  # ✅ No need for `await`
@@ -487,7 +485,7 @@ async def trading_bot():
                 print(f"🚨 {symbol}: Empty price_history. Skipping.")
                 continue
             if current_price == crypto_data[symbol]["price_history"][-1]:
-                print(f"🚨 {symbol}: Price unchanged ({current_price:.{price_precision}f} == {crypto_data[symbol]['price_history'][-1]}). Skipping.")
+                print(f"🚨 {symbol}: Price unchanged ({current_price:.{price_precision}f} == {crypto_data[symbol]['price_history'][-1]:.{price_precision}f}). Skipping.")
                 continue
 
             # Save price history
