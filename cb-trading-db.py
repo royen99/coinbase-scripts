@@ -386,12 +386,12 @@ def calculate_long_term_ma(price_history, period=200):
         return None
     return sum(price_history[-period:]) / period
 
-async def get_weighted_avg_buy_price(symbol):
+def get_weighted_avg_buy_price(symbol):
     """Fetch the weighted average buy price since the last sell from the database."""
-    conn = await get_db_connection()
+    conn = get_db_connection()
 
     # Find the timestamp of the most recent sell trade
-    last_sell = await conn.fetchrow(
+    last_sell = conn.fetchrow(
         "SELECT timestamp FROM trades WHERE symbol = $1 AND side = 'SELL' ORDER BY timestamp DESC LIMIT 1",
         symbol
     )
@@ -399,18 +399,18 @@ async def get_weighted_avg_buy_price(symbol):
 
     # Fetch all buy trades that happened after the last sell
     if last_sell_time:
-        buy_trades = await conn.fetch(
+        buy_trades = conn.fetch(
             "SELECT amount, price FROM trades WHERE symbol = $1 AND side = 'BUY' AND timestamp > $2",
             symbol, last_sell_time
         )
     else:
         # If no previous sell exists, get all buys
-        buy_trades = await conn.fetch(
+        buy_trades = conn.fetch(
             "SELECT amount, price FROM trades WHERE symbol = $1 AND side = 'BUY'",
             symbol
         )
 
-    await conn.close()
+    conn.close()
 
     if not buy_trades:
         return None  # No buy trades found
@@ -644,7 +644,7 @@ async def trading_bot():
                             crypto_data[symbol]["total_trades"] += 1
 
                             # Get actual weighted buy price from DB
-                            actual_buy_price = await get_weighted_avg_buy_price(symbol)
+                            actual_buy_price = get_weighted_avg_buy_price(symbol)
 
                             if actual_buy_price:
                                 crypto_data[symbol]["total_profit"] += (current_price - actual_buy_price) * sell_amount
