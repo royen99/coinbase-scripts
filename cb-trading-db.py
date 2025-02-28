@@ -618,8 +618,18 @@ async def trading_bot():
                 ) and balances[symbol] > 0:  # ✅ Ensure we have balance
 
                     sell_amount = (sell_percentage / 100) * balances[symbol]
+
+                    # Get required precision from config
+                    precision = coins_config[symbol]["precision"]["amount"]
+
+                    # 🔧 Round down sell amount to match precision
+                    sell_amount = round(sell_amount, precision)
+
+                    # 🚨 Ensure we don’t try selling more than available balance
+                    sell_amount = min(sell_amount, balances[symbol])
+
                     if sell_amount > 0:
-                        print(f"💵 Selling {sell_amount:.4f} {symbol}!")
+                        print(f"💵 Selling {sell_amount:.{precision}f} {symbol} at {current_price:.2f}!")
                         if await place_order(symbol, "SELL", sell_amount, current_price):
                             crypto_data[symbol]["total_trades"] += 1
 
@@ -636,19 +646,12 @@ async def trading_bot():
                             crypto_data[symbol]["initial_price"] = long_term_ma
                             print(f"🔄 {symbol} Initial Price Reset to Long-Term MA: {long_term_ma:.{price_precision}f}")
 
-            # else:
-            deviation = abs(current_price - moving_avg)  # Calculate deviation
-            deviation_percentage = (deviation / moving_avg) * 100  # Convert to percentage
-            # print(f"⚠️ {symbol} Skipping trade: Price deviation too high!")
-            print(f"📊 Moving Average: {moving_avg:.{price_precision}f}, Current Price: {current_price:.{price_precision}f}")
-            print(f"📉 Deviation: {deviation:.2f} ({deviation_percentage:.2f}%)")
-            print(f"📊 {symbol} Moving Average: {moving_avg:.2f}, Current Price: {current_price:.2f}")
-            print(f"📉 Deviation: {deviation:.2f} ({deviation_percentage:.2f}%)")
-            print(f"📊 Price Change: {price_change:.2f}, Buy Threshold: {dynamic_buy_threshold:.2f}, Sell Threshold: {dynamic_sell_threshold:.2f}")
-            print(f"📊 MACD: {macd_line:.2f}, Signal: {signal_line:.2f}, RSI: {rsi:.2f}")
-            print(f"📊 Long-Term MA: {long_term_ma:.2f}, Current Price: {current_price:.2f}")
-            print(f"📊 MACD Confirmations - Buy: {macd_confirmation[symbol]['buy']}, Sell: {macd_confirmation[symbol]['sell']}")
-            print(f"💰 {symbol} Balance: {balances.get(symbol, 0):.6f} {symbol}, USDC Balance: {balances.get(quote_currency, 0):.2f}")
+            else:
+                deviation = abs(current_price - moving_avg)  # Calculate deviation
+                deviation_percentage = (deviation / moving_avg) * 100  # Convert to percentage
+                print(f"⚠️ {symbol} Skipping trade: Price deviation too high!")
+                print(f"📊 Moving Average: {moving_avg:.{price_precision}f}, Current Price: {current_price:.{price_precision}f}")
+                print(f"📉 Deviation: {deviation:.2f} ({deviation_percentage:.2f}%)")
 
             # Log performance for each cryptocurrency
             print(f"📊 {symbol} Performance - Total Trades: {crypto_data[symbol]['total_trades']} | Total Profit: ${crypto_data[symbol]['total_profit']:.2f}")
