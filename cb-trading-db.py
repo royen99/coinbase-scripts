@@ -550,7 +550,7 @@ async def trading_bot():
             print(f"📊 Expected Sell Price for {symbol}: ${expected_sell_price:.{price_precision}f} (Dynamic Sell Threshold: {dynamic_sell_threshold:.2f}%)")
 
             # Check if the price is close to the moving average
-            if moving_avg and abs(current_price - moving_avg) < (0.1 * moving_avg):  # Only trade if price is within 10% of the moving average
+            if moving_avg and abs(current_price - moving_avg) < (0.05 * moving_avg):  # Only trade if price is within 5% of the moving average
                 # MACD Buy Signal: MACD line crosses above Signal line
                 macd_buy_signal = macd_line is not None and signal_line is not None and macd_line > signal_line
                 
@@ -604,7 +604,7 @@ async def trading_bot():
                 # Execute buy order if MACD buy signal is confirmed
                 if (
                     (price_change <= dynamic_buy_threshold and  # Price threshold
-                    (macd_buy_signal and macd_confirmation[symbol]["buy"] >= 5 and rsi < 35))  # MACD + RSI filter
+                    (macd_buy_signal and macd_confirmation[symbol]["buy"] >= 3) and rsi < 30)  # MACD + RSI filter
                     and current_price < long_term_ma  # Trend filter
                     and balances[quote_currency] > 0  # Sufficient balance
                 ):
@@ -628,8 +628,9 @@ async def trading_bot():
                     price_change >= dynamic_sell_threshold  # ✅ Always sell if price threshold is hit!
                     or (
                         macd_sell_signal  
-                        and macd_confirmation[symbol]["sell"] >= 5  
-                        and rsi > 65
+                        and macd_confirmation[symbol]["sell"] >= 5
+                        and abs(price_change - dynamic_sell_threshold) <= 0.01 * dynamic_sell_threshold  # ✅ Price is within 1% of threshold
+                        and rsi > 70
                     )  # ✅ OR allow MACD + RSI if it's close to threshold
                 ) and balances[symbol] > 0:  # ✅ Ensure we have balance
 
