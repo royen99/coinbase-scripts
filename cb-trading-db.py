@@ -546,8 +546,8 @@ async def trading_bot():
             expected_sell_price = crypto_data[symbol]["initial_price"] * (1 + dynamic_sell_threshold / 100)
 
             # Log expected prices
-            print(f"📊 Expected Buy Price for {symbol}: ${expected_buy_price:.{price_precision}f} (Dynamic Buy Threshold: {dynamic_buy_threshold:.2f}%)")
-            print(f"📊 Expected Sell Price for {symbol}: ${expected_sell_price:.{price_precision}f} (Dynamic Sell Threshold: {dynamic_sell_threshold:.2f}%)")
+            print(f"📊 Expected Prices for {symbol}: Buy at: ${expected_buy_price:.{price_precision}f} (Dynamic Threshold: {dynamic_buy_threshold:.2f}%) / Sell at: ${expected_sell_price:.{price_precision}f} (Dynamic Threshold: {dynamic_sell_threshold:.2f}%) | MA: {moving_avg:.{price_precision}f}")
+            # print(f"📊 Expected Sell Price for {symbol}: ${expected_sell_price:.{price_precision}f} (Dynamic Sell Threshold: {dynamic_sell_threshold:.2f}%)")
 
             # Check if the price is close to the moving average
             if moving_avg and abs(current_price - moving_avg) < (0.05 * moving_avg):  # Only trade if price is within 5% of the moving average
@@ -583,7 +583,7 @@ async def trading_bot():
                 time_since_last_buy = time.time() - crypto_data[symbol].get("last_buy_time", 0)
 
                 # 🔥 Gradual Adjustments: Move `initial_price` 10% closer to `long_term_ma` during a sustained uptrend
-                if time_since_last_buy > 3600 and current_price > long_term_ma * 1.05 and current_price > crypto_data[symbol]["initial_price"]:
+                if time_since_last_buy > 900 and current_price > long_term_ma * 1.05 and current_price > crypto_data[symbol]["initial_price"]:
                     new_initial_price = (
                         0.9 * crypto_data[symbol]["initial_price"] + 0.1 * long_term_ma
                     )
