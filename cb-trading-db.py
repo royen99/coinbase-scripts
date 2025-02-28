@@ -626,7 +626,8 @@ async def trading_bot():
                     sell_amount = round(sell_amount, precision)
 
                     # 🚨 Ensure we don’t try selling more than available balance
-                    sell_amount = min(sell_amount, balances[symbol])
+                    safe_margin = 10 ** -precision  # Smallest allowed unit (e.g., 0.000001 for 6 decimals)
+                    sell_amount = min(sell_amount, balances[symbol] - safe_margin)  # Avoid over-selling
 
                     if sell_amount > 0:
                         print(f"💵 Selling {sell_amount:.{precision}f} {symbol} at {current_price:.2f}!")
