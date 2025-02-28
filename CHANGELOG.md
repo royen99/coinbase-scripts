@@ -5,11 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [Unversioned]
 
 ### Changed
 - **Dynamic Thresholds**: To try and cope with strong trends, adjust the initial (reference) price for the running session.
                           Note that, fow now, a restart of the bot would fall back to the stored price in the database.
+- **Less verbose**: Some loglines are now only shown when `DEBUG_MODE = True` is set.
+
+### Fixed
+- **Buy size**: Now properly calculates the amount in USDC when buying.
+- **Profit Calculation**: Uses previous Buy actions and calculates the proper profit.
 
 
 ## [1.0.2]
