@@ -534,7 +534,7 @@ async def trading_bot():
             print(f"📊 Expected Sell Price for {symbol}: ${expected_sell_price:.{price_precision}f} (Dynamic Sell Threshold: {dynamic_sell_threshold:.2f}%)")
 
             # Check if the price is close to the moving average
-            if moving_avg and abs(current_price - moving_avg) < (0.2 * moving_avg):  # Only trade if price is within 10% of the moving average
+            if moving_avg and abs(current_price - moving_avg) < (0.1 * moving_avg):  # Only trade if price is within 10% of the moving average
                 # MACD Buy Signal: MACD line crosses above Signal line
                 macd_buy_signal = macd_line is not None and signal_line is not None and macd_line > signal_line
                 
@@ -640,6 +640,13 @@ async def trading_bot():
             # print(f"⚠️ {symbol} Skipping trade: Price deviation too high!")
             print(f"📊 Moving Average: {moving_avg:.{price_precision}f}, Current Price: {current_price:.{price_precision}f}")
             print(f"📉 Deviation: {deviation:.2f} ({deviation_percentage:.2f}%)")
+            print(f"📊 {symbol} Moving Average: {moving_avg:.2f}, Current Price: {current_price:.2f}")
+            print(f"📉 Deviation: {deviation:.2f} ({deviation_percentage:.2f}%)")
+            print(f"📊 Price Change: {price_change:.2f}, Buy Threshold: {dynamic_buy_threshold:.2f}, Sell Threshold: {dynamic_sell_threshold:.2f}")
+            print(f"📊 MACD: {macd_line:.2f}, Signal: {signal_line:.2f}, RSI: {rsi:.2f}")
+            print(f"📊 Long-Term MA: {long_term_ma:.2f}, Current Price: {current_price:.2f}")
+            print(f"📊 MACD Confirmations - Buy: {macd_confirmation[symbol]['buy']}, Sell: {macd_confirmation[symbol]['sell']}")
+            print(f"💰 {symbol} Balance: {balances.get(symbol, 0):.6f} {symbol}, USDC Balance: {balances.get(quote_currency, 0):.2f}")
 
             # Log performance for each cryptocurrency
             print(f"📊 {symbol} Performance - Total Trades: {crypto_data[symbol]['total_trades']} | Total Profit: ${crypto_data[symbol]['total_profit']:.2f}")
