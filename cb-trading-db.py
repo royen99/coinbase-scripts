@@ -634,12 +634,12 @@ async def trading_bot():
                             crypto_data[symbol]["initial_price"] = long_term_ma
                             print(f"🔄 {symbol} Initial Price Reset to Long-Term MA: {long_term_ma:.{price_precision}f}")
 
-            else:
-                deviation = abs(current_price - moving_avg)  # Calculate deviation
-                deviation_percentage = (deviation / moving_avg) * 100  # Convert to percentage
-                print(f"⚠️ {symbol} Skipping trade: Price deviation too high!")
-                print(f"📊 Moving Average: {moving_avg:.2f}, Current Price: {current_price:.2f}")
-                print(f"📉 Deviation: {deviation:.2f} ({deviation_percentage:.2f}%)")
+            # else:
+            deviation = abs(current_price - moving_avg)  # Calculate deviation
+            deviation_percentage = (deviation / moving_avg) * 100  # Convert to percentage
+            # print(f"⚠️ {symbol} Skipping trade: Price deviation too high!")
+            print(f"📊 Moving Average: {moving_avg:.{price_precision}f}, Current Price: {current_price:.{price_precision}f}")
+            print(f"📉 Deviation: {deviation:.2f} ({deviation_percentage:.2f}%)")
 
             # Log performance for each cryptocurrency
             print(f"📊 {symbol} Performance - Total Trades: {crypto_data[symbol]['total_trades']} | Total Profit: ${crypto_data[symbol]['total_profit']:.2f}")
