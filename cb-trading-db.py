@@ -253,13 +253,22 @@ async def place_order(crypto_symbol, side, amount, current_price):
         order_data["order_configuration"]["market_market_ioc"]["quote_size"] = str(quote_cost)
 
     else:  # SELL
-        # Round to the required precision for the base currency (e.g., ETH, BTC)
-        rounded_amount = round(amount, 6)  # Adjust based on the coin's precision
-        if rounded_amount < min_order_sizes["sell"]:
-            print(f"🚫 Sell order too small: {rounded_amount:.6f} {crypto_symbol} (minimum: {min_order_sizes['sell']:.6f} {crypto_symbol})")
-            return False
-        order_data["order_configuration"]["market_market_ioc"]["base_size"] = str(rounded_amount)
+        # Get required precision from config
+        precision = coins_config[crypto_symbol]["precision"]["amount"]
 
+        # 🔧 Round to correct precision dynamically
+        rounded_amount = round(amount, precision)
+
+        # 🚨 Ensure sell amount meets minimum order size
+        if rounded_amount < min_order_sizes["sell"]:
+            print(f"🚫 Sell order too small: {rounded_amount:.{precision}f} {crypto_symbol} (minimum: {min_order_sizes['sell']:.{precision}f} {crypto_symbol})")
+            return False
+
+        # 🔄 Ensure the API receives the correctly formatted amount
+        order_data["order_configuration"]["market_market_ioc"]["base_size"] = str(f"{rounded_amount:.{precision}f}")
+
+        print(f"🛠️ Adjusted Sell Amount for {crypto_symbol}: {rounded_amount:.{precision}f} (Precision: {precision})")
+    
     # Log the order details
     print(f"🛠️ Placing {side} order for {crypto_symbol}: Amount = {rounded_amount}, Price = {await get_crypto_price(crypto_symbol)}")
 
