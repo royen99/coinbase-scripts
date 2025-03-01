@@ -698,9 +698,11 @@ async def trading_bot():
             else:
                 deviation = abs(current_price - moving_avg)  # Calculate deviation
                 deviation_percentage = (deviation / moving_avg) * 100  # Convert to percentage
+                message = f"🚀 Large deviation for {symbol} - {deviation_percentage:.2f}%, Current Price: {current_price:.{price_precision}f} USDC"
                 print(f"⚠️ {symbol} Skipping trade: Price deviation too high!")
                 print(f"📊 Moving Average: {moving_avg:.{price_precision}f}, Current Price: {current_price:.{price_precision}f}")
                 print(f"📉 Deviation: {deviation:.2f} ({deviation_percentage:.2f}%)")
+                send_telegram_notification(message)
 
             # Log performance for each cryptocurrency
             print(f"📊 {symbol} Performance - Total Trades: {crypto_data[symbol]['total_trades']} | Total Profit: ${crypto_data[symbol]['total_profit']:.2f}")
