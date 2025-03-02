@@ -269,7 +269,7 @@ async def place_order(crypto_symbol, side, amount, current_price):
 
         # Ensure buy order is above minimum required buy amount
         if quote_cost < min_order_sizes["buy"]:
-            print(f"🚫 Buy order too small: ${quote_cost} (minimum: ${min_order_sizes['buy']})")
+            print(f"🚫  - Buy order too small: ${quote_cost} (minimum: ${min_order_sizes['buy']})")
             return False
         
         # Round amount according to precision
@@ -287,16 +287,16 @@ async def place_order(crypto_symbol, side, amount, current_price):
 
         # 🚨 Ensure sell amount meets minimum order size
         if rounded_amount < min_order_sizes["sell"]:
-            print(f"🚫 Sell order too small: {rounded_amount:.{precision}f} {crypto_symbol} (minimum: {min_order_sizes['sell']:.{precision}f} {crypto_symbol})")
+            print(f"🚫  - Sell order too small: {rounded_amount:.{precision}f} {crypto_symbol} (minimum: {min_order_sizes['sell']:.{precision}f} {crypto_symbol})")
             return False
 
         # 🔄 Ensure the API receives the correctly formatted amount
         order_data["order_configuration"]["market_market_ioc"]["base_size"] = str(f"{rounded_amount:.{precision}f}")
 
-        print(f"🛠️ Adjusted Sell Amount for {crypto_symbol}: {rounded_amount:.{precision}f} (Precision: {precision})")
+        print(f"🛠️  - Adjusted Sell Amount for {crypto_symbol}: {rounded_amount:.{precision}f} (Precision: {precision})")
     
     # Log the order details
-    print(f"🛠️ Placing {side} order for {crypto_symbol}: Amount = {rounded_amount}, Price = {await get_crypto_price(crypto_symbol)}")
+    print(f"🛠️  - Placing {side} order for {crypto_symbol}: Amount = {rounded_amount}, Price = {await get_crypto_price(crypto_symbol)}")
 
     response = await api_request("POST", path, order_data)
 
@@ -306,7 +306,7 @@ async def place_order(crypto_symbol, side, amount, current_price):
     # Handle the response
     if response.get("success", False):
         order_id = response["success_response"]["order_id"]
-        print(f"✅ {side.upper()} Order Placed for {crypto_symbol}: Order ID = {order_id}")
+        print(f"✅  - {side.upper()} Order Placed for {crypto_symbol}: Order ID = {order_id}")
         
         # Log the trade in the database
         current_price = await get_crypto_price(crypto_symbol)
@@ -315,8 +315,8 @@ async def place_order(crypto_symbol, side, amount, current_price):
 
         return True
     else:
-        print(f"❌ Order Failed for {crypto_symbol}: {response.get('error', 'Unknown error')}")
-        print(f"🔄 Raw Response: {response}")
+        print(f"❌  - Order Failed for {crypto_symbol}: {response.get('error', 'Unknown error')}")
+        print(f"🔄  - Raw Response: {response}")
         message = f"⚠️ Order Failed for {crypto_symbol}"
         send_telegram_notification(message)
         return False
@@ -367,7 +367,7 @@ def calculate_ema(prices, period, return_all=False):
 def calculate_macd(prices, symbol, short_window=12, long_window=26, signal_window=9):
     """Calculate MACD, Signal Line, and Histogram."""
     if len(prices) < long_window + signal_window:
-        print(f"⚠️ Not enough data to calculate MACD for {symbol}. Required: {long_window + signal_window}, Available: {len(prices)}")
+        print(f"⚠️  - Not enough data to calculate MACD for {symbol}. Required: {long_window + signal_window}, Available: {len(prices)}")
         return None, None, None
 
     # Compute EMA for the full dataset
@@ -388,7 +388,7 @@ def calculate_macd(prices, symbol, short_window=12, long_window=26, signal_windo
 def calculate_rsi(prices, symbol, period=14):
     """Calculate the Relative Strength Index (RSI)."""
     if len(prices) < period + 1:
-        print(f"⚠️ Not enough data to calculate RSI for {symbol}. Required: {period + 1}, Available: {len(prices)}")
+        print(f"⚠️  - Not enough data to calculate RSI for {symbol}. Required: {period + 1}, Available: {len(prices)}")
         return None
 
     # Calculate gains and losses
@@ -431,7 +431,7 @@ def save_weighted_avg_buy_price(symbol, avg_price):
             (symbol, avg_price)
         )
 
-        print(f"💾 {symbol} Weighted Average Buy Price Updated: {avg_price:.6f} USDC")
+        print(f"💾  - {symbol} Weighted Average Buy Price Updated: {avg_price:.6f} USDC")
 
     conn.commit()
     cursor.close()
@@ -672,6 +672,7 @@ async def trading_bot():
                 if (
                     price_change <= dynamic_buy_threshold or  # Price threshold
                     (macd_buy_signal and macd_confirmation[symbol]["buy"] >= 3 and rsi < 30)  # MACD + RSI filter
+                    and current_price < actual_buy_price  # If price is cheaper then what we have bought already.
                     and current_price < long_term_ma  # Trend filter
                     and balances[quote_currency] > 0  # Sufficient balance
                 ):
@@ -723,7 +724,7 @@ async def trading_bot():
                     sell_amount = min(sell_amount, balances[symbol] - safe_margin)  # Avoid over-selling
 
                     if sell_amount > 0:
-                        print(f"💵 Selling {sell_amount:.{precision}f} {symbol} at {current_price:.2f}!")
+                        print(f"💵  - Selling {sell_amount:.{precision}f} {symbol} at {current_price:.2f}!")
                         if await place_order(symbol, "SELL", sell_amount, current_price):
                             crypto_data[symbol]["total_trades"] += 1
 
@@ -747,15 +748,15 @@ async def trading_bot():
                             send_telegram_notification(message)
 
                         else:
-                            print(f"🚫 Sell order failed for {symbol}!")
+                            print(f"🚫  - Sell order failed for {symbol}!")
 
             else:
                 deviation = abs(current_price - moving_avg)  # Calculate deviation
                 deviation_percentage = (deviation / moving_avg) * 100  # Convert to percentage
                 message = f"🚀 Large deviation for {symbol} - {deviation_percentage:.2f}%, Current Price: {current_price:.{price_precision}f} USDC"
-                print(f"⚠️ {symbol} Skipping trade: Price deviation too high!")
-                print(f"📊 Moving Average: {moving_avg:.{price_precision}f}, Current Price: {current_price:.{price_precision}f}")
-                print(f"📉 Deviation: {deviation:.2f} ({deviation_percentage:.2f}%)")
+                print(f"⚠️  - {symbol} Skipping trade: Price deviation too high!")
+                print(f"📊  - Moving Average: {moving_avg:.{price_precision}f}, Current Price: {current_price:.{price_precision}f}")
+                print(f"📉  - Deviation: {deviation:.2f} ({deviation_percentage:.2f}%)")
                 send_telegram_notification(message)
 
             # Log performance for each cryptocurrency
