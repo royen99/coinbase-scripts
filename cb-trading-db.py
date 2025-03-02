@@ -415,6 +415,28 @@ def calculate_long_term_ma(price_history, period=200):
         return None
     return sum(price_history[-period:]) / period
 
+def save_weighted_avg_buy_price(symbol, avg_price):
+    """Store the latest weighted average buy price for a given symbol in the database."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    if avg_price is not None:
+        cursor.execute(
+            """
+            INSERT INTO trading_state (symbol, initial_price, total_trades, total_profit)
+            VALUES (%s, %s, 0, 0)
+            ON CONFLICT (symbol) DO UPDATE
+            SET initial_price = EXCLUDED.initial_price
+            """,
+            (symbol, avg_price)
+        )
+
+        print(f"💾  - {symbol} Weighted Average Buy Price Updated: {avg_price:.6f} USDC")
+
+    conn.commit()
+    cursor.close()
+    conn.close()
+
 def get_weighted_avg_buy_price(symbol):
     """Fetch the weighted average buy price since the last sell from the database."""
     conn = get_db_connection()
@@ -708,6 +730,12 @@ async def trading_bot():
 
                             # 🔥 Get actual weighted buy price from DB
                             actual_buy_price = get_weighted_avg_buy_price(symbol)
+
+                            if actual_buy_price is None:
+                                print(f"❌  - ERROR: get_weighted_avg_buy_price({symbol}) returned None! Check DB query!")
+
+                            else:
+                                print(f"✅  - SUCCESS: Weighted Avg Buy Price for {symbol} = {actual_buy_price:.6f}")
 
                             if actual_buy_price:
                                 crypto_data[symbol]["total_profit"] += (current_price - actual_buy_price) * sell_amount
