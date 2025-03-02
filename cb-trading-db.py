@@ -606,6 +606,9 @@ async def trading_bot():
                 # Check how long since the last buy
                 time_since_last_buy = time.time() - crypto_data[symbol].get("last_buy_time", 0)
 
+                # Get average buy price
+                actual_buy_price = get_weighted_avg_buy_price(symbol)
+
                 # 🔥 Gradual Adjustments: Move `initial_price` 10% closer to `long_term_ma` during a sustained uptrend
                 if time_since_last_buy > 900 and price_change >= dynamic_sell_threshold and current_price > crypto_data[symbol]["initial_price"]:
                     new_initial_price = (
@@ -656,7 +659,7 @@ async def trading_bot():
                     or (
                         macd_sell_signal  
                         and macd_confirmation[symbol]["sell"] >= 5
-                        and current_price > get_weighted_avg_buy_price(symbol) * 0.05
+                        and current_price > actual_buy_price * 0.05
                         # and abs(price_change - dynamic_sell_threshold) <= 0.01 * dynamic_sell_threshold  # ✅ Price is within 1% of threshold
                         and rsi > 70
                     )  # ✅ OR allow MACD + RSI if it's close to threshold
@@ -705,7 +708,7 @@ async def trading_bot():
                 send_telegram_notification(message)
 
             # Log performance for each cryptocurrency
-            print(f"📊   - {symbol} Performance - Total Trades: {crypto_data[symbol]['total_trades']} | Total Profit: ${crypto_data[symbol]['total_profit']:.2f}")
+            print(f"📊   - {symbol} Avg buy price: {actual_buy_price[symbol]:.{price_precision}f} | Performance - Total Trades: {crypto_data[symbol]['total_trades']} | Total Profit: ${crypto_data[symbol]['total_profit']:.2f}")
 
             # Save state after each coin's update
             save_state(symbol, crypto_data[symbol]["initial_price"], crypto_data[symbol]["total_trades"], crypto_data[symbol]["total_profit"])
