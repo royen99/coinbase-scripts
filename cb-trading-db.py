@@ -512,7 +512,7 @@ async def trading_bot():
                 print(f"🚨 {symbol}: Empty price_history. Skipping.")
                 continue
             if current_price == crypto_data[symbol]["price_history"][-1]:
-                print(f"🚨   - {symbol}: Price unchanged ({current_price:.{price_precision}f} == {crypto_data[symbol]['price_history'][-1]:.{price_precision}f}). Skipping.")
+                print(f"🚨 {symbol}: Price unchanged ({current_price:.{price_precision}f} == {crypto_data[symbol]['price_history'][-1]:.{price_precision}f}). Skipping.")
                 continue
 
             # Save price history
@@ -535,12 +535,12 @@ async def trading_bot():
 
             # Ensure we have enough data for indicators
             if len(price_history) < max(macd_long_window + macd_signal_window, rsi_period + 1):
-                print(f"⚠️   - {symbol}: Not enough data for indicators. Required: {max(macd_long_window + macd_signal_window, rsi_period + 1)}, Available: {len(price_history)}")
+                print(f"⚠️ {symbol}: Not enough data for indicators. Required: {max(macd_long_window + macd_signal_window, rsi_period + 1)}, Available: {len(price_history)}")
                 continue
 
             long_term_ma = calculate_long_term_ma(price_history, period=200)
             if long_term_ma is None:
-                print(f"⚠️   - {symbol}: Not enough data for long-term MA. Skipping.")
+                print(f"⚠️ {symbol}: Not enough data for long-term MA. Skipping.")
                 continue
 
             price_change = ((current_price - crypto_data[symbol]["initial_price"]) / crypto_data[symbol]["initial_price"]) * 100
@@ -572,10 +572,9 @@ async def trading_bot():
 
             # Log expected prices
             print(f"📊   - Expected Prices for {symbol}: Buy at: ${expected_buy_price:.{price_precision}f} ({dynamic_buy_threshold:.2f}%) / Sell at: ${expected_sell_price:.{price_precision}f} ({dynamic_sell_threshold:.2f}%) | MA: {moving_avg:.{price_precision}f}")
-            # print(f"📊 Expected Sell Price for {symbol}: ${expected_sell_price:.{price_precision}f} (Dynamic Sell Threshold: {dynamic_sell_threshold:.2f}%)")
 
             # Check if the price is close to the moving average
-            if moving_avg and abs(current_price - moving_avg) < (0.1 * moving_avg):  # Only trade if price is within 5% of the moving average
+            if moving_avg and abs(current_price - moving_avg) < (0.1 * moving_avg):  # Only trade if price is within 10% of the moving average
                 # MACD Buy Signal: MACD line crosses above Signal line
                 macd_buy_signal = macd_line is not None and signal_line is not None and macd_line > signal_line
                 
@@ -619,7 +618,7 @@ async def trading_bot():
                 elif (
                     time_since_last_buy > 3600 and  # Time check
                     balances.get(symbol, 0) * current_price < 1 and  # Holdings worth less than $1 USDC
-                    # current_price < long_term_ma * 0.95 and  # Confirm downtrend
+                    current_price < long_term_ma * 0.95 and  # Confirm downtrend
                     current_price < crypto_data[symbol]["initial_price"] * 0.95 # Prevent premature resets
                 ):
                     new_initial_price = (0.9 * crypto_data[symbol]["initial_price"] + 0.1 * current_price)  # Move closer to the current price
@@ -628,8 +627,8 @@ async def trading_bot():
 
                 # Execute buy order if MACD buy signal is confirmed
                 if (
-                    (price_change <= dynamic_buy_threshold and  # Price threshold
-                    (macd_buy_signal and macd_confirmation[symbol]["buy"] >= 3) and rsi < 30)  # MACD + RSI filter
+                    price_change <= dynamic_buy_threshold or  # Price threshold
+                    (macd_buy_signal and macd_confirmation[symbol]["buy"] >= 3 and rsi < 30)  # MACD + RSI filter
                     and current_price < long_term_ma  # Trend filter
                     and balances[quote_currency] > 0  # Sufficient balance
                 ):
@@ -657,7 +656,8 @@ async def trading_bot():
                     or (
                         macd_sell_signal  
                         and macd_confirmation[symbol]["sell"] >= 5
-                        and abs(price_change - dynamic_sell_threshold) <= 0.01 * dynamic_sell_threshold  # ✅ Price is within 1% of threshold
+                        and current_price > get_weighted_avg_buy_price(symbol) * 0.05
+                        # and abs(price_change - dynamic_sell_threshold) <= 0.01 * dynamic_sell_threshold  # ✅ Price is within 1% of threshold
                         and rsi > 70
                     )  # ✅ OR allow MACD + RSI if it's close to threshold
                 ) and balances[symbol] > 0:  # ✅ Ensure we have balance
