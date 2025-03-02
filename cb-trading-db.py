@@ -415,12 +415,48 @@ def calculate_long_term_ma(price_history, period=200):
         return None
     return sum(price_history[-period:]) / period
 
-def get_weighted_avg_buy_price(symbol):
-    """Fetch the weighted average buy price since the last sell from the database."""
-    conn = get_db_connection()  # ✅ No need for `await`
+def save_weighted_avg_buy_price(symbol, avg_price):
+    """Store the latest weighted average buy price for a given symbol in the database."""
+    conn = get_db_connection()
     cursor = conn.cursor()
 
-    # Find the timestamp of the most recent sell trade
+    if avg_price is not None:
+        cursor.execute(
+            """
+            INSERT INTO trading_state (symbol, initial_price, total_trades, total_profit)
+            VALUES (%s, %s, 0, 0)
+            ON CONFLICT (symbol) DO UPDATE
+            SET initial_price = EXCLUDED.initial_price
+            """,
+            (symbol, avg_price)
+        )
+
+        print(f"💾 {symbol} Weighted Average Buy Price Updated: {avg_price:.6f} USDC")
+
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+def get_weighted_avg_buy_price(symbol):
+    """Fetch the weighted average buy price of the remaining holdings from the database."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # 🔍 Fetch the user's remaining balance for the symbol
+    cursor.execute(
+        "SELECT available_balance FROM balances WHERE currency = %s",
+        (symbol,)
+    )
+    balance_row = cursor.fetchone()
+    remaining_balance = balance_row[0] if balance_row else 0
+
+    # ✅ If fully sold, reset tracking
+    if remaining_balance == 0:
+        cursor.close()
+        conn.close()
+        return None  # No remaining holdings = No weighted buy price
+
+    # 🔍 Find the timestamp of the most recent **sell** trade
     cursor.execute(
         "SELECT timestamp FROM trades WHERE symbol = %s AND side = 'SELL' ORDER BY timestamp DESC LIMIT 1",
         (symbol,)
@@ -428,14 +464,17 @@ def get_weighted_avg_buy_price(symbol):
     last_sell = cursor.fetchone()
     last_sell_time = last_sell[0] if last_sell else None
 
-    # Fetch all buy trades that happened after the last sell
+    # 🔍 Fetch only **BUY trades after the last sell**
     if last_sell_time:
         cursor.execute(
-            "SELECT amount, price FROM trades WHERE symbol = %s AND side = 'BUY' AND timestamp > %s",
+            """
+            SELECT amount, price FROM trades
+            WHERE symbol = %s AND side = 'BUY' AND timestamp > %s
+            """,
             (symbol, last_sell_time)
         )
     else:
-        # If no previous sell exists, get all buys
+        # No sell history? Use **all buy trades**
         cursor.execute(
             "SELECT amount, price FROM trades WHERE symbol = %s AND side = 'BUY'",
             (symbol,)
@@ -448,14 +487,13 @@ def get_weighted_avg_buy_price(symbol):
     if not buy_trades:
         return None  # No buy trades found
 
-    # Calculate weighted average buy price
+    # ✅ Calculate the weighted average buy price **only for remaining balance**
     total_amount = sum(trade[0] for trade in buy_trades)  # trade[0] = amount
     if total_amount == 0:
         return None  # Prevent division by zero
 
     weighted_avg_price = sum(trade[0] * trade[1] for trade in buy_trades) / total_amount  # trade[1] = price
     return weighted_avg_price
-
 
 # Initialize crypto_data as a global variable
 crypto_data = {}
@@ -641,7 +679,7 @@ async def trading_bot():
 
                     # Ensure we have enough balance and meet minimum order size
                     if quote_cost < coins_config[symbol]["min_order_sizes"]["buy"]:
-                        print(f"🚫 Buy order too small: ${quote_cost:.2f} (minimum: ${coins_config[symbol]['min_order_sizes']['buy']})")
+                        print(f"🚫  - Buy order too small: ${quote_cost:.2f} (minimum: ${coins_config[symbol]['min_order_sizes']['buy']})")
                         continue
 
                     buy_amount = quote_cost / current_price  # Convert to coin amount
@@ -651,6 +689,10 @@ async def trading_bot():
                         crypto_data[symbol]["total_trades"] += 1
                         crypto_data[symbol]["last_buy_time"] = time.time()  # ⏳ Track last buy time
                         coin_settings["buy_percentage"] *= 2  # Persist the change
+
+                        # 🔥 Update Weighted Avg Buy Price
+                        updated_avg_price = get_weighted_avg_buy_price(symbol)
+                        save_weighted_avg_buy_price(symbol, updated_avg_price)  # Save the new average price
 
                         message = f"✅ *BOUGHT {buy_amount:.4f} {symbol}* at *${current_price:.2f}* USDC"
                         send_telegram_notification(message)
@@ -685,21 +727,27 @@ async def trading_bot():
                         if await place_order(symbol, "SELL", sell_amount, current_price):
                             crypto_data[symbol]["total_trades"] += 1
 
-                            # Get actual weighted buy price from DB
+                            # 🔥 Get actual weighted buy price from DB
                             actual_buy_price = get_weighted_avg_buy_price(symbol)
 
                             if actual_buy_price:
                                 crypto_data[symbol]["total_profit"] += (current_price - actual_buy_price) * sell_amount
-                                print(f"💰 {symbol} Profit Calculated: (Sell: {current_price:.{price_precision}f} - Buy: {actual_buy_price:.{price_precision}f}) * {sell_amount:.4f} = {crypto_data[symbol]['total_profit']:.2f} USDC")
+                                print(f"💰  - {symbol} Profit Calculated: (Sell: {current_price:.{price_precision}f} - Buy: {actual_buy_price:.{price_precision}f}) * {sell_amount:.4f} = {crypto_data[symbol]['total_profit']:.2f} USDC")
                             else:
-                                print(f"⚠️ No buy data found for {symbol}. Profit calculation skipped.")
+                                print(f"⚠️  - No buy data found for {symbol}. Profit calculation skipped.")
 
-                            # 🔥 Reset initial price to long-term MA to allow re-entry
+                            # 🔄 Reset initial price to long-term MA after sell to allow re-entry
                             crypto_data[symbol]["initial_price"] = long_term_ma
-                            print(f"🔄   - {symbol} Initial Price Reset to Long-Term MA: {long_term_ma:.{price_precision}f}")
+                            print(f"🔄  - {symbol} Initial Price Reset to Long-Term MA: {long_term_ma:.{price_precision}f}")
+
+                            # 🔥 Save Weighted Avg Buy Price After Sell
+                            save_weighted_avg_buy_price(symbol, None)  # Reset buy price after sell
 
                             message = f"🚀 *SOLD {sell_amount:.4f} {symbol}* at *${current_price:.2f}* USDC"
                             send_telegram_notification(message)
+
+                        else:
+                            print(f"🚫 Sell order failed for {symbol}!")
 
             else:
                 deviation = abs(current_price - moving_avg)  # Calculate deviation
