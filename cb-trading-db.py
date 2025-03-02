@@ -316,7 +316,8 @@ async def place_order(crypto_symbol, side, amount, current_price):
         return True
     else:
         print(f"❌ Order Failed for {crypto_symbol}: {response.get('error', 'Unknown error')}")
-        send_telegram_notification("⚠️ Order Failed for {crypto_symbol}!!!")
+        message = f"⚠️ Order Failed for {crypto_symbol}"
+        send_telegram_notification(message)
         return False
 
 async def log_trade(symbol, side, amount, price):
@@ -659,7 +660,8 @@ async def trading_bot():
                     or (
                         macd_sell_signal  
                         and macd_confirmation[symbol]["sell"] >= 5
-                        and current_price > actual_buy_price * 0.01
+                        and actual_buy_price is not None  # ✅ Ensure actual_buy_price is valid before using it
+                        and current_price > actual_buy_price * 1.01
                         # and abs(price_change - dynamic_sell_threshold) <= 0.01 * dynamic_sell_threshold  # ✅ Price is within 1% of threshold
                         and rsi > 70
                     )  # ✅ OR allow MACD + RSI if it's close to threshold
