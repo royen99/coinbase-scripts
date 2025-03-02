@@ -4,6 +4,11 @@
   "buy_percentage": 10,
   "sell_percentage": 10,
   "stop_loss_percentage": -10,
+  "telegram": {
+    "enabled": true,
+    "bot_token": "your_token",
+    "chat_id": "your_chat_id"
+  },
   "database": {
     "host": "your-database-host",
     "port": "your-database-port",

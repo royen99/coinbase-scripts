@@ -4,6 +4,7 @@ import asyncio
 import secrets
 import json
 import time
+import requests
 from cryptography.hazmat.primitives import serialization
 from collections import deque
 import psycopg2 # type: ignore
@@ -53,6 +54,31 @@ def get_db_connection():
         password=DB_PASSWORD
     )
     return conn
+
+# Load Telegram settings from config.json
+TELEGRAM_CONFIG = config.get("telegram", {})
+
+def send_telegram_notification(message):
+    """Send notification to Telegram if enabled in config.json."""
+    if not TELEGRAM_CONFIG.get("enabled", False):
+        return  # 🔕 Notifications are disabled
+
+    bot_token = TELEGRAM_CONFIG.get("bot_token")
+    chat_id = TELEGRAM_CONFIG.get("chat_id")
+    
+    if not bot_token or not chat_id:
+        print("⚠️ Telegram notification skipped: Missing bot token or chat ID in config.json")
+        return
+    
+    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    payload = {"chat_id": chat_id, "text": message}
+    
+    try:
+        response = requests.post(url, json=payload)
+        if response.status_code != 200:
+            print(f"❌ Telegram Error: {response.text}")
+    except Exception as e:
+        print(f"❌ Telegram Notification Failed: {e}")
 
 def save_price_history(symbol, price):
     """Save price history to the PostgreSQL database."""
@@ -290,6 +316,9 @@ async def place_order(crypto_symbol, side, amount, current_price):
         return True
     else:
         print(f"❌ Order Failed for {crypto_symbol}: {response.get('error', 'Unknown error')}")
+        print(f"🔄 Raw Response: {response}")
+        message = f"⚠️ Order Failed for {crypto_symbol}"
+        send_telegram_notification(message)
         return False
 
 async def log_trade(symbol, side, amount, price):
@@ -544,8 +573,7 @@ async def trading_bot():
             expected_sell_price = crypto_data[symbol]["initial_price"] * (1 + dynamic_sell_threshold / 100)
 
             # Log expected prices
-            print(f"📊 Expected Prices for {symbol}: Buy at: ${expected_buy_price:.{price_precision}f} ({dynamic_buy_threshold:.2f}%) / Sell at: ${expected_sell_price:.{price_precision}f} ({dynamic_sell_threshold:.2f}%) | MA: {moving_avg:.{price_precision}f}")
-            # print(f"📊 Expected Sell Price for {symbol}: ${expected_sell_price:.{price_precision}f} (Dynamic Sell Threshold: {dynamic_sell_threshold:.2f}%)")
+            print(f"📊   - Expected Prices for {symbol}: Buy at: ${expected_buy_price:.{price_precision}f} ({dynamic_buy_threshold:.2f}%) / Sell at: ${expected_sell_price:.{price_precision}f} ({dynamic_sell_threshold:.2f}%) | MA: {moving_avg:.{price_precision}f}")
 
             # Check if the price is close to the moving average
             if moving_avg and abs(current_price - moving_avg) < (0.05 * moving_avg):  # Only trade if price is within 5% of the moving average
@@ -580,29 +608,32 @@ async def trading_bot():
                 # Check how long since the last buy
                 time_since_last_buy = time.time() - crypto_data[symbol].get("last_buy_time", 0)
 
+                # Get average buy price
+                actual_buy_price = get_weighted_avg_buy_price(symbol)
+
                 # 🔥 Gradual Adjustments: Move `initial_price` 10% closer to `long_term_ma` during a sustained uptrend
-                if time_since_last_buy > 900 and current_price > long_term_ma * 1.05 and current_price > crypto_data[symbol]["initial_price"]:
+                if time_since_last_buy > 900 and price_change >= dynamic_sell_threshold and current_price > crypto_data[symbol]["initial_price"]:
                     new_initial_price = (
                         0.9 * crypto_data[symbol]["initial_price"] + 0.1 * long_term_ma
                     )
-                    print(f"📈 {symbol} Adjusting Initial Price Towards MA: {crypto_data[symbol]['initial_price']:.{price_precision}f} → {new_initial_price:.{price_precision}f}")
+                    print(f"📈   - {symbol} Adjusting Initial Price Towards MA: {crypto_data[symbol]['initial_price']:.{price_precision}f} → {new_initial_price:.{price_precision}f}")
                     crypto_data[symbol]["initial_price"] = new_initial_price
                 
                 # 🔽 Adjust Initial Price Downwards in a Sustained Downtrend (If Holdings < 1 USDC)
                 elif (
                     time_since_last_buy > 3600 and  # Time check
                     balances.get(symbol, 0) * current_price < 1 and  # Holdings worth less than $1 USDC
-                    # current_price < long_term_ma * 0.95 and  # Confirm downtrend
+                    current_price < long_term_ma * 0.95 and  # Confirm downtrend
                     current_price < crypto_data[symbol]["initial_price"] * 0.95 # Prevent premature resets
                 ):
                     new_initial_price = (0.9 * crypto_data[symbol]["initial_price"] + 0.1 * current_price)  # Move closer to the current price
-                    print(f"📉 {symbol} Adjusting Initial Price Downwards: {crypto_data[symbol]['initial_price']:.{price_precision}f} → {new_initial_price:.{price_precision}f}")
+                    print(f"📉   - {symbol} Adjusting Initial Price Downwards: {crypto_data[symbol]['initial_price']:.{price_precision}f} → {new_initial_price:.{price_precision}f}")
                     crypto_data[symbol]["initial_price"] = new_initial_price
 
                 # Execute buy order if MACD buy signal is confirmed
                 if (
-                    (price_change <= dynamic_buy_threshold and  # Price threshold
-                    (macd_buy_signal and macd_confirmation[symbol]["buy"] >= 3) and rsi < 30)  # MACD + RSI filter
+                    price_change <= dynamic_buy_threshold or  # Price threshold
+                    (macd_buy_signal and macd_confirmation[symbol]["buy"] >= 3 and rsi < 30)  # MACD + RSI filter
                     and current_price < long_term_ma  # Trend filter
                     and balances[quote_currency] > 0  # Sufficient balance
                 ):
@@ -621,13 +652,18 @@ async def trading_bot():
                         crypto_data[symbol]["last_buy_time"] = time.time()  # ⏳ Track last buy time
                         coin_settings["buy_percentage"] *= 2  # Persist the change
 
+                        message = f"✅ *BOUGHT {buy_amount:.4f} {symbol}* at *${current_price:.2f}* USDC"
+                        send_telegram_notification(message)
+
                 # Execute sell order if sell signals are confirmed or dynamic_sell_threshold was reached
                 elif (
                     price_change >= dynamic_sell_threshold  # ✅ Always sell if price threshold is hit!
                     or (
                         macd_sell_signal  
                         and macd_confirmation[symbol]["sell"] >= 5
-                        and abs(price_change - dynamic_sell_threshold) <= 0.01 * dynamic_sell_threshold  # ✅ Price is within 1% of threshold
+                        and actual_buy_price is not None  # ✅ Ensure actual_buy_price is valid before using it
+                        and current_price > actual_buy_price * 1.02
+                        # and abs(price_change - dynamic_sell_threshold) <= 0.01 * dynamic_sell_threshold  # ✅ Price is within 1% of threshold
                         and rsi > 70
                     )  # ✅ OR allow MACD + RSI if it's close to threshold
                 ) and balances[symbol] > 0:  # ✅ Ensure we have balance
@@ -660,17 +696,22 @@ async def trading_bot():
 
                             # 🔥 Reset initial price to long-term MA to allow re-entry
                             crypto_data[symbol]["initial_price"] = long_term_ma
-                            print(f"🔄 {symbol} Initial Price Reset to Long-Term MA: {long_term_ma:.{price_precision}f}")
+                            print(f"🔄   - {symbol} Initial Price Reset to Long-Term MA: {long_term_ma:.{price_precision}f}")
+
+                            message = f"🚀 *SOLD {sell_amount:.4f} {symbol}* at *${current_price:.2f}* USDC"
+                            send_telegram_notification(message)
 
             else:
                 deviation = abs(current_price - moving_avg)  # Calculate deviation
                 deviation_percentage = (deviation / moving_avg) * 100  # Convert to percentage
+                message = f"🚀 Large deviation for {symbol} - {deviation_percentage:.2f}%, Current Price: {current_price:.{price_precision}f} USDC"
                 print(f"⚠️ {symbol} Skipping trade: Price deviation too high!")
                 print(f"📊 Moving Average: {moving_avg:.{price_precision}f}, Current Price: {current_price:.{price_precision}f}")
                 print(f"📉 Deviation: {deviation:.2f} ({deviation_percentage:.2f}%)")
+                send_telegram_notification(message)
 
             # Log performance for each cryptocurrency
-            print(f"📊 {symbol} Performance - Total Trades: {crypto_data[symbol]['total_trades']} | Total Profit: ${crypto_data[symbol]['total_profit']:.2f}")
+            print(f"📊   - {symbol} Avg buy price: {actual_buy_price} | Performance - Total Trades: {crypto_data[symbol]['total_trades']} | Total Profit: ${crypto_data[symbol]['total_profit']:.2f}")
 
             # Save state after each coin's update
             save_state(symbol, crypto_data[symbol]["initial_price"], crypto_data[symbol]["total_trades"], crypto_data[symbol]["total_profit"])
