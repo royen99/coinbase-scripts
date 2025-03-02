@@ -316,6 +316,7 @@ async def place_order(crypto_symbol, side, amount, current_price):
         return True
     else:
         print(f"❌ Order Failed for {crypto_symbol}: {response.get('error', 'Unknown error')}")
+        print(f"🔄 Raw Response: {response}")
         message = f"⚠️ Order Failed for {crypto_symbol}"
         send_telegram_notification(message)
         return False
