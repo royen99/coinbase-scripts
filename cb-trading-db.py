@@ -415,48 +415,12 @@ def calculate_long_term_ma(price_history, period=200):
         return None
     return sum(price_history[-period:]) / period
 
-def save_weighted_avg_buy_price(symbol, avg_price):
-    """Store the latest weighted average buy price for a given symbol in the database."""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    if avg_price is not None:
-        cursor.execute(
-            """
-            INSERT INTO trading_state (symbol, initial_price, total_trades, total_profit)
-            VALUES (%s, %s, 0, 0)
-            ON CONFLICT (symbol) DO UPDATE
-            SET initial_price = EXCLUDED.initial_price
-            """,
-            (symbol, avg_price)
-        )
-
-        print(f"💾  - {symbol} Weighted Average Buy Price Updated: {avg_price:.6f} USDC")
-
-    conn.commit()
-    cursor.close()
-    conn.close()
-
 def get_weighted_avg_buy_price(symbol):
-    """Fetch the weighted average buy price of the remaining holdings from the database."""
+    """Fetch the weighted average buy price since the last sell from the database."""
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    # 🔍 Fetch the user's remaining balance for the symbol
-    cursor.execute(
-        "SELECT available_balance FROM balances WHERE currency = %s",
-        (symbol,)
-    )
-    balance_row = cursor.fetchone()
-    remaining_balance = balance_row[0] if balance_row else 0
-
-    # ✅ If fully sold, reset tracking
-    if remaining_balance == 0:
-        cursor.close()
-        conn.close()
-        return None  # No remaining holdings = No weighted buy price
-
-    # 🔍 Find the timestamp of the most recent **sell** trade
+    # 🔍 Step 1: Find the most recent SELL trade timestamp
     cursor.execute(
         "SELECT timestamp FROM trades WHERE symbol = %s AND side = 'SELL' ORDER BY timestamp DESC LIMIT 1",
         (symbol,)
@@ -464,35 +428,49 @@ def get_weighted_avg_buy_price(symbol):
     last_sell = cursor.fetchone()
     last_sell_time = last_sell[0] if last_sell else None
 
-    # 🔍 Fetch only **BUY trades after the last sell**
+    # 🔍 Step 2: Fetch ALL BUY trades (debugging)
+    cursor.execute(
+        "SELECT id, amount, price, timestamp FROM trades WHERE symbol = %s AND side = 'BUY' ORDER BY timestamp ASC",
+        (symbol,)
+    )
+    all_buy_trades = cursor.fetchall()
+
+    print(f"📊 {symbol} DEBUG: Found {len(all_buy_trades)} BUY trades in DB.")
+
+    # 🔍 Step 3: Fetch only relevant BUY trades after last SELL
     if last_sell_time:
         cursor.execute(
             """
-            SELECT amount, price FROM trades
-            WHERE symbol = %s AND side = 'BUY' AND timestamp > %s
+            SELECT amount, price FROM trades 
+            WHERE symbol = %s AND side = 'BUY' 
+            AND timestamp > %s ORDER BY timestamp ASC
             """,
             (symbol, last_sell_time)
         )
     else:
-        # No sell history? Use **all buy trades**
         cursor.execute(
-            "SELECT amount, price FROM trades WHERE symbol = %s AND side = 'BUY'",
+            "SELECT amount, price FROM trades WHERE symbol = %s AND side = 'BUY' ORDER BY timestamp ASC",
             (symbol,)
         )
 
     buy_trades = cursor.fetchall()
+
     cursor.close()
     conn.close()
+
+    print(f"📊 {symbol} DEBUG: Using {len(buy_trades)} BUY trades for weighted average.")
 
     if not buy_trades:
         return None  # No buy trades found
 
-    # ✅ Calculate the weighted average buy price **only for remaining balance**
+    # 🧮 Calculate Weighted Average Buy Price
     total_amount = sum(trade[0] for trade in buy_trades)  # trade[0] = amount
     if total_amount == 0:
         return None  # Prevent division by zero
 
     weighted_avg_price = sum(trade[0] * trade[1] for trade in buy_trades) / total_amount  # trade[1] = price
+    print(f"✅ {symbol} Weighted Average Buy Price: {weighted_avg_price:.6f}")
+
     return weighted_avg_price
 
 # Initialize crypto_data as a global variable
