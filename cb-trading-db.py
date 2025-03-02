@@ -659,7 +659,7 @@ async def trading_bot():
                     or (
                         macd_sell_signal  
                         and macd_confirmation[symbol]["sell"] >= 5
-                        and current_price > actual_buy_price * 0.05
+                        and current_price > actual_buy_price * 0.01
                         # and abs(price_change - dynamic_sell_threshold) <= 0.01 * dynamic_sell_threshold  # ✅ Price is within 1% of threshold
                         and rsi > 70
                     )  # ✅ OR allow MACD + RSI if it's close to threshold
