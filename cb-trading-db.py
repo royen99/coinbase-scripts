@@ -672,7 +672,7 @@ async def trading_bot():
                 if (
                     price_change <= dynamic_buy_threshold or  # Price threshold
                     (macd_buy_signal and macd_confirmation[symbol]["buy"] >= 3 and rsi < 30)  # MACD + RSI filter
-                    and current_price < actual_buy_price  # If price is cheaper then what we have bought already.
+                    and (current_price < actual_buy_price or actual_buy_price is None) # If price is cheaper then what we have bought already.
                     and current_price < long_term_ma  # Trend filter
                     and balances[quote_currency] > 0  # Sufficient balance
                 ):
