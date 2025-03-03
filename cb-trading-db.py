@@ -442,57 +442,49 @@ def get_weighted_avg_buy_price(symbol):
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    # 🔍 Step 1: Find the most recent SELL trade timestamp
+    # ✅ Step 1: Find the timestamp of the **SECOND MOST RECENT** sell trade
     cursor.execute(
-        "SELECT timestamp FROM trades WHERE symbol = %s AND side = 'SELL' ORDER BY timestamp DESC LIMIT 1",
+        """
+        SELECT timestamp FROM trades 
+        WHERE symbol = %s AND side = 'SELL' 
+        ORDER BY timestamp DESC 
+        OFFSET 1 LIMIT 1
+        """,
         (symbol,)
     )
-    last_sell = cursor.fetchone()
-    last_sell_time = last_sell[0] if last_sell else None
+    second_last_sell = cursor.fetchone()
+    second_last_sell_time = second_last_sell[0] if second_last_sell else None
 
-    # 🔍 Step 2: Fetch ALL BUY trades (debugging)
-    cursor.execute(
-        "SELECT id, amount, price, timestamp FROM trades WHERE symbol = %s AND side = 'BUY' ORDER BY timestamp ASC",
-        (symbol,)
-    )
-    all_buy_trades = cursor.fetchall()
-
-    print(f"📊 {symbol} DEBUG: Found {len(all_buy_trades)} BUY trades in DB.")
-
-    # 🔍 Step 3: Fetch only relevant BUY trades after last SELL
-    if last_sell_time:
+    # ✅ Step 2: Fetch all BUY trades **after the second-to-last SELL**
+    if second_last_sell_time:
         cursor.execute(
             """
             SELECT amount, price FROM trades 
             WHERE symbol = %s AND side = 'BUY' 
-            AND timestamp > %s ORDER BY timestamp ASC
+            AND timestamp > %s
             """,
-            (symbol, last_sell_time)
+            (symbol, second_last_sell_time)
         )
     else:
+        # If no previous sell exists, get all buys
         cursor.execute(
-            "SELECT amount, price FROM trades WHERE symbol = %s AND side = 'BUY' ORDER BY timestamp ASC",
+            "SELECT amount, price FROM trades WHERE symbol = %s AND side = 'BUY'",
             (symbol,)
         )
 
     buy_trades = cursor.fetchall()
-
     cursor.close()
     conn.close()
-
-    print(f"📊 {symbol} DEBUG: Using {len(buy_trades)} BUY trades for weighted average.")
 
     if not buy_trades:
         return None  # No buy trades found
 
-    # 🧮 Calculate Weighted Average Buy Price
+    # ✅ Step 3: Calculate weighted average buy price
     total_amount = sum(trade[0] for trade in buy_trades)  # trade[0] = amount
     if total_amount == 0:
         return None  # Prevent division by zero
 
     weighted_avg_price = sum(trade[0] * trade[1] for trade in buy_trades) / total_amount  # trade[1] = price
-    print(f"✅ {symbol} Weighted Average Buy Price: {weighted_avg_price:.6f}")
-
     return weighted_avg_price
 
 # Initialize crypto_data as a global variable
