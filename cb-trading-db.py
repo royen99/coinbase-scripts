@@ -703,7 +703,7 @@ async def trading_bot():
                         macd_sell_signal  
                         and macd_confirmation[symbol]["sell"] >= 3
                         and actual_buy_price is not None  # ✅ Ensure actual_buy_price is valid before using it
-                        and current_price > actual_buy_price * 1.025
+                        and current_price > actual_buy_price * 1.25
                         # and abs(price_change - dynamic_sell_threshold) <= 0.01 * dynamic_sell_threshold  # ✅ Price is within 1% of threshold
                         and rsi > 70
                     )  # ✅ OR allow MACD + RSI if it's close to threshold
