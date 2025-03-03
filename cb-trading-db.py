@@ -763,7 +763,7 @@ async def trading_bot():
                 print(f"⚠️  - {symbol} Skipping trade: Price deviation too high!")
                 print(f"📊  - Moving Average: {moving_avg:.{price_precision}f}, Current Price: {current_price:.{price_precision}f}")
                 print(f"📉  - Deviation: {deviation:.2f} ({deviation_percentage:.2f}%)")
-                send_telegram_notification(message)
+                # send_telegram_notification(message)
 
             # Log performance for each cryptocurrency
             print(f"📊  - {symbol} Avg buy price: {actual_buy_price} | Performance - Total Trades: {crypto_data[symbol]['total_trades']} | Total Profit: ${crypto_data[symbol]['total_profit']:.2f}")
