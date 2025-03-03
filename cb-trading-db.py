@@ -488,7 +488,7 @@ def get_weighted_avg_buy_price(symbol):
 
     weighted_avg_price = sum(trade[0] * trade[1] for trade in buy_trades) / total_amount
 
-    print(f"📊 DEBUG - {symbol}: Found {len(buy_trades)} BUY trades after last sell. Calculated Avg Price: {weighted_avg_price:.6f}")
+    # print(f"📊 DEBUG - {symbol}: Found {len(buy_trades)} BUY trades after last sell. Calculated Avg Price: {weighted_avg_price:.6f}")
     
     return weighted_avg_price
 
