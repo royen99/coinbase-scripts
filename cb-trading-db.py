@@ -455,7 +455,7 @@ def get_weighted_avg_buy_price(symbol):
     second_last_sell = cursor.fetchone()
     second_last_sell_time = second_last_sell[0] if second_last_sell else None
 
-    # ✅ Step 2: Fetch all BUY trades **after the second-to-last SELL**
+    # ✅ Step 2: Fetch all BUY trades **after the second-to-last SELL**, OR all if no sells exist
     if second_last_sell_time:
         cursor.execute(
             """
@@ -466,7 +466,7 @@ def get_weighted_avg_buy_price(symbol):
             (symbol, second_last_sell_time)
         )
     else:
-        # If no previous sell exists, get all buys
+        # ✅ If no sell exists, get **ALL BUY TRADES**
         cursor.execute(
             "SELECT amount, price FROM trades WHERE symbol = %s AND side = 'BUY'",
             (symbol,)
@@ -485,6 +485,9 @@ def get_weighted_avg_buy_price(symbol):
         return None  # Prevent division by zero
 
     weighted_avg_price = sum(trade[0] * trade[1] for trade in buy_trades) / total_amount  # trade[1] = price
+
+    print(f"📊 DEBUG - {symbol}: Found {len(buy_trades)} BUY trades. Calculated Avg Price: {weighted_avg_price:.6f}")
+    
     return weighted_avg_price
 
 # Initialize crypto_data as a global variable
