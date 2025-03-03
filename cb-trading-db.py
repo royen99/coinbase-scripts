@@ -671,6 +671,7 @@ async def trading_bot():
                     (macd_buy_signal and macd_confirmation[symbol]["buy"] >= 3 and rsi < 30)  # MACD + RSI filter
                     and (actual_buy_price is None or current_price < actual_buy_price) # If price is cheaper then what we have bought already.
                     and current_price < long_term_ma  # Trend filter
+                    and time_since_last_buy > 120  # Wait 2 minutes before buying again.
                     and balances[quote_currency] > 0  # Sufficient balance
                 ):
                     quote_cost = round((buy_percentage / 100) * balances[quote_currency], 2)  # Directly in USDC
