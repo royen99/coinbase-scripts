@@ -442,31 +442,31 @@ def get_weighted_avg_buy_price(symbol):
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    # ✅ Step 1: Find the timestamp of the **SECOND MOST RECENT** sell trade
+    # ✅ Step 1: Get the most recent SELL trade timestamp
     cursor.execute(
         """
         SELECT timestamp FROM trades 
         WHERE symbol = %s AND side = 'SELL' 
         ORDER BY timestamp DESC 
-        OFFSET 1 LIMIT 1
+        LIMIT 1
         """,
         (symbol,)
     )
-    second_last_sell = cursor.fetchone()
-    second_last_sell_time = second_last_sell[0] if second_last_sell else None
+    last_sell = cursor.fetchone()
+    last_sell_time = last_sell[0] if last_sell else None
 
-    # ✅ Step 2: Fetch all BUY trades **after the second-to-last SELL**, OR all if no sells exist
-    if second_last_sell_time:
+    # ✅ Step 2: Fetch all BUY trades after the last sell (or all if no sells exist)
+    if last_sell_time:
         cursor.execute(
             """
             SELECT amount, price FROM trades 
             WHERE symbol = %s AND side = 'BUY' 
             AND timestamp > %s
             """,
-            (symbol, second_last_sell_time)
+            (symbol, last_sell_time)
         )
     else:
-        # ✅ If no sell exists, get **ALL BUY TRADES**
+        # If no previous sell exists, get all buys
         cursor.execute(
             "SELECT amount, price FROM trades WHERE symbol = %s AND side = 'BUY'",
             (symbol,)
@@ -477,16 +477,18 @@ def get_weighted_avg_buy_price(symbol):
     conn.close()
 
     if not buy_trades:
+        print(f"⚠️ No valid buy trades found for {symbol}. Returning None.")
         return None  # No buy trades found
 
-    # ✅ Step 3: Calculate weighted average buy price
-    total_amount = sum(trade[0] for trade in buy_trades)  # trade[0] = amount
+    # ✅ Step 3: Calculate the **correct** weighted average price
+    total_amount = sum(trade[0] for trade in buy_trades)  # Sum of all bought amounts
     if total_amount == 0:
+        print(f"⚠️ Total amount for {symbol} is 0. Returning None.")
         return None  # Prevent division by zero
 
-    weighted_avg_price = sum(trade[0] * trade[1] for trade in buy_trades) / total_amount  # trade[1] = price
+    weighted_avg_price = sum(trade[0] * trade[1] for trade in buy_trades) / total_amount
 
-    print(f"📊 DEBUG - {symbol}: Found {len(buy_trades)} BUY trades. Calculated Avg Price: {weighted_avg_price:.6f}")
+    print(f"📊 DEBUG - {symbol}: Found {len(buy_trades)} BUY trades after last sell. Calculated Avg Price: {weighted_avg_price:.6f}")
     
     return weighted_avg_price
 
