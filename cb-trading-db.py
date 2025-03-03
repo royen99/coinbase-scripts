@@ -687,7 +687,7 @@ async def trading_bot():
                     if await place_order(symbol, "BUY", buy_amount, current_price):
                         crypto_data[symbol]["total_trades"] += 1
                         crypto_data[symbol]["last_buy_time"] = time.time()  # ⏳ Track last buy time
-                        coin_settings["buy_percentage"] *= 2  # Persist the change
+                        # coin_settings["buy_percentage"] *= 2  # Persist the change
 
                         # 🔥 Update Weighted Avg Buy Price
                         updated_avg_price = get_weighted_avg_buy_price(symbol)
@@ -701,9 +701,9 @@ async def trading_bot():
                     price_change >= dynamic_sell_threshold  # ✅ Always sell if price threshold is hit!
                     or (
                         macd_sell_signal  
-                        and macd_confirmation[symbol]["sell"] >= 5
+                        and macd_confirmation[symbol]["sell"] >= 3
                         and actual_buy_price is not None  # ✅ Ensure actual_buy_price is valid before using it
-                        and current_price > actual_buy_price * 1.05
+                        and current_price > actual_buy_price * 1.025
                         # and abs(price_change - dynamic_sell_threshold) <= 0.01 * dynamic_sell_threshold  # ✅ Price is within 1% of threshold
                         and rsi > 70
                     )  # ✅ OR allow MACD + RSI if it's close to threshold
