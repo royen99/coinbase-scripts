@@ -647,12 +647,17 @@ async def trading_bot():
                 # Get average buy price
                 actual_buy_price = get_weighted_avg_buy_price(symbol)
 
-                # 🔥 Gradual Adjustments: Move `initial_price` 10% closer to `long_term_ma` during a sustained uptrend
-                if time_since_last_buy > 900 and price_change >= dynamic_sell_threshold and current_price > crypto_data[symbol]["initial_price"]:
+                # 🔥 Gradual Adjustments: Move `initial_price` 10% closer to `long_term_ma` during a sustained >5% uptrend
+                if (
+                    time_since_last_buy > 900
+                    and price_change >= dynamic_sell_threshold
+                    and current_price > crypto_data[symbol]["initial_price"]
+                    and current_price > long_term_ma * 1.05  # Confirm downtrend
+                    ):
                     new_initial_price = (
                         0.9 * crypto_data[symbol]["initial_price"] + 0.1 * long_term_ma
                     )
-                    print(f"📈  - {symbol} Adjusting Initial Price Towards MA: {crypto_data[symbol]['initial_price']:.{price_precision}f} → {new_initial_price:.{price_precision}f}")
+                    print(f"📈  - {symbol} Adjusting Initial Price Upwards: {crypto_data[symbol]['initial_price']:.{price_precision}f} → {new_initial_price:.{price_precision}f}")
                     crypto_data[symbol]["initial_price"] = new_initial_price
                 
                 # 🔽 Adjust Initial Price Downwards in a Sustained Downtrend (If Holdings < 1 USDC)
