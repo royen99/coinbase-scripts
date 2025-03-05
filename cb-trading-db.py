@@ -667,7 +667,7 @@ async def trading_bot():
 
                 # Execute buy order if MACD buy signal is confirmed
                 if (
-                    price_change <= dynamic_buy_threshold or  # Price threshold
+                    price_change <= dynamic_buy_threshold and  # Price threshold
                     (macd_buy_signal and macd_confirmation[symbol]["buy"] >= 3 and rsi < 30)  # MACD + RSI filter
                     and (actual_buy_price is None or current_price < actual_buy_price) # If price is cheaper then what we have bought already.
                     and current_price < long_term_ma  # Trend filter
@@ -698,15 +698,11 @@ async def trading_bot():
 
                 # Execute sell order if sell signals are confirmed or dynamic_sell_threshold was reached
                 elif (
-                    price_change >= dynamic_sell_threshold  # ✅ Always sell if price threshold is hit!
-                    or (
-                        macd_sell_signal  
-                        and macd_confirmation[symbol]["sell"] >= 3
-                        and actual_buy_price is not None  # ✅ Ensure actual_buy_price is valid before using it
-                        and current_price > actual_buy_price * 1.75
-                        # and abs(price_change - dynamic_sell_threshold) <= 0.01 * dynamic_sell_threshold  # ✅ Price is within 1% of threshold
-                        and rsi > 70
-                    )  # ✅ OR allow MACD + RSI if it's close to threshold
+                    macd_sell_signal
+                    and macd_confirmation[symbol]["sell"] >= 3  # ✅ At least 3 positives signals
+                    and actual_buy_price is not None  # ✅ Ensure actual_buy_price is valid before using it
+                    and current_price > actual_buy_price * (1 + (dynamic_sell_threshold / 100))  # ✅ Profit percentage wanted based on sell threshold
+                    and rsi > 70  # ✅ RSI above 70 indicates a oversold condition
                 ) and balances[symbol] > 0:  # ✅ Ensure we have balance
 
                     sell_amount = (sell_percentage / 100) * balances[symbol]
