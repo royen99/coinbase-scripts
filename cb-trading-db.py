@@ -492,8 +492,9 @@ def get_weighted_avg_buy_price(symbol):
     
     return weighted_avg_price
 
-# Initialize crypto_data as a global variable
+# Initialize somee global variables
 crypto_data = {}
+actual_buy_price = {}
 
 # Global variable to track MACD confirmation
 macd_confirmation = {symbol: {"buy": 0, "sell": 0} for symbol in crypto_symbols}
@@ -754,7 +755,7 @@ async def trading_bot():
                 deviation = abs(current_price - moving_avg)  # Calculate deviation
                 deviation_percentage = (deviation / moving_avg) * 100  # Convert to percentage
                 message = f"🚀 Large deviation for {symbol} - {deviation_percentage:.2f}%, Current Price: {current_price:.{price_precision}f} USDC"
-                print(f"⚠️  - {symbol} Skipping trade: Price deviation too high!")
+                print(f"🔥  - {symbol} Skipping trade: Price deviation too high!")
                 print(f"📊  - Moving Average: {moving_avg:.{price_precision}f}, Current Price: {current_price:.{price_precision}f}")
                 print(f"📉  - Deviation: {deviation:.2f} ({deviation_percentage:.2f}%)")
                 # send_telegram_notification(message)
