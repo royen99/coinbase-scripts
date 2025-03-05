@@ -477,13 +477,13 @@ def get_weighted_avg_buy_price(symbol):
     conn.close()
 
     if not buy_trades:
-        print(f"⚠️  - No valid buy trades found for {symbol}. Returning None.")
+        print(f"🔥  - No valid buy trades found for {symbol}. Returning None.")
         return None  # No buy trades found
 
     # ✅ Step 3: Calculate the **correct** weighted average price
     total_amount = sum(trade[0] for trade in buy_trades)  # Sum of all bought amounts
     if total_amount == 0:
-        print(f"⚠️  - Total amount for {symbol} is 0. Returning None.")
+        print(f"🔥  - Total amount for {symbol} is 0. Returning None.")
         return None  # Prevent division by zero
 
     weighted_avg_price = sum(trade[0] * trade[1] for trade in buy_trades) / total_amount
@@ -759,7 +759,6 @@ async def trading_bot():
                 print(f"📊  - Moving Average: {moving_avg:.{price_precision}f}, Current Price: {current_price:.{price_precision}f}")
                 print(f"📉  - Deviation: {deviation:.2f} ({deviation_percentage:.2f}%)")
                 # send_telegram_notification(message)
-
 
             print(f"📊  - {symbol} Avg buy price: {actual_buy_price} | Performance - Total Trades: {crypto_data[symbol]['total_trades']} | Total Profit: ${crypto_data[symbol]['total_profit']:.2f}")
             
