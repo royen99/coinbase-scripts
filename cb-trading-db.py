@@ -725,11 +725,12 @@ async def trading_bot():
 
                     if sell_amount > 0:
                         print(f"💵  - Selling {sell_amount:.{precision}f} {symbol} at {current_price:.2f}!")
+
+                        # 🔥 Get actual weighted buy price from DB just before selling
+                        actual_buy_price = get_weighted_avg_buy_price(symbol)
+
                         if await place_order(symbol, "SELL", sell_amount, current_price):
                             crypto_data[symbol]["total_trades"] += 1
-
-                            # 🔥 Get actual weighted buy price from DB
-                            actual_buy_price = get_weighted_avg_buy_price(symbol)
 
                             if actual_buy_price is None:
                                 print(f"❌  - ERROR: get_weighted_avg_buy_price({symbol}) returned None! Check DB query!")
