@@ -651,8 +651,8 @@ async def trading_bot():
                 if (
                     time_since_last_buy > 900
                     and price_change >= dynamic_sell_threshold
-                    and current_price > crypto_data[symbol]["initial_price"]
-                    and current_price > long_term_ma * 1.05  # Confirm downtrend
+                    and current_price > crypto_data[symbol]["initial_price"] * 1.05
+                    and current_price > long_term_ma  # Confirm Uptrend
                     ):
                     new_initial_price = (
                         0.9 * crypto_data[symbol]["initial_price"] + 0.1 * long_term_ma
