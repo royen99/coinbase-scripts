@@ -269,7 +269,7 @@ async def place_order(crypto_symbol, side, amount, current_price):
 
         # Ensure buy order is above minimum required buy amount
         if quote_cost < min_order_sizes["buy"]:
-            print(f"🚫 Buy order too small: ${quote_cost} (minimum: ${min_order_sizes['buy']})")
+            print(f"🚫  - Buy order too small: ${quote_cost} (minimum: ${min_order_sizes['buy']})")
             return False
         
         # Round amount according to precision
@@ -287,16 +287,16 @@ async def place_order(crypto_symbol, side, amount, current_price):
 
         # 🚨 Ensure sell amount meets minimum order size
         if rounded_amount < min_order_sizes["sell"]:
-            print(f"🚫 Sell order too small: {rounded_amount:.{precision}f} {crypto_symbol} (minimum: {min_order_sizes['sell']:.{precision}f} {crypto_symbol})")
+            print(f"🚫  - Sell order too small: {rounded_amount:.{precision}f} {crypto_symbol} (minimum: {min_order_sizes['sell']:.{precision}f} {crypto_symbol})")
             return False
 
         # 🔄 Ensure the API receives the correctly formatted amount
         order_data["order_configuration"]["market_market_ioc"]["base_size"] = str(f"{rounded_amount:.{precision}f}")
 
-        print(f"🛠️ Adjusted Sell Amount for {crypto_symbol}: {rounded_amount:.{precision}f} (Precision: {precision})")
+        print(f"🛠️  - Adjusted Sell Amount for {crypto_symbol}: {rounded_amount:.{precision}f} (Precision: {precision})")
     
     # Log the order details
-    print(f"🛠️ Placing {side} order for {crypto_symbol}: Amount = {rounded_amount}, Price = {await get_crypto_price(crypto_symbol)}")
+    print(f"🛠️  - Placing {side} order for {crypto_symbol}: Amount = {rounded_amount}, Price = {await get_crypto_price(crypto_symbol)}")
 
     response = await api_request("POST", path, order_data)
 
@@ -306,7 +306,7 @@ async def place_order(crypto_symbol, side, amount, current_price):
     # Handle the response
     if response.get("success", False):
         order_id = response["success_response"]["order_id"]
-        print(f"✅ {side.upper()} Order Placed for {crypto_symbol}: Order ID = {order_id}")
+        print(f"✅  - {side.upper()} Order Placed for {crypto_symbol}: Order ID = {order_id}")
         
         # Log the trade in the database
         current_price = await get_crypto_price(crypto_symbol)
@@ -315,8 +315,8 @@ async def place_order(crypto_symbol, side, amount, current_price):
 
         return True
     else:
-        print(f"❌ Order Failed for {crypto_symbol}: {response.get('error', 'Unknown error')}")
-        print(f"🔄 Raw Response: {response}")
+        print(f"❌  - Order Failed for {crypto_symbol}: {response.get('error', 'Unknown error')}")
+        print(f"🔄  - Raw Response: {response}")
         message = f"⚠️ Order Failed for {crypto_symbol}"
         send_telegram_notification(message)
         return False
@@ -367,7 +367,7 @@ def calculate_ema(prices, period, return_all=False):
 def calculate_macd(prices, symbol, short_window=12, long_window=26, signal_window=9):
     """Calculate MACD, Signal Line, and Histogram."""
     if len(prices) < long_window + signal_window:
-        print(f"⚠️ Not enough data to calculate MACD for {symbol}. Required: {long_window + signal_window}, Available: {len(prices)}")
+        print(f"⚠️  - Not enough data to calculate MACD for {symbol}. Required: {long_window + signal_window}, Available: {len(prices)}")
         return None, None, None
 
     # Compute EMA for the full dataset
@@ -388,7 +388,7 @@ def calculate_macd(prices, symbol, short_window=12, long_window=26, signal_windo
 def calculate_rsi(prices, symbol, period=14):
     """Calculate the Relative Strength Index (RSI)."""
     if len(prices) < period + 1:
-        print(f"⚠️ Not enough data to calculate RSI for {symbol}. Required: {period + 1}, Available: {len(prices)}")
+        print(f"⚠️  - Not enough data to calculate RSI for {symbol}. Required: {period + 1}, Available: {len(prices)}")
         return None
 
     # Calculate gains and losses
@@ -415,23 +415,54 @@ def calculate_long_term_ma(price_history, period=200):
         return None
     return sum(price_history[-period:]) / period
 
-def get_weighted_avg_buy_price(symbol):
-    """Fetch the weighted average buy price since the last sell from the database."""
-    conn = get_db_connection()  # ✅ No need for `await`
+def save_weighted_avg_buy_price(symbol, avg_price):
+    """Store the latest weighted average buy price for a given symbol in the database."""
+    conn = get_db_connection()
     cursor = conn.cursor()
 
-    # Find the timestamp of the most recent sell trade
+    if avg_price is not None:
+        cursor.execute(
+            """
+            INSERT INTO trading_state (symbol, initial_price, total_trades, total_profit)
+            VALUES (%s, %s, 0, 0)
+            ON CONFLICT (symbol) DO UPDATE
+            SET initial_price = EXCLUDED.initial_price
+            """,
+            (symbol, avg_price)
+        )
+
+        print(f"💾  - {symbol} Weighted Average Buy Price Updated: {avg_price:.6f} USDC")
+
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+def get_weighted_avg_buy_price(symbol):
+    """Fetch the weighted average buy price since the last sell from the database."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # ✅ Step 1: Get the most recent SELL trade timestamp
     cursor.execute(
-        "SELECT timestamp FROM trades WHERE symbol = %s AND side = 'SELL' ORDER BY timestamp DESC LIMIT 1",
+        """
+        SELECT timestamp FROM trades 
+        WHERE symbol = %s AND side = 'SELL' 
+        ORDER BY timestamp DESC 
+        LIMIT 1
+        """,
         (symbol,)
     )
     last_sell = cursor.fetchone()
     last_sell_time = last_sell[0] if last_sell else None
 
-    # Fetch all buy trades that happened after the last sell
+    # ✅ Step 2: Fetch all BUY trades after the last sell (or all if no sells exist)
     if last_sell_time:
         cursor.execute(
-            "SELECT amount, price FROM trades WHERE symbol = %s AND side = 'BUY' AND timestamp > %s",
+            """
+            SELECT amount, price FROM trades 
+            WHERE symbol = %s AND side = 'BUY' 
+            AND timestamp > %s
+            """,
             (symbol, last_sell_time)
         )
     else:
@@ -446,19 +477,24 @@ def get_weighted_avg_buy_price(symbol):
     conn.close()
 
     if not buy_trades:
+        print(f"🔥  - No valid buy trades found for {symbol}. Returning None.")
         return None  # No buy trades found
 
-    # Calculate weighted average buy price
-    total_amount = sum(trade[0] for trade in buy_trades)  # trade[0] = amount
+    # ✅ Step 3: Calculate the **correct** weighted average price
+    total_amount = sum(trade[0] for trade in buy_trades)  # Sum of all bought amounts
     if total_amount == 0:
+        print(f"🔥  - Total amount for {symbol} is 0. Returning None.")
         return None  # Prevent division by zero
 
-    weighted_avg_price = sum(trade[0] * trade[1] for trade in buy_trades) / total_amount  # trade[1] = price
+    weighted_avg_price = sum(trade[0] * trade[1] for trade in buy_trades) / total_amount
+
+    # print(f"📊 DEBUG - {symbol}: Found {len(buy_trades)} BUY trades after last sell. Calculated Avg Price: {weighted_avg_price:.6f}")
+    
     return weighted_avg_price
 
-
-# Initialize crypto_data as a global variable
+# Initialize somee global variables
 crypto_data = {}
+actual_buy_price = {}
 
 # Global variable to track MACD confirmation
 macd_confirmation = {symbol: {"buy": 0, "sell": 0} for symbol in crypto_symbols}
@@ -573,7 +609,7 @@ async def trading_bot():
             expected_sell_price = crypto_data[symbol]["initial_price"] * (1 + dynamic_sell_threshold / 100)
 
             # Log expected prices
-            print(f"📊   - Expected Prices for {symbol}: Buy at: ${expected_buy_price:.{price_precision}f} ({dynamic_buy_threshold:.2f}%) / Sell at: ${expected_sell_price:.{price_precision}f} ({dynamic_sell_threshold:.2f}%) | MA: {moving_avg:.{price_precision}f}")
+            print(f"📊  - Expected Prices for {symbol}: Buy at: ${expected_buy_price:.{price_precision}f} ({dynamic_buy_threshold:.2f}%) / Sell at: ${expected_sell_price:.{price_precision}f} ({dynamic_sell_threshold:.2f}%) | MA: {moving_avg:.{price_precision}f}")
 
             # Check if the price is close to the moving average
             if moving_avg and abs(current_price - moving_avg) < (0.05 * moving_avg):  # Only trade if price is within 5% of the moving average
@@ -611,19 +647,24 @@ async def trading_bot():
                 # Get average buy price
                 actual_buy_price = get_weighted_avg_buy_price(symbol)
 
-                # 🔥 Gradual Adjustments: Move `initial_price` 10% closer to `long_term_ma` during a sustained uptrend
-                if time_since_last_buy > 900 and price_change >= dynamic_sell_threshold and current_price > crypto_data[symbol]["initial_price"]:
+                # 🔥 Gradual Adjustments: Move `initial_price` 10% closer to `long_term_ma` during a sustained >5% uptrend
+                if (
+                    time_since_last_buy > 900
+                    and price_change >= dynamic_sell_threshold
+                    and current_price > crypto_data[symbol]["initial_price"] * 1.05
+                    and current_price > long_term_ma  # Confirm Uptrend
+                    ):
                     new_initial_price = (
                         0.9 * crypto_data[symbol]["initial_price"] + 0.1 * long_term_ma
                     )
-                    print(f"📈   - {symbol} Adjusting Initial Price Towards MA: {crypto_data[symbol]['initial_price']:.{price_precision}f} → {new_initial_price:.{price_precision}f}")
+                    print(f"📈  - {symbol} Adjusting Initial Price Upwards: {crypto_data[symbol]['initial_price']:.{price_precision}f} → {new_initial_price:.{price_precision}f}")
                     crypto_data[symbol]["initial_price"] = new_initial_price
                 
                 # 🔽 Adjust Initial Price Downwards in a Sustained Downtrend (If Holdings < 1 USDC)
                 elif (
                     time_since_last_buy > 3600 and  # Time check
                     balances.get(symbol, 0) * current_price < 1 and  # Holdings worth less than $1 USDC
-                    current_price < long_term_ma * 0.95 and  # Confirm downtrend
+                    # current_price < long_term_ma * 0.95 and  # Confirm downtrend
                     current_price < crypto_data[symbol]["initial_price"] * 0.95 # Prevent premature resets
                 ):
                     new_initial_price = (0.9 * crypto_data[symbol]["initial_price"] + 0.1 * current_price)  # Move closer to the current price
@@ -632,16 +673,18 @@ async def trading_bot():
 
                 # Execute buy order if MACD buy signal is confirmed
                 if (
-                    price_change <= dynamic_buy_threshold or  # Price threshold
+                    price_change <= dynamic_buy_threshold and  # Price threshold
                     (macd_buy_signal and macd_confirmation[symbol]["buy"] >= 3 and rsi < 30)  # MACD + RSI filter
+                    and (actual_buy_price is None or current_price < actual_buy_price) # If price is cheaper then what we have bought already.
                     and current_price < long_term_ma  # Trend filter
+                    and time_since_last_buy > 120  # Wait 2 minutes before buying again.
                     and balances[quote_currency] > 0  # Sufficient balance
                 ):
                     quote_cost = round((buy_percentage / 100) * balances[quote_currency], 2)  # Directly in USDC
 
                     # Ensure we have enough balance and meet minimum order size
                     if quote_cost < coins_config[symbol]["min_order_sizes"]["buy"]:
-                        print(f"🚫 Buy order too small: ${quote_cost:.2f} (minimum: ${coins_config[symbol]['min_order_sizes']['buy']})")
+                        print(f"🚫  - Buy order too small: ${quote_cost:.2f} (minimum: ${coins_config[symbol]['min_order_sizes']['buy']})")
                         continue
 
                     buy_amount = quote_cost / current_price  # Convert to coin amount
@@ -650,22 +693,22 @@ async def trading_bot():
                     if await place_order(symbol, "BUY", buy_amount, current_price):
                         crypto_data[symbol]["total_trades"] += 1
                         crypto_data[symbol]["last_buy_time"] = time.time()  # ⏳ Track last buy time
-                        coin_settings["buy_percentage"] *= 2  # Persist the change
+                        # coin_settings["buy_percentage"] *= 2  # Persist the change
+
+                        # 🔥 Update Weighted Avg Buy Price
+                        updated_avg_price = get_weighted_avg_buy_price(symbol)
+                        save_weighted_avg_buy_price(symbol, updated_avg_price)  # Save the new average price
 
                         message = f"✅ *BOUGHT {buy_amount:.4f} {symbol}* at *${current_price:.2f}* USDC"
                         send_telegram_notification(message)
 
                 # Execute sell order if sell signals are confirmed or dynamic_sell_threshold was reached
                 elif (
-                    price_change >= dynamic_sell_threshold  # ✅ Always sell if price threshold is hit!
-                    or (
-                        macd_sell_signal  
-                        and macd_confirmation[symbol]["sell"] >= 5
-                        and actual_buy_price is not None  # ✅ Ensure actual_buy_price is valid before using it
-                        and current_price > actual_buy_price * 1.02
-                        # and abs(price_change - dynamic_sell_threshold) <= 0.01 * dynamic_sell_threshold  # ✅ Price is within 1% of threshold
-                        and rsi > 70
-                    )  # ✅ OR allow MACD + RSI if it's close to threshold
+                    macd_sell_signal
+                    and macd_confirmation[symbol]["sell"] >= 3  # ✅ At least 3 positives signals
+                    and actual_buy_price is not None  # ✅ Ensure actual_buy_price is valid before using it
+                    and current_price > actual_buy_price * (1 + (dynamic_sell_threshold / 100))  # ✅ Profit percentage wanted based on sell threshold
+                    and rsi > 70  # ✅ RSI above 70 indicates a oversold condition
                 ) and balances[symbol] > 0:  # ✅ Ensure we have balance
 
                     sell_amount = (sell_percentage / 100) * balances[symbol]
@@ -681,38 +724,50 @@ async def trading_bot():
                     sell_amount = min(sell_amount, balances[symbol] - safe_margin)  # Avoid over-selling
 
                     if sell_amount > 0:
-                        print(f"💵 Selling {sell_amount:.{precision}f} {symbol} at {current_price:.2f}!")
+                        print(f"💵  - Selling {sell_amount:.{precision}f} {symbol} at {current_price:.2f}!")
+
+                        # 🔥 Get actual weighted buy price from DB just before selling
+                        actual_buy_price = get_weighted_avg_buy_price(symbol)
+
                         if await place_order(symbol, "SELL", sell_amount, current_price):
                             crypto_data[symbol]["total_trades"] += 1
 
-                            # Get actual weighted buy price from DB
-                            actual_buy_price = get_weighted_avg_buy_price(symbol)
+                            if actual_buy_price is None:
+                                print(f"❌  - ERROR: get_weighted_avg_buy_price({symbol}) returned None! Check DB query!")
+
+                            else:
+                                print(f"✅  - SUCCESS: Weighted Avg Buy Price for {symbol} = {actual_buy_price:.6f}")
 
                             if actual_buy_price:
                                 crypto_data[symbol]["total_profit"] += (current_price - actual_buy_price) * sell_amount
-                                print(f"💰 {symbol} Profit Calculated: (Sell: {current_price:.{price_precision}f} - Buy: {actual_buy_price:.{price_precision}f}) * {sell_amount:.4f} = {crypto_data[symbol]['total_profit']:.2f} USDC")
+                                print(f"💰  - {symbol} Profit Calculated: (Sell: {current_price:.{price_precision}f} - Buy: {actual_buy_price:.{price_precision}f}) * {sell_amount:.4f} = {crypto_data[symbol]['total_profit']:.2f} USDC")
                             else:
-                                print(f"⚠️ No buy data found for {symbol}. Profit calculation skipped.")
+                                print(f"⚠️  - No buy data found for {symbol}. Profit calculation skipped.")
 
-                            # 🔥 Reset initial price to long-term MA to allow re-entry
+                            # 🔄 Reset initial price to long-term MA after sell to allow re-entry
                             crypto_data[symbol]["initial_price"] = long_term_ma
-                            print(f"🔄   - {symbol} Initial Price Reset to Long-Term MA: {long_term_ma:.{price_precision}f}")
+                            print(f"🔄  - {symbol} Initial Price Reset to Long-Term MA: {long_term_ma:.{price_precision}f}")
+
+                            # 🔥 Save Weighted Avg Buy Price After Sell
+                            save_weighted_avg_buy_price(symbol, None)  # Reset buy price after sell
 
                             message = f"🚀 *SOLD {sell_amount:.4f} {symbol}* at *${current_price:.2f}* USDC"
                             send_telegram_notification(message)
+
+                        else:
+                            print(f"🚫  - Sell order failed for {symbol}!")
 
             else:
                 deviation = abs(current_price - moving_avg)  # Calculate deviation
                 deviation_percentage = (deviation / moving_avg) * 100  # Convert to percentage
                 message = f"🚀 Large deviation for {symbol} - {deviation_percentage:.2f}%, Current Price: {current_price:.{price_precision}f} USDC"
-                print(f"⚠️ {symbol} Skipping trade: Price deviation too high!")
-                print(f"📊 Moving Average: {moving_avg:.{price_precision}f}, Current Price: {current_price:.{price_precision}f}")
-                print(f"📉 Deviation: {deviation:.2f} ({deviation_percentage:.2f}%)")
-                send_telegram_notification(message)
+                print(f"🔥  - {symbol} Skipping trade: Price deviation too high!")
+                print(f"📊  - Moving Average: {moving_avg:.{price_precision}f}, Current Price: {current_price:.{price_precision}f}")
+                print(f"📉  - Deviation: {deviation:.2f} ({deviation_percentage:.2f}%)")
+                # send_telegram_notification(message)
 
-            # Log performance for each cryptocurrency
-            print(f"📊   - {symbol} Avg buy price: {actual_buy_price} | Performance - Total Trades: {crypto_data[symbol]['total_trades']} | Total Profit: ${crypto_data[symbol]['total_profit']:.2f}")
-
+            print(f"📊  - {symbol} Avg buy price: {actual_buy_price} | Performance - Total Trades: {crypto_data[symbol]['total_trades']} | Total Profit: ${crypto_data[symbol]['total_profit']:.2f}")
+            
             # Save state after each coin's update
             save_state(symbol, crypto_data[symbol]["initial_price"], crypto_data[symbol]["total_trades"], crypto_data[symbol]["total_profit"])
 
