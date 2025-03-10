@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Dynamic Thresholds**: To try and cope with strong trends, adjust the initial (reference) price for the running session.
                           Note that, fow now, a restart of the bot would fall back to the stored price in the database.
 - **Less verbose**: Some loglines are now only shown when `DEBUG_MODE = True` is set.
+- **Log alignment**: Output per coin is now indented to make it more readible.
 
 ### Fixed
 - **Buy size**: Now properly calculates the amount in USDC when buying.
