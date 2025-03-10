@@ -34,21 +34,26 @@ The `cb-trading-db.py` script is the main project (see below for for scripts wit
 ✅ Relative Strength Index (RSI) to identify overbought and oversold conditions.\
 ✅ Integrated MACD and RSI signals into the trading strategy.
 
-🔍 **Trading Logic Buy**: Depending on the buy/thresholds set, it would perform a (buy) trade if:
-- The price change <= The dynamic buy threshold and
-- A positive MACD Buy Signal and
-- At least 5 MACD (buy) Confirmations are set and
-- RSI is below 30 and
-- Current Price is *lower* then the Long Term Moiving average and
-- There is Sufficient balance for USDC to meet the minimum trade amount.
+🔍 **Trading Logic**: Depending on the buy/thresholds set, it would perform a trade according to:
 
-🔍 **Trading Logic Sell**: Depending on the buy/thresholds set, it would perform a (buy) trade if:
-- The price change >= The dynamic buy threshold and
-- A positive MACD Sell Signal and
-- At least 5 MACD (sell) Confirmations are set and
-- RSI is above 70 and
-- Current Price is *higher* then the Long Term Moiving average and
-- There is Sufficient balance for the crypto currency to meet the minimum trade amount.
+graph TD;
+    A[Start] -->|Fetch Market Data| B{Check Buy Conditions};
+    B -->|MACD Buy Signal + RSI < 35| C[Confirm Buy Signal];
+    C -->|Within Buy Threshold| D[Place Buy Order];
+    D --> E[Update Initial Price & Last Buy Time];
+
+    B -->|No Buy Signal| G{Check Sell Conditions};
+    G -->|Price Change > Sell Threshold| H[Confirm Sell Signal];
+    H -->|MACD Sell Signal + RSI > 70| I[Place Sell Order];
+    I --> J[Calculate Profit & Reset Initial Price];
+
+    G -->|No Sell Signal| K{Adjust Initial Price?};
+    K -->|Uptrend - Price > Long-term MA| L[Raise Initial Price];
+    K -->|Downtrend - Holding < 1 USDC| M[Lower Initial Price];
+
+    L & M --> N[Continue Monitoring];
+    J & E --> N;
+    N -->|Wait 30s| A;
 
 🚨 Note that the various indicators will only function with enough data points (depending on your settings).\
 Without enough price history you will see log lines such as:\
@@ -65,9 +70,17 @@ Without enough price history you will see log lines such as:\
 - HONEY
 - MATIC
 - LTC
+- SUI
+- XCN
+- LINK
+- MOVE
+- LINK
+- HBAR
+- SHIB
 
 Additional settings (inside the `config.json`) are needed holding your database info and which coins you want to enable/disable.\
-You can adjust `trade_percentage` to control how much of your balance gets traded. 😘💸\
+You can adjust `buy_percentage` and `sell_percentage`to control how much of your balance gets traded. 😘💸\
+
 **Fine-Tune Parameters**: Adjust the `volatility_window`, `trend_window`, and `stop_loss_percentage` to suit your risk tolerance and market conditions. 📊
 
 ```json
@@ -83,6 +96,11 @@ You can adjust `trade_percentage` to control how much of your balance gets trade
     "name": "your-database-name",
     "user": "your-database-user",
     "password": "your-database-password"
+  },
+  "telegram": {
+    "enabled": true,
+    "bot_token": "your-bot-token",
+    "chat_id": "your-chat-id"
   },
   "coins": {
     "ETH": {
@@ -171,13 +189,12 @@ Example output:
   - XRP: 630.2
   - SOL: 720.7
   - USDC: 310.3975527322856
-📈 ETH Price: $2757.07 (0.26%)
-📊 ETH Indicators - Volatility: 0.0009, Moving Avg: 2725.5225, MACD: -4.2645, Signal: -4.4649, RSI: 64.10
-📊 Expected Buy Price for ETH: $2639.902765 (Dynamic Buy Threshold: -4.00%)
-📊 Expected Sell Price for ETH: $2887.621544 (Dynamic Sell Threshold: 5.00%)
-📊 ETH Trading Signals - MACD Buy: True, RSI Buy: False, MACD Sell: False, RSI Sell: False
-📊 ETH MACD Confirmation - Buy: 15, Sell: 3
-📊 ETH Performance - Total Trades: 6 | Total Profit: $270.52
+📈 XCN Price: $0.01166 (-26.11%)
+📊  - Expected Prices for XCN: Buy at: $0.01420 (-10.02%) / Sell at: $0.01610 (2.00%) | MA: 0.01165
+📊  - XCN Avg buy price: 0.011674425382653059 | Performance - Total Trades: 17 | Total Profit: $120.17
+📈 TIA Price: $2.820 (-2.71%)
+📊  - Expected Prices for TIA: Buy at: $2.608 (-10.02%) / Sell at: $2.957 (2.00%) | MA: 2.818
+🔥  - No valid buy trades found for TIA. Returning None.
 ```
 
 ## More basic scripts
