@@ -55,6 +55,7 @@ graph TD;
     L & M --> N[Continue Monitoring];
     J & E --> N;
     N -->|Wait 30s| A;
+```
 
 🚨 Note that the various indicators will only function with enough data points (depending on your settings).\
 Without enough price history you will see log lines such as:\
