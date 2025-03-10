@@ -34,8 +34,9 @@ The `cb-trading-db.py` script is the main project (see below for for scripts wit
 ✅ Relative Strength Index (RSI) to identify overbought and oversold conditions.\
 ✅ Integrated MACD and RSI signals into the trading strategy.
 
-🔍 **Trading Logic**: Depending on the buy/thresholds set, it would perform a trade according to:
+#### 📊 Trading Bot Decision Flow
 
+```mermaid
 graph TD;
     A[Start] -->|Fetch Market Data| B{Check Buy Conditions};
     B -->|MACD Buy Signal + RSI < 35| C[Confirm Buy Signal];
