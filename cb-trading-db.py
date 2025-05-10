@@ -604,8 +604,11 @@ async def trading_bot():
             dynamic_buy_threshold = buy_threshold * volatility_factor
             dynamic_sell_threshold = sell_threshold * volatility_factor
 
+            # Get average buy price
+            actual_buy_price = get_weighted_avg_buy_price(symbol)
+
             # Calculate expected buy/sell prices
-            if get_weighted_avg_buy_price(symbol) is not None:
+            if actual_buy_price is not None:
                 expected_buy_price = actual_buy_price
                 expected_sell_price = actual_buy_price * (1 + dynamic_sell_threshold / 100)
             else:
@@ -647,9 +650,6 @@ async def trading_bot():
 
                 # Check how long since the last buy
                 time_since_last_buy = time.time() - crypto_data[symbol].get("last_buy_time", 0)
-
-                # Get average buy price
-                actual_buy_price = get_weighted_avg_buy_price(symbol)
 
                 # 🔥 Gradual Adjustments: Move `initial_price` 10% closer to `long_term_ma` during a sustained >5% uptrend
                 if (
