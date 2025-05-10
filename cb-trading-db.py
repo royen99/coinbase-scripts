@@ -609,7 +609,7 @@ async def trading_bot():
             expected_sell_price = crypto_data[symbol]["initial_price"] * (1 + dynamic_sell_threshold / 100)
 
             # Log expected prices
-            if actual_buy_price is None:
+            if actual_buy_price:
                 print(f"📊  - Expected Prices for {symbol}: Buy at: ${expected_buy_price:.{price_precision}f} ({dynamic_buy_threshold:.2f}%) / Sell at: ${expected_sell_price:.{price_precision}f} ({dynamic_sell_threshold:.2f}%) | MA: {moving_avg:.{price_precision}f}")
             else:
                 expected_buy_price = actual_buy_price
