@@ -605,7 +605,7 @@ async def trading_bot():
             dynamic_sell_threshold = sell_threshold * volatility_factor
 
             # Calculate expected buy/sell prices
-            if actual_buy_price:
+            if get_weighted_avg_buy_price(symbol) is not None:
                 expected_buy_price = actual_buy_price
                 expected_sell_price = actual_buy_price * (1 + dynamic_sell_threshold / 100)
             else:
