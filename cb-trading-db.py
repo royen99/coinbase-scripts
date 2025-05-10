@@ -667,7 +667,6 @@ async def trading_bot():
                 # 🔥 Gradual Adjustments: Move `initial_price` 10% closer to `long_term_ma` during a sustained >5% uptrend and we hold nothing
                 elif (
                     time_since_last_buy > 900
-                    and price_change >= dynamic_sell_threshold
                     and current_price > crypto_data[symbol]["initial_price"]
                     and current_price > long_term_ma  # Confirm Uptrend
                     and balances.get(symbol, 0) * current_price < 1  # Holdings worth less than $1 USDC
