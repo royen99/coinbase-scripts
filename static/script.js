@@ -58,6 +58,43 @@ function buildForm(data, parent, prefix = '') {
     }
   }
 
+  function createCoinTabs(coins, parent) {
+    const nav = document.createElement('ul');
+    nav.className = 'nav nav-tabs mb-3';
+    const tabContent = document.createElement('div');
+    tabContent.className = 'tab-content';
+  
+    let first = true;
+    for (const coin in coins) {
+      const tabId = `tab-${coin.replace(/[^a-zA-Z0-9]/g, '')}`;
+      
+      // Nav tab
+      const navItem = document.createElement('li');
+      navItem.className = 'nav-item';
+      const link = document.createElement('a');
+      link.className = 'nav-link' + (first ? ' active' : '');
+      link.setAttribute('data-bs-toggle', 'tab');
+      link.href = `#${tabId}`;
+      link.innerText = coin;
+      navItem.appendChild(link);
+      nav.appendChild(navItem);
+  
+      // Tab pane
+      const tabPane = document.createElement('div');
+      tabPane.className = 'tab-pane fade' + (first ? ' show active' : '');
+      tabPane.id = tabId;
+      tabPane.classList.add('p-3', 'border', 'rounded', 'bg-secondary');
+      
+      buildForm(coins[coin], tabPane, `coins.${coin}.`);
+      tabContent.appendChild(tabPane);
+  
+      first = false;
+    }
+  
+    parent.appendChild(nav);
+    parent.appendChild(tabContent);
+  }
+  
 function collectFormData(data, prefix = '') {
   const result = {};
   for (const key in data) {
@@ -67,15 +104,17 @@ function collectFormData(data, prefix = '') {
     if (typeof value === 'object' && value !== null) {
       result[key] = collectFormData(value, id + '.');
     } else {
-      const input = document.getElementById(id);
-      const val = input.value;
-      if (val === "true" || val === "false") {
-        result[key] = val === "true";
-      } else if (!isNaN(val) && val.trim() !== "") {
-        result[key] = Number(val);
-      } else {
+        const input = document.getElementById(id);
+        if (!input) continue;
+        let val;
+        if (input.type === 'checkbox') {
+          val = input.checked;
+        } else {
+          val = input.value;
+          if (val === "true" || val === "false") val = val === "true";
+          else if (!isNaN(val) && val.trim() !== "") val = Number(val);
+        }
         result[key] = val;
-      }
     }
   }
   return result;
