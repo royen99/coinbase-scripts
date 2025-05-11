@@ -8,6 +8,60 @@ window.onload = async () => {
     buildMainTabs(configData, document.getElementById('configForm'));
   };
 
+function addNewCoin(coins) {
+  const coinName = prompt("Enter new coin name (e.g., DOGE):");
+  if (!coinName || coinName.trim() === "") return;
+
+  const cleanId = `tab-${coinName.replace(/[^a-zA-Z0-9]/g, '')}`;
+  if (configData.coins[coinName]) {
+    alert("Coin already exists!");
+    return;
+  }
+  
+    // 💖 Add to config
+    configData.coins[coinName] = {
+      enabled: true,
+      buy_percentage: -3,
+      sell_percentage: 3,
+      volatility_window: 10,
+      trend_window: 26,
+      macd_short_window: 12,
+      macd_long_window: 26,
+      macd_signal_window: 9,
+      rsi_period: 14,
+      min_order_sizes: {
+        buy: 0.01,
+        sell: 0.0001
+      },
+      precision: {
+        price: 2,
+        amount: 6
+      }
+    };
+  
+    coins[coinName] = configData.coins[coinName];
+  
+    // 🧠 Add tab and content to existing containers
+    const navItem = document.createElement('li');
+    navItem.className = 'nav-item';
+    const link = document.createElement('a');
+    link.className = 'nav-link';
+    link.setAttribute('data-bs-toggle', 'tab');
+    link.href = `#${cleanId}`;
+    link.innerText = coinName;
+    navItem.appendChild(link);
+    coinTabNavRef.appendChild(navItem);
+  
+    const tabPane = document.createElement('div');
+    tabPane.className = 'tab-pane fade p-3 border rounded bg-secondary';
+    tabPane.id = cleanId;
+    buildForm(configData.coins[coinName], tabPane, `coins.${coinName}.`);
+    coinTabContentRef.appendChild(tabPane);
+  
+    // 👑 Show the new tab
+    new bootstrap.Tab(link).show();
+  }
+
 function buildMainTabs(data, parent) {
     const nav = document.createElement('ul');
     nav.className = 'nav nav-tabs mb-3';
@@ -64,61 +118,6 @@ function buildMainTabs(data, parent) {
     data.coins = coins;
   }
 
-  function addNewCoin(coins) {
-    const coinName = prompt("Enter new coin name (e.g., DOGE):");
-    if (!coinName || coinName.trim() === "") return;
-  
-    const cleanId = `tab-${coinName.replace(/[^a-zA-Z0-9]/g, '')}`;
-    if (configData.coins[coinName]) {
-      alert("Coin already exists!");
-      return;
-    }
-  
-    // 💖 Add to config
-    configData.coins[coinName] = {
-      enabled: true,
-      buy_percentage: -3,
-      sell_percentage: 3,
-      volatility_window: 10,
-      trend_window: 26,
-      macd_short_window: 12,
-      macd_long_window: 26,
-      macd_signal_window: 9,
-      rsi_period: 14,
-      min_order_sizes: {
-        buy: 0.01,
-        sell: 0.0001
-      },
-      precision: {
-        price: 2,
-        amount: 6
-      }
-    };
-  
-    coins[coinName] = configData.coins[coinName];
-  
-    // 🧠 Add tab and content to existing containers
-    const navItem = document.createElement('li');
-    navItem.className = 'nav-item';
-    const link = document.createElement('a');
-    link.className = 'nav-link';
-    link.setAttribute('data-bs-toggle', 'tab');
-    link.href = `#${cleanId}`;
-    link.innerText = coinName;
-    navItem.appendChild(link);
-    coinTabNavRef.appendChild(navItem);
-  
-    const tabPane = document.createElement('div');
-    tabPane.className = 'tab-pane fade p-3 border rounded bg-secondary';
-    tabPane.id = cleanId;
-    buildForm(configData.coins[coinName], tabPane, `coins.${coinName}.`);
-    coinTabContentRef.appendChild(tabPane);
-  
-    // 👑 Show the new tab
-    new bootstrap.Tab(link).show();
-  }
-  
-  
 function buildForm(data, parent, prefix = '') {
     if (prefix === '' && data.coins && typeof data.coins === 'object') {
       createCoinTabs(data.coins, parent);
