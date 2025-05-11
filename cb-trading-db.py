@@ -10,6 +10,7 @@ from collections import deque
 import psycopg2 # type: ignore
 from psycopg2.extras import Json # type: ignore
 from decimal import Decimal
+import pandas as pd
 import numpy as np
 
 DEBUG_MODE = False  # Set to True for debugging
