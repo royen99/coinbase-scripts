@@ -104,7 +104,14 @@ function buildMainTabs(data, parent) {
     // Extract coin data and remove from general
     const coins = data.coins;
   
+    // Temporarily remove coins so they're not included in the General tab
+    const coins = data.coins;
+    delete data.coins;
+
     buildForm(data, generalPane);
+
+    // Restore coins
+    data.coins = coins;
   
     content.appendChild(generalPane);
   
