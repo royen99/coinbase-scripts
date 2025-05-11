@@ -2,6 +2,8 @@ let configData = {};
 let coinTabNavRef = null;
 let coinTabContentRef = null;
 
+const sensitiveFields = ['privatekey', 'bot_token', 'chat_id', 'password', 'api_key', 'secret'];
+
 window.onload = async () => {
     const res = await fetch('/api/config');
     configData = await res.json();
@@ -138,6 +140,38 @@ function buildForm(data, parent, prefix = '') {
             input.className = 'form-control';
             input.value = value;
             input.id = id;
+          
+            const lowerKey = key.toLowerCase();
+            const isSensitive = sensitiveFields.some(field => lowerKey.includes(field));
+          
+            if (isSensitive) {
+              input.type = 'password';
+          
+              const toggleBtn = document.createElement('button');
+              toggleBtn.type = 'button';
+              toggleBtn.className = 'btn btn-sm btn-outline-light ms-2';
+              toggleBtn.innerText = '👁 Show';
+              toggleBtn.onclick = () => {
+                input.type = input.type === 'password' ? 'text' : 'password';
+                toggleBtn.innerText = input.type === 'password' ? '👁 Show' : '🙈 Hide';
+              };
+          
+              const inputGroup = document.createElement('div');
+              inputGroup.className = 'input-group';
+          
+              const wrapper = document.createElement('div');
+              wrapper.className = 'form-control-wrapper flex-grow-1';
+              wrapper.appendChild(input);
+          
+              inputGroup.appendChild(wrapper);
+              inputGroup.appendChild(toggleBtn);
+          
+              group.appendChild(label);
+              group.appendChild(inputGroup);
+            } else {
+              group.appendChild(label);
+              group.appendChild(input);
+            }
           }
   
         group.appendChild(label);
