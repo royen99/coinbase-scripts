@@ -57,6 +57,7 @@ window.onload = async () => {
     }, 100);
 
     // 💾 Save to disk so it survives reload
+    console.log("🧠 calling saveConfig() to persist new coin");
     saveConfig();
   }
   
@@ -253,6 +254,7 @@ function buildForm(data, parent, prefix = '') {
   }
   
   async function saveConfig() {
+    console.log("🚨 saveConfig() called");
     const updated = collectFormDataFromDOM(); // 🔥 use the new DOM-only method
     const res = await fetch('/api/config', {
       method: 'POST',
@@ -260,6 +262,7 @@ function buildForm(data, parent, prefix = '') {
       body: JSON.stringify(updated)
     });
   
+    console.log("✅ Response from server:", res);
     if (res.ok) {
       alert('Saved successfully! 💖');
     } else {
