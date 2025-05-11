@@ -1,11 +1,67 @@
 let configData = {};
 
 window.onload = async () => {
-  const res = await fetch('/api/config');
-  configData = await res.json();
-  buildForm(configData, document.getElementById('configForm'));
-};
+    const res = await fetch('/api/config');
+    configData = await res.json();
+    buildMainTabs(configData, document.getElementById('configForm'));
+  };
 
+function buildMainTabs(data, parent) {
+    const nav = document.createElement('ul');
+    nav.className = 'nav nav-tabs mb-3';
+    const content = document.createElement('div');
+    content.className = 'tab-content';
+  
+    // --- General Tab ---
+    const generalTabId = 'tab-general';
+    const generalNav = document.createElement('li');
+    generalNav.className = 'nav-item';
+    const generalLink = document.createElement('a');
+    generalLink.className = 'nav-link active';
+    generalLink.setAttribute('data-bs-toggle', 'tab');
+    generalLink.href = `#${generalTabId}`;
+    generalLink.innerHTML = '⚙️ General';
+    generalNav.appendChild(generalLink);
+    nav.appendChild(generalNav);
+  
+    const generalPane = document.createElement('div');
+    generalPane.className = 'tab-pane fade show active p-3 border rounded bg-secondary';
+    generalPane.id = generalTabId;
+  
+    // Extract coin data and remove from general
+    const coins = data.coins;
+    delete data.coins;
+  
+    buildForm(data, generalPane);
+  
+    content.appendChild(generalPane);
+  
+    // --- Coins Tab ---
+    const coinsTabId = 'tab-coins';
+    const coinsNav = document.createElement('li');
+    coinsNav.className = 'nav-item';
+    const coinsLink = document.createElement('a');
+    coinsLink.className = 'nav-link';
+    coinsLink.setAttribute('data-bs-toggle', 'tab');
+    coinsLink.href = `#${coinsTabId}`;
+    coinsLink.innerHTML = `🪙 Coins <span class="badge bg-light text-dark">${Object.keys(coins).length}</span>`;
+    coinsNav.appendChild(coinsLink);
+    nav.appendChild(coinsNav);
+  
+    const coinsPane = document.createElement('div');
+    coinsPane.className = 'tab-pane fade p-3 border rounded bg-secondary';
+    coinsPane.id = coinsTabId;
+  
+    createCoinTabs(coins, coinsPane);
+    content.appendChild(coinsPane);
+  
+    parent.appendChild(nav);
+    parent.appendChild(content);
+  
+    // Restore coins for save later
+    data.coins = coins;
+  }
+  
 function buildForm(data, parent, prefix = '') {
     if (prefix === '' && data.coins && typeof data.coins === 'object') {
       createCoinTabs(data.coins, parent);
