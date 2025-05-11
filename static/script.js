@@ -6,14 +6,6 @@ window.onload = async () => {
     const res = await fetch('/api/config');
     configData = await res.json();
     buildMainTabs(configData, document.getElementById('configForm'));
-    const testBtn = document.createElement('button');
-    testBtn.className = 'btn btn-danger';
-    testBtn.innerText = '🚨 TEST ADD PNUT';
-    testBtn.onclick = () => {
-        console.log('Adding PNUT manually...');
-        addNewCoin(configData.coins);
-    };
-    document.body.prepend(testBtn);
   };
 
 function buildMainTabs(data, parent) {
@@ -265,16 +257,3 @@ function buildForm(data, parent, prefix = '') {
     console.log("🧠 calling saveConfig() to persist new coin");
     await saveConfig();
   }
-
-  document.addEventListener("DOMContentLoaded", () => {
-    console.log("🔍 Testing saveConfig binding...");
-  
-    const testSave = document.createElement('button');
-    testSave.className = 'btn btn-warning';
-    testSave.innerText = '🔥 Manual SaveConfig Test';
-    testSave.onclick = () => {
-      console.log("🔁 Manually calling saveConfig()");
-      saveConfig();
-    };
-    document.body.appendChild(testSave);
-  });
