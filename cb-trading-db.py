@@ -583,7 +583,7 @@ async def trading_bot():
             macd_long_window = coin_settings["macd_long_window"]
             macd_signal_window = coin_settings["macd_signal_window"]
             rsi_period = coin_settings["rsi_period"]
-            trail_percent = coin_settings["trail_percent", 0.5]  # Default to 0.5% if not specified
+            trail_percent = coin_settings.get["trail_percent", 0.5]  # Default to 0.5% if not specified
 
             if balances[symbol] > 0 and current_price > crypto_data[symbol].get("peak_price", 0):
                 crypto_data[symbol]["peak_price"] = current_price
