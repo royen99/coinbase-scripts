@@ -218,42 +218,48 @@ function buildForm(data, parent, prefix = '') {
     parent.appendChild(tabContent);
   }
   
-function collectFormData(data, prefix = '') {
-  const result = {};
-  for (const key in data) {
-    const value = data[key];
-    const id = prefix + key;
-
-    if (typeof value === 'object' && value !== null) {
-      result[key] = collectFormData(value, id + '.');
-    } else {
-        const input = document.getElementById(id);
-        if (!input) continue;
-        let val;
-        if (input.type === 'checkbox') {
-          val = input.checked;
-        } else {
-          val = input.value;
-          if (val === "true" || val === "false") val = val === "true";
-          else if (!isNaN(val) && val.trim() !== "") val = Number(val);
+  function collectFormDataFromDOM() {
+    const result = {};
+    const inputs = document.querySelectorAll('#configForm input, #configForm textarea');
+  
+    inputs.forEach(input => {
+      const path = input.id.split('.');
+      let current = result;
+  
+      for (let i = 0; i < path.length - 1; i++) {
+        const part = path[i];
+        if (!current[part]) current[part] = {};
+        current = current[part];
+      }
+  
+      const key = path[path.length - 1];
+      if (input.type === 'checkbox') {
+        current[key] = input.checked;
+      } else {
+        let val = input.value;
+        if (val === "true" || val === "false") {
+          val = val === "true";
+        } else if (!isNaN(val) && val.trim() !== "") {
+          val = Number(val);
         }
-        result[key] = val;
+        current[key] = val;
+      }
+    });
+  
+    return result;
+  }
+  
+  async function saveConfig() {
+    const updated = collectFormDataFromDOM(); // 🔥 use the new DOM-only method
+    const res = await fetch('/api/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updated)
+    });
+  
+    if (res.ok) {
+      alert('Saved successfully! 💖');
+    } else {
+      alert('Save failed 😢');
     }
   }
-  return result;
-}
-
-async function saveConfig() {
-  const updated = collectFormData(configData);
-  const res = await fetch('/api/config', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(updated)
-  });
-
-  if (res.ok) {
-    alert('Saved successfully! 💖');
-  } else {
-    alert('Save failed 😢');
-  }
-}
