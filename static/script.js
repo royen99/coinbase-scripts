@@ -6,8 +6,33 @@ window.onload = async () => {
     const res = await fetch('/api/config');
     configData = await res.json();
     buildMainTabs(configData, document.getElementById('configForm'));
-  };
+};
 
+function showToast(message, type = 'success') {
+    const toastId = `toast-${Date.now()}`;
+    const toast = document.createElement('div');
+    toast.className = `toast align-items-center text-bg-${type} border-0 show`;
+    toast.role = 'alert';
+    toast.ariaLive = 'assertive';
+    toast.ariaAtomic = 'true';
+    toast.id = toastId;
+  
+    toast.innerHTML = `
+      <div class="d-flex">
+        <div class="toast-body">${message}</div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+      </div>
+    `;
+  
+    document.getElementById('toast-container').appendChild(toast);
+  
+    setTimeout(() => {
+      toast.classList.remove('show');
+      toast.classList.add('hide');
+      toast.addEventListener('transitionend', () => toast.remove());
+    }, 4000);
+  }
+  
 function buildMainTabs(data, parent) {
     const nav = document.createElement('ul');
     nav.className = 'nav nav-tabs mb-3';
@@ -215,12 +240,11 @@ function buildForm(data, parent, prefix = '') {
       body: JSON.stringify(updated)
     });
   
-    console.log("✅ Response from server:", res);
     if (res.ok) {
-      alert('Saved successfully! 💖');
-    } else {
-      alert('Save failed 😢');
-    }
+        showToast("💾 Saved successfully!", 'success');
+      } else {
+        showToast("❌ Save failed", 'danger');
+      }
   }
 
   async function deleteCoin(coinName) {
@@ -234,7 +258,7 @@ function buildForm(data, parent, prefix = '') {
   
     await saveConfig();
   
-    alert(`${coinName} deleted 💀`);
+    showToast(`🗑️ ${coinName} deleted`, 'danger');
   }
   
   async function addNewCoin() {
@@ -242,7 +266,7 @@ function buildForm(data, parent, prefix = '') {
     if (!coinName || coinName.trim() === "") return;
   
     if (configData.coins[coinName]) {
-      alert("Coin already exists!");
+        showToast("❌ Coin already exists!", 'danger');
       return;
     }
   
