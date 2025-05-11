@@ -16,52 +16,6 @@ window.onload = async () => {
     document.body.prepend(testBtn);
   };
 
-  function addNewCoin() {
-    const coinName = prompt("Enter new coin name (e.g., DOGE):");
-    if (!coinName || coinName.trim() === "") return;
-  
-    if (configData.coins[coinName]) {
-      alert("Coin already exists!");
-      return;
-    }
-  
-    configData.coins[coinName] = {
-      enabled: true,
-      buy_percentage: -3,
-      sell_percentage: 3,
-      volatility_window: 10,
-      trend_window: 26,
-      macd_short_window: 12,
-      macd_long_window: 26,
-      macd_signal_window: 9,
-      rsi_period: 14,
-      min_order_sizes: {
-        buy: 0.01,
-        sell: 0.0001
-      },
-      precision: {
-        price: 2,
-        amount: 6
-      }
-    };
-  
-    // Re-render the whole form UI (this time including the new coin!)
-    const formContainer = document.getElementById('configForm');
-    formContainer.innerHTML = ''; // clear it
-    buildMainTabs(configData, formContainer);
-  
-    // Activate Coins tab and the new coin tab
-    setTimeout(() => {
-      document.querySelector('a[href="#tab-coins"]')?.click();
-      document.querySelector(`a[href="#tab-${coinName}"]`)?.click();
-    }, 100);
-
-    // 💾 Save to disk so it survives reload
-    console.log("🧠 calling saveConfig() to persist new coin");
-    saveConfig();
-  }
-  
-
 function buildMainTabs(data, parent) {
     const nav = document.createElement('ul');
     nav.className = 'nav nav-tabs mb-3';
@@ -269,3 +223,46 @@ function buildForm(data, parent, prefix = '') {
       alert('Save failed 😢');
     }
   }
+
+  async function addNewCoin() {
+    const coinName = prompt("Enter new coin name (e.g., DOGE):");
+    if (!coinName || coinName.trim() === "") return;
+  
+    if (configData.coins[coinName]) {
+      alert("Coin already exists!");
+      return;
+    }
+  
+    configData.coins[coinName] = {
+      enabled: true,
+      buy_percentage: -3,
+      sell_percentage: 3,
+      volatility_window: 10,
+      trend_window: 26,
+      macd_short_window: 12,
+      macd_long_window: 26,
+      macd_signal_window: 9,
+      rsi_period: 14,
+      min_order_sizes: {
+        buy: 0.01,
+        sell: 0.0001
+      },
+      precision: {
+        price: 2,
+        amount: 6
+      }
+    };
+  
+    const formContainer = document.getElementById('configForm');
+    formContainer.innerHTML = '';
+    buildMainTabs(configData, formContainer);
+  
+    setTimeout(() => {
+      document.querySelector('a[href="#tab-coins"]')?.click();
+      document.querySelector(`a[href="#tab-${coinName}"]`)?.click();
+    }, 100);
+  
+    console.log("🧠 calling saveConfig() to persist new coin");
+    await saveConfig();
+  }
+  
