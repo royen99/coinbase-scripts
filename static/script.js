@@ -203,8 +203,8 @@ function buildForm(data, parent, prefix = '') {
     addBtn.className = 'btn btn-sm btn-outline-light mb-3';
     addBtn.innerHTML = '➕ Add New Coin';
     addBtn.onclick = () => addNewCoin(coins, nav, tabContent);
-    parent.appendChild(addBtn);
     parent.appendChild(nav);
+    parent.appendChild(addBtn);
     parent.appendChild(tabContent);
   }
   
