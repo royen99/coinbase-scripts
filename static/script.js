@@ -16,19 +16,15 @@ window.onload = async () => {
     document.body.prepend(testBtn);
   };
 
-function addNewCoin(coins) {
-  const coinName = prompt("Enter new coin name (e.g., DOGE):");
-  console.log('Prompt done. coinName =', coinName);
-  console.log('configData.coins before =', Object.keys(configData.coins));
-  if (!coinName || coinName.trim() === "") return;
-
-  const cleanId = `tab-${coinName.replace(/[^a-zA-Z0-9]/g, '')}`;
-  if (configData.coins[coinName]) {
-    alert("Coin already exists!");
-    return;
-  }
+  function addNewCoin() {
+    const coinName = prompt("Enter new coin name (e.g., DOGE):");
+    if (!coinName || coinName.trim() === "") return;
   
-    // 💖 Add to config
+    if (configData.coins[coinName]) {
+      alert("Coin already exists!");
+      return;
+    }
+  
     configData.coins[coinName] = {
       enabled: true,
       buy_percentage: -3,
@@ -49,35 +45,18 @@ function addNewCoin(coins) {
       }
     };
   
-    coins[coinName] = configData.coins[coinName];
+    // Re-render the whole form UI (this time including the new coin!)
+    const formContainer = document.getElementById('configForm');
+    formContainer.innerHTML = ''; // clear it
+    buildMainTabs(configData, formContainer);
   
-    // 🧠 Add tab and content to existing containers
-    const navItem = document.createElement('li');
-    navItem.className = 'nav-item';
-    const link = document.createElement('a');
-    link.className = 'nav-link';
-    link.setAttribute('data-bs-toggle', 'tab');
-    link.href = `#${cleanId}`;
-    link.innerText = coinName;
-    navItem.appendChild(link);
-    coinTabNavRef.appendChild(navItem);
-  
-    const tabPane = document.createElement('div');
-    tabPane.className = 'tab-pane fade p-3 border rounded bg-secondary';
-    tabPane.id = cleanId;
-    buildForm(configData.coins[coinName], tabPane, `coins.${coinName}.`);
-    coinTabContentRef.appendChild(tabPane);
-  
-    // 👑 Show the new tab
-    new bootstrap.Tab(link).show();
-    // Activate the "Coins" main tab
-    const coinsTab = document.querySelector('a[href="#tab-coins"]');
-    if (coinsTab) {
-        new bootstrap.Tab(coinsTab).show();
-    }
-
-    console.log('Added coin tab:', coinName);
+    // Activate Coins tab and the new coin tab
+    setTimeout(() => {
+      document.querySelector('a[href="#tab-coins"]')?.click();
+      document.querySelector(`a[href="#tab-${coinName}"]`)?.click();
+    }, 100);
   }
+  
 
 function buildMainTabs(data, parent) {
     const nav = document.createElement('ul');
@@ -233,7 +212,7 @@ function buildForm(data, parent, prefix = '') {
     const addBtn = document.createElement('button');
     addBtn.className = 'btn btn-sm btn-outline-light mb-3';
     addBtn.innerHTML = '➕ Add New Coin';
-    addBtn.onclick = () => addNewCoin(configData.coins);
+    addBtn.onclick = () => addNewCoin();
     parent.appendChild(nav);
     parent.appendChild(addBtn);
     parent.appendChild(tabContent);
