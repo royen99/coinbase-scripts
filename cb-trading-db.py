@@ -583,6 +583,15 @@ async def trading_bot():
             macd_long_window = coin_settings["macd_long_window"]
             macd_signal_window = coin_settings["macd_signal_window"]
             rsi_period = coin_settings["rsi_period"]
+            trail_percent = coin_settings["trail_percent", 0.5]  # Default to 0.5% if not specified
+
+            if balances[symbol] > 0 and current_price > crypto_data[symbol].get("peak_price", 0):
+                crypto_data[symbol]["peak_price"] = current_price
+
+            peak_price = crypto_data[symbol].get("peak_price")
+            trail_stop_price = peak_price * (1 - trail_percent / 100) if peak_price else None
+
+            print(f"🔄 {symbol} - Current Price: ${current_price:.{price_precision}f}, Peak Price: ${peak_price:.{price_precision}f}, Trailing Stop Price: ${trail_stop_price:.{price_precision}f}")
 
             # Ensure we have enough data for indicators
             if len(price_history) < max(macd_long_window + macd_signal_window, rsi_period + 1):
@@ -752,6 +761,8 @@ async def trading_bot():
                         message = f"✅ *BOUGHT {buy_amount:.4f} {symbol}* at *${current_price:.{price_precision}f}* USDC"
                         send_telegram_notification(message)
 
+                        crypto_data[symbol]["peak_price"] = current_price
+
                 # Execute sell order if sell signals are confirmed or dynamic_sell_threshold was reached
                 elif (
                     macd_sell_signal
@@ -760,6 +771,8 @@ async def trading_bot():
                     and current_price > actual_buy_price * (1 + (dynamic_sell_threshold / 100))  # ✅ Profit percentage wanted based on sell threshold
                     and rsi > 70  # ✅ RSI above 70 indicates a oversold condition
                     and (bollinger_upper is None or current_price > bollinger_upper)  # 💔 Bollinger confirms price is hot
+                    and trail_stop_price is not None  # ✅ Ensure we have a valid trailing stop price
+                    and current_price < trail_stop_price  # ✅ Price is below trailing stop price
                 ) and balances[symbol] > 0:  # ✅ Ensure we have balance
 
                     sell_amount = (sell_percentage / 100) * balances[symbol]
