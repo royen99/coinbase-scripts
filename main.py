@@ -28,3 +28,7 @@ async def save_config(request: Request):
     with config_path.open("w") as f:
         json.dump(data, f, indent=2)
     return {"status": "ok"}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8001, log_level="info", root_path="/")
