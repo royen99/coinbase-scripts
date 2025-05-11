@@ -155,7 +155,14 @@ function buildForm(data, parent, prefix = '') {
       
       buildForm(coins[coin], tabPane, `coins.${coin}.`);
       tabContent.appendChild(tabPane);
-  
+ 
+      // 🗑️ Add delete button to each tab
+      const delBtn = document.createElement('button');
+      delBtn.className = 'btn btn-sm btn-danger mt-3';
+      delBtn.innerText = `🗑️ Delete ${coin}`;
+      delBtn.onclick = () => deleteCoin(coin);
+      tabPane.appendChild(delBtn);
+
       first = false;
     }
   
@@ -216,6 +223,20 @@ function buildForm(data, parent, prefix = '') {
     }
   }
 
+  async function deleteCoin(coinName) {
+    if (!confirm(`Are you sure you want to delete ${coinName}?`)) return;
+  
+    delete configData.coins[coinName];
+  
+    const formContainer = document.getElementById('configForm');
+    formContainer.innerHTML = '';
+    buildMainTabs(configData, formContainer);
+  
+    await saveConfig();
+  
+    alert(`${coinName} deleted 💀`);
+  }
+  
   async function addNewCoin() {
     const coinName = prompt("Enter new coin name (e.g., DOGE):");
     if (!coinName || coinName.trim() === "") return;
