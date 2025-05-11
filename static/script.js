@@ -98,7 +98,6 @@ function buildMainTabs(data, parent) {
   
     // Extract coin data and remove from general
     const coins = data.coins;
-    delete data.coins;
   
     buildForm(data, generalPane);
   
@@ -229,7 +228,7 @@ function buildForm(data, parent, prefix = '') {
     const addBtn = document.createElement('button');
     addBtn.className = 'btn btn-sm btn-outline-light mb-3';
     addBtn.innerHTML = '➕ Add New Coin';
-    addBtn.onclick = () => addNewCoin(coins);
+    addBtn.onclick = () => addNewCoin(configData.coins);
     parent.appendChild(nav);
     parent.appendChild(addBtn);
     parent.appendChild(tabContent);
