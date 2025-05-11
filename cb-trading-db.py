@@ -493,6 +493,14 @@ def get_weighted_avg_buy_price(symbol):
     
     return weighted_avg_price
 
+def calculate_bollinger_bands(prices, period=20, num_std_dev=2):
+    price_series = pd.Series(prices)
+    middle_band = price_series.rolling(window=period).mean()
+    std_dev = price_series.rolling(window=period).std()
+    upper_band = middle_band + (num_std_dev * std_dev)
+    lower_band = middle_band - (num_std_dev * std_dev)
+    return middle_band.iloc[-1], upper_band.iloc[-1], lower_band.iloc[-1]
+
 # Initialize somee global variables
 crypto_data = {}
 actual_buy_price = {}
@@ -597,6 +605,16 @@ async def trading_bot():
             )
             rsi = calculate_rsi(price_history, symbol)
 
+            bollinger_mid, bollinger_upper, bollinger_lower = calculate_bollinger_bands(prices)
+            crypto_data[symbol]['bollinger'] = {
+                'mid': bollinger_mid,
+                'upper': bollinger_upper,
+                'lower': bollinger_lower
+            }
+
+            bollinger_buy_signal = current_price < bollinger_lower if bollinger_lower else False
+            bollinger_sell_signal = current_price > bollinger_upper if bollinger_upper else False
+
             if DEBUG_MODE:
                 # Log indicator values
                 print(f"📊 {symbol} Indicators - Volatility: {volatility:.4f}, Moving Avg: {moving_avg:.4f}, MACD: {macd_line:.4f}, Signal: {signal_line:.4f}, RSI: {rsi:.2f}")
@@ -688,6 +706,12 @@ async def trading_bot():
                     new_initial_price = (0.9 * crypto_data[symbol]["initial_price"] + 0.1 * current_price)  # Move closer to the current price
                     print(f"📉   - {symbol} Adjusting Initial Price Downwards: {crypto_data[symbol]['initial_price']:.{price_precision}f} → {new_initial_price:.{price_precision}f}")
                     crypto_data[symbol]["initial_price"] = new_initial_price
+
+                if bollinger_buy_signal:
+                    print(f"💘 {symbol}: Price is below Bollinger Lower Band (${bollinger_lower:.2f}) — buy signal!")
+
+                if bollinger_sell_signal:
+                    print(f"💔 {symbol}: Price is above Bollinger Upper Band (${bollinger_upper:.2f}) — sell signal!")
 
                 # Execute buy order if MACD buy signal is confirmed
                 if (
