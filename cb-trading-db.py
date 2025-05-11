@@ -10,6 +10,7 @@ from collections import deque
 import psycopg2 # type: ignore
 from psycopg2.extras import Json # type: ignore
 from decimal import Decimal
+import pandas as pd
 import numpy as np
 
 DEBUG_MODE = False  # Set to True for debugging
@@ -346,10 +347,11 @@ def calculate_volatility(price_history, volatility_window):
     return np.std(price_changes)  # Standard deviation of returns
 
 def calculate_moving_average(price_history, trend_window):
-    """Calculate the simple moving average (SMA) of prices."""
     if len(price_history) < trend_window:
         return None
-    return sum(price_history[-trend_window:]) / trend_window  # Use the last `trend_window` prices
+    # Use deque for O(1) append/pop (better for streaming data)
+    window_prices = price_history[-trend_window:]
+    return sum(window_prices) / trend_window
 
 def calculate_ema(prices, period, return_all=False):
     """Calculate the Exponential Moving Average (EMA) for a given period."""
@@ -477,8 +479,11 @@ def get_weighted_avg_buy_price(symbol):
     conn.close()
 
     if not buy_trades:
-        print(f"🔥  - No valid buy trades found for {symbol}. Returning None.")
-        return None  # No buy trades found
+        if DEBUG_MODE:
+            print(f"⚠️  - No buy trades found for {symbol} after last sell.")
+
+        # If no buy trades exist, return None
+        return None
 
     # ✅ Step 3: Calculate the **correct** weighted average price
     total_amount = sum(trade[0] for trade in buy_trades)  # Sum of all bought amounts
@@ -491,6 +496,14 @@ def get_weighted_avg_buy_price(symbol):
     # print(f"📊 DEBUG - {symbol}: Found {len(buy_trades)} BUY trades after last sell. Calculated Avg Price: {weighted_avg_price:.6f}")
     
     return weighted_avg_price
+
+def calculate_bollinger_bands(prices, period=20, num_std_dev=2):
+    price_series = pd.Series(prices)
+    middle_band = price_series.rolling(window=period).mean()
+    std_dev = price_series.rolling(window=period).std()
+    upper_band = middle_band + (num_std_dev * std_dev)
+    lower_band = middle_band - (num_std_dev * std_dev)
+    return middle_band.iloc[-1], upper_band.iloc[-1], lower_band.iloc[-1]
 
 # Initialize somee global variables
 crypto_data = {}
@@ -570,6 +583,13 @@ async def trading_bot():
             macd_long_window = coin_settings["macd_long_window"]
             macd_signal_window = coin_settings["macd_signal_window"]
             rsi_period = coin_settings["rsi_period"]
+            trail_percent = coin_settings.get("trail_percent", 0.5)  # Default to 0.5% if not specified
+
+            if balances[symbol] > 0 and current_price > crypto_data[symbol].get("peak_price", 0):
+                crypto_data[symbol]["peak_price"] = current_price
+
+            peak_price = crypto_data[symbol].get("peak_price")
+            trail_stop_price = peak_price * (1 - trail_percent / 100) if peak_price else None
 
             # Ensure we have enough data for indicators
             if len(price_history) < max(macd_long_window + macd_signal_window, rsi_period + 1):
@@ -585,6 +605,10 @@ async def trading_bot():
             price_precision = coins_config[symbol]["precision"]["price"]  # Get the decimal places from config
             print(f"📈 {symbol} Price: ${current_price:.{price_precision}f} ({price_change:.2f}%)")
 
+            peak_display = f"${peak_price:.{price_precision}f}" if peak_price else "N/A"
+            trail_display = f"${trail_stop_price:.{price_precision}f}" if trail_stop_price else "N/A"
+            print(f"🔄 {symbol} - Current Price: ${current_price:.{price_precision}f}, Peak Price: {peak_display}, Trailing Stop Price: {trail_display}")
+
             # Calculate volatility and moving average
             volatility = calculate_volatility(price_history, volatility_window)
             volatility_factor = min(1.5, max(0.5, 1 + abs(volatility)))  # Cap extreme changes
@@ -595,6 +619,16 @@ async def trading_bot():
                 price_history, symbol, macd_short_window, macd_long_window, macd_signal_window
             )
             rsi = calculate_rsi(price_history, symbol)
+
+            bollinger_mid, bollinger_upper, bollinger_lower = calculate_bollinger_bands(price_history)
+            crypto_data[symbol]['bollinger'] = {
+                'mid': bollinger_mid,
+                'upper': bollinger_upper,
+                'lower': bollinger_lower
+            }
+
+            bollinger_buy_signal = current_price < bollinger_lower if bollinger_lower else False
+            bollinger_sell_signal = current_price > bollinger_upper if bollinger_upper else False
 
             if DEBUG_MODE:
                 # Log indicator values
@@ -617,6 +651,9 @@ async def trading_bot():
 
             # Log expected prices
             print(f"📊  - Expected Prices for {symbol}: Buy at: ${expected_buy_price:.{price_precision}f} ({dynamic_buy_threshold:.2f}%) / Sell at: ${expected_sell_price:.{price_precision}f} ({dynamic_sell_threshold:.2f}%) | MA: {moving_avg:.{price_precision}f}")
+
+            # Log Bollinger Bands
+            print(f"🔔  - Bollinger Bands for {symbol}: Mid: ${bollinger_mid:.{price_precision}f}, Upper: ${bollinger_upper:.{price_precision}f}, Lower: ${bollinger_lower:.{price_precision}f}")
 
             # Check if the price is close to the moving average
             if moving_avg and abs(current_price - moving_avg) < (0.05 * moving_avg):  # Only trade if price is within 5% of the moving average
@@ -688,6 +725,12 @@ async def trading_bot():
                     print(f"📉   - {symbol} Adjusting Initial Price Downwards: {crypto_data[symbol]['initial_price']:.{price_precision}f} → {new_initial_price:.{price_precision}f}")
                     crypto_data[symbol]["initial_price"] = new_initial_price
 
+                if bollinger_buy_signal:
+                    print(f"💘 {symbol}: Price is below Bollinger Lower Band (${bollinger_lower:.2f}) — buy signal!")
+
+                if bollinger_sell_signal:
+                    print(f"💔 {symbol}: Price is above Bollinger Upper Band (${bollinger_upper:.2f}) — sell signal!")
+
                 # Execute buy order if MACD buy signal is confirmed
                 if (
                     price_change <= dynamic_buy_threshold and  # Price threshold
@@ -695,6 +738,7 @@ async def trading_bot():
                     and (actual_buy_price is None or current_price < actual_buy_price) # If price is cheaper then what we have bought already.
                     and current_price < long_term_ma  # Trend filter
                     and time_since_last_buy > 120  # Wait 2 minutes before buying again.
+                    and (bollinger_lower is None or current_price < bollinger_lower)  # 💘 Bollinger confirms it’s dip time
                     and balances[quote_currency] > 0  # Sufficient balance
                 ):
                     quote_cost = round((buy_percentage / 100) * balances[quote_currency], 2)  # Directly in USDC
@@ -719,6 +763,8 @@ async def trading_bot():
                         message = f"✅ *BOUGHT {buy_amount:.4f} {symbol}* at *${current_price:.{price_precision}f}* USDC"
                         send_telegram_notification(message)
 
+                        crypto_data[symbol]["peak_price"] = current_price
+
                 # Execute sell order if sell signals are confirmed or dynamic_sell_threshold was reached
                 elif (
                     macd_sell_signal
@@ -726,6 +772,9 @@ async def trading_bot():
                     and actual_buy_price is not None  # ✅ Ensure actual_buy_price is valid before using it
                     and current_price > actual_buy_price * (1 + (dynamic_sell_threshold / 100))  # ✅ Profit percentage wanted based on sell threshold
                     and rsi > 70  # ✅ RSI above 70 indicates a oversold condition
+                    and (bollinger_upper is None or current_price > bollinger_upper)  # 💔 Bollinger confirms price is hot
+                    and trail_stop_price is not None  # ✅ Ensure we have a valid trailing stop price
+                    and current_price < trail_stop_price  # ✅ Price is below trailing stop price
                 ) and balances[symbol] > 0:  # ✅ Ensure we have balance
 
                     sell_amount = (sell_percentage / 100) * balances[symbol]
