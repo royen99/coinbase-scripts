@@ -62,57 +62,62 @@ function buildMainTabs(data, parent) {
     data.coins = coins;
   }
 
-function addNewCoin(coins, nav, tabContent) {
-  const coinName = prompt("Enter new coin name (e.g., ETH-USD):");
-  if (!coinName || coinName.trim() === "") return;
-
-  const cleanId = `tab-${coinName.replace(/[^a-zA-Z0-9]/g, '')}`;
-  if (coins[coinName]) {
-    alert("Coin already exists!");
-    return;
-  }
-
-  // Default structure
-  coins[coinName] = {
-    enabled: true,
-    buy_percentage: -3,
-    sell_percentage: 3,
-    volatility_window: 10,
-    trend_window: 26,
-    macd_short_window: 12,
-    macd_long_window: 26,
-    macd_signal_window: 9,
-    rsi_period: 14,
-    min_order_sizes: {
-      buy: 1,
-      sell: 0.001
-    },
-    precision: {
-      price: 2,
-      amount: 6
+  function addNewCoin(coins, nav, tabContent) {
+    const coinName = prompt("Enter new coin name (e.g., ETH-USD):");
+    if (!coinName || coinName.trim() === "") return;
+  
+    const cleanId = `tab-${coinName.replace(/[^a-zA-Z0-9]/g, '')}`;
+    if (coins[coinName]) {
+      alert("Coin already exists!");
+      return;
     }
-  };
-
-  // Create new tab
-  const navItem = document.createElement('li');
-  navItem.className = 'nav-item';
-  const link = document.createElement('a');
-  link.className = 'nav-link';
-  link.setAttribute('data-bs-toggle', 'tab');
-  link.href = `#${cleanId}`;
-  link.innerText = coinName;
-  navItem.appendChild(link);
-  nav.appendChild(navItem);
-
-  const tabPane = document.createElement('div');
-  tabPane.className = 'tab-pane fade p-3 border rounded bg-secondary';
-  tabPane.id = cleanId;
-  buildForm(coins[coinName], tabPane, `coins.${coinName}.`);
-  tabContent.appendChild(tabPane);
-
-  // Activate the new tab
-  new bootstrap.Tab(link).show();
-}
+  
+    // 💥 Add to global configData.coins
+    if (!configData.coins) configData.coins = {};
+    configData.coins[coinName] = {
+      enabled: true,
+      buy_percentage: -3,
+      sell_percentage: 3,
+      volatility_window: 10,
+      trend_window: 26,
+      macd_short_window: 12,
+      macd_long_window: 26,
+      macd_signal_window: 9,
+      rsi_period: 14,
+      min_order_sizes: {
+        buy: 0.01,
+        sell: 0.0001
+      },
+      precision: {
+        price: 2,
+        amount: 6
+      }
+    };
+  
+    // 💥 Reflect that into local `coins` reference
+    coins[coinName] = configData.coins[coinName];
+  
+    // Create new tab
+    const navItem = document.createElement('li');
+    navItem.className = 'nav-item';
+    const link = document.createElement('a');
+    link.className = 'nav-link';
+    link.setAttribute('data-bs-toggle', 'tab');
+    link.href = `#${cleanId}`;
+    link.innerText = coinName;
+    navItem.appendChild(link);
+    nav.appendChild(navItem);
+  
+    const tabPane = document.createElement('div');
+    tabPane.className = 'tab-pane fade p-3 border rounded bg-secondary';
+    tabPane.id = cleanId;
+    buildForm(coins[coinName], tabPane, `coins.${coinName}.`);
+    tabContent.appendChild(tabPane);
+  
+    // Activate the new tab
+    new bootstrap.Tab(link).show();
+  }
+  
   
 function buildForm(data, parent, prefix = '') {
     if (prefix === '' && data.coins && typeof data.coins === 'object') {
