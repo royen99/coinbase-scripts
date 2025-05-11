@@ -153,10 +153,18 @@ function buildForm(data, parent, prefix = '') {
         buildForm(value, fieldset, id + '.');
         group.appendChild(fieldset);
       } else {
-        input = document.createElement('input');
-        input.className = 'form-control';
-        input.value = value;
-        input.id = id;
+        if (typeof value === 'string' && value.includes('\n')) {
+            input = document.createElement('textarea');
+            input.className = 'form-control';
+            input.rows = value.split('\n').length || 4;
+            input.value = value;
+            input.id = id;
+          } else {
+            input = document.createElement('input');
+            input.className = 'form-control';
+            input.value = value;
+            input.id = id;
+          }
   
         group.appendChild(label);
         group.appendChild(input);
