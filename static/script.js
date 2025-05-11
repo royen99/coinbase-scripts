@@ -70,6 +70,11 @@ function addNewCoin(coins) {
   
     // 👑 Show the new tab
     new bootstrap.Tab(link).show();
+    // Activate the "Coins" main tab
+    const coinsTab = document.querySelector('a[href="#tab-coins"]');
+    if (coinsTab) {
+        new bootstrap.Tab(coinsTab).show();
+    }
 
     console.log('Added coin tab:', coinName);
   }
