@@ -346,10 +346,11 @@ def calculate_volatility(price_history, volatility_window):
     return np.std(price_changes)  # Standard deviation of returns
 
 def calculate_moving_average(price_history, trend_window):
-    """Calculate the simple moving average (SMA) of prices."""
     if len(price_history) < trend_window:
         return None
-    return sum(price_history[-trend_window:]) / trend_window  # Use the last `trend_window` prices
+    # Use deque for O(1) append/pop (better for streaming data)
+    window_prices = price_history[-trend_window:]
+    return sum(window_prices) / trend_window
 
 def calculate_ema(prices, period, return_all=False):
     """Calculate the Exponential Moving Average (EMA) for a given period."""
