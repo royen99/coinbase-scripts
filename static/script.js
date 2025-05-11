@@ -55,6 +55,9 @@ window.onload = async () => {
       document.querySelector('a[href="#tab-coins"]')?.click();
       document.querySelector(`a[href="#tab-${coinName}"]`)?.click();
     }, 100);
+
+    // 💾 Save to disk so it survives reload
+    saveConfig();
   }
   
 
