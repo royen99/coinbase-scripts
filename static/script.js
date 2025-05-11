@@ -130,10 +130,6 @@ function buildMainTabs(data, parent) {
   }
 
 function buildForm(data, parent, prefix = '') {
-    if (prefix === '' && data.coins && typeof data.coins === 'object') {
-      createCoinTabs(data.coins, parent);
-      delete data.coins;
-    }
   
     for (const key in data) {
       const value = data[key];
