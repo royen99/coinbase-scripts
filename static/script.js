@@ -129,53 +129,74 @@ function buildForm(data, parent, prefix = '') {
         buildForm(value, fieldset, id + '.');
         group.appendChild(fieldset);
       } else {
+        const lowerKey = key.toLowerCase();
+        const isSensitive = sensitiveFields.some(field => lowerKey.includes(field));
+        
         if (typeof value === 'string' && value.includes('\n')) {
-            input = document.createElement('textarea');
-            input.className = 'form-control';
-            input.rows = value.split('\n').length || 4;
-            input.value = value;
-            input.id = id;
-          } else {
-            input = document.createElement('input');
-            input.className = 'form-control';
-            input.value = value;
-            input.id = id;
-          
-            const lowerKey = key.toLowerCase();
-            const isSensitive = sensitiveFields.some(field => lowerKey.includes(field));
-          
-            if (isSensitive) {
-              input.type = 'password';
-          
-              const toggleBtn = document.createElement('button');
-              toggleBtn.type = 'button';
-              toggleBtn.className = 'btn btn-sm btn-outline-light ms-2';
-              toggleBtn.innerText = '👁 Show';
-              toggleBtn.onclick = () => {
-                input.type = input.type === 'password' ? 'text' : 'password';
-                toggleBtn.innerText = input.type === 'password' ? '👁 Show' : '🙈 Hide';
-              };
-          
-              const inputGroup = document.createElement('div');
-              inputGroup.className = 'input-group';
-          
-              const wrapper = document.createElement('div');
-              wrapper.className = 'form-control-wrapper flex-grow-1';
-              wrapper.appendChild(input);
-          
-              inputGroup.appendChild(wrapper);
-              inputGroup.appendChild(toggleBtn);
-          
-              group.appendChild(label);
-              group.appendChild(inputGroup);
-            } else {
-              group.appendChild(label);
-              group.appendChild(input);
-            }
+          // 🔒 Multiline sensitive field
+          input = document.createElement('textarea');
+          input.className = 'form-control';
+          input.rows = value.split('\n').length || 4;
+          input.value = isSensitive ? '••••••••••••••••••••' : value;
+          input.id = id;
+          input.readOnly = isSensitive;
+        
+          group.appendChild(label);
+          group.appendChild(input);
+        
+          if (isSensitive) {
+            const toggleBtn = document.createElement('button');
+            toggleBtn.type = 'button';
+            toggleBtn.className = 'btn btn-sm btn-outline-light mt-1';
+            toggleBtn.innerText = '👁 Show';
+            toggleBtn.onclick = () => {
+              if (input.value.startsWith('••')) {
+                input.value = value;
+                toggleBtn.innerText = '🙈 Hide';
+              } else {
+                input.value = '••••••••••••••••••••';
+                toggleBtn.innerText = '👁 Show';
+              }
+            };
+            group.appendChild(toggleBtn);
           }
-  
-        group.appendChild(label);
-        group.appendChild(input);
+        
+        } else {
+          input = document.createElement('input');
+          input.className = 'form-control';
+          input.value = value;
+          input.id = id;
+        
+          if (isSensitive) {
+            input.type = 'password';
+        
+            const toggleBtn = document.createElement('button');
+            toggleBtn.type = 'button';
+            toggleBtn.className = 'btn btn-sm btn-outline-light ms-2';
+            toggleBtn.innerText = '👁 Show';
+            toggleBtn.onclick = () => {
+              input.type = input.type === 'password' ? 'text' : 'password';
+              toggleBtn.innerText = input.type === 'password' ? '👁 Show' : '🙈 Hide';
+            };
+        
+            const inputGroup = document.createElement('div');
+            inputGroup.className = 'input-group';
+        
+            const wrapper = document.createElement('div');
+            wrapper.className = 'form-control-wrapper flex-grow-1';
+            wrapper.appendChild(input);
+        
+            inputGroup.appendChild(wrapper);
+            inputGroup.appendChild(toggleBtn);
+        
+            group.appendChild(label);
+            group.appendChild(inputGroup);
+          } else {
+            group.appendChild(label);
+            group.appendChild(input);
+          }
+        }
+        
       }
   
       parent.appendChild(group);
