@@ -479,8 +479,11 @@ def get_weighted_avg_buy_price(symbol):
     conn.close()
 
     if not buy_trades:
-        print(f"🔥  - No valid buy trades found for {symbol}. Returning None.")
-        return None  # No buy trades found
+        if DEBUG_MODE:
+            print(f"⚠️  - No buy trades found for {symbol} after last sell.")
+
+        # If no buy trades exist, return None
+        return None
 
     # ✅ Step 3: Calculate the **correct** weighted average price
     total_amount = sum(trade[0] for trade in buy_trades)  # Sum of all bought amounts
@@ -724,6 +727,7 @@ async def trading_bot():
                     and (actual_buy_price is None or current_price < actual_buy_price) # If price is cheaper then what we have bought already.
                     and current_price < long_term_ma  # Trend filter
                     and time_since_last_buy > 120  # Wait 2 minutes before buying again.
+                    and (bollinger_lower is None or current_price < bollinger_lower)  # 💘 Bollinger confirms it’s dip time
                     and balances[quote_currency] > 0  # Sufficient balance
                 ):
                     quote_cost = round((buy_percentage / 100) * balances[quote_currency], 2)  # Directly in USDC
@@ -755,6 +759,7 @@ async def trading_bot():
                     and actual_buy_price is not None  # ✅ Ensure actual_buy_price is valid before using it
                     and current_price > actual_buy_price * (1 + (dynamic_sell_threshold / 100))  # ✅ Profit percentage wanted based on sell threshold
                     and rsi > 70  # ✅ RSI above 70 indicates a oversold condition
+                    and (bollinger_upper is None or current_price > bollinger_upper)  # 💔 Bollinger confirms price is hot
                 ) and balances[symbol] > 0:  # ✅ Ensure we have balance
 
                     sell_amount = (sell_percentage / 100) * balances[symbol]
