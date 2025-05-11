@@ -638,6 +638,9 @@ async def trading_bot():
             # Log expected prices
             print(f"📊  - Expected Prices for {symbol}: Buy at: ${expected_buy_price:.{price_precision}f} ({dynamic_buy_threshold:.2f}%) / Sell at: ${expected_sell_price:.{price_precision}f} ({dynamic_sell_threshold:.2f}%) | MA: {moving_avg:.{price_precision}f}")
 
+            # Log Bollinger Bands
+            print(f"🔔  - Bollinger Bands for {symbol}: Mid: ${bollinger_mid:.{price_precision}f}, Upper: ${bollinger_upper:.{price_precision}f}, Lower: ${bollinger_lower:.{price_precision}f}")
+
             # Check if the price is close to the moving average
             if moving_avg and abs(current_price - moving_avg) < (0.05 * moving_avg):  # Only trade if price is within 5% of the moving average
                 # MACD Buy Signal: MACD line crosses above Signal line
