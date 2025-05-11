@@ -101,9 +101,6 @@ function buildMainTabs(data, parent) {
     generalPane.className = 'tab-pane fade show active p-3 border rounded bg-secondary';
     generalPane.id = generalTabId;
   
-    // Extract coin data and remove from general
-    const coins = data.coins;
-  
     // Temporarily remove coins so they're not included in the General tab
     const coins = data.coins;
     delete data.coins;
