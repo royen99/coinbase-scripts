@@ -604,9 +604,16 @@ async def trading_bot():
             dynamic_buy_threshold = buy_threshold * volatility_factor
             dynamic_sell_threshold = sell_threshold * volatility_factor
 
+            # Get average buy price
+            actual_buy_price = get_weighted_avg_buy_price(symbol)
+
             # Calculate expected buy/sell prices
-            expected_buy_price = crypto_data[symbol]["initial_price"] * (1 + dynamic_buy_threshold / 100)
-            expected_sell_price = crypto_data[symbol]["initial_price"] * (1 + dynamic_sell_threshold / 100)
+            if actual_buy_price is not None:
+                expected_buy_price = actual_buy_price
+                expected_sell_price = actual_buy_price * (1 + dynamic_sell_threshold / 100)
+            else:
+                expected_buy_price = crypto_data[symbol]["initial_price"] * (1 + dynamic_buy_threshold / 100)
+                expected_sell_price = crypto_data[symbol]["initial_price"] * (1 + dynamic_sell_threshold / 100)
 
             # Log expected prices
             print(f"📊  - Expected Prices for {symbol}: Buy at: ${expected_buy_price:.{price_precision}f} ({dynamic_buy_threshold:.2f}%) / Sell at: ${expected_sell_price:.{price_precision}f} ({dynamic_sell_threshold:.2f}%) | MA: {moving_avg:.{price_precision}f}")
@@ -644,9 +651,6 @@ async def trading_bot():
                 # Check how long since the last buy
                 time_since_last_buy = time.time() - crypto_data[symbol].get("last_buy_time", 0)
 
-                # Get average buy price
-                actual_buy_price = get_weighted_avg_buy_price(symbol)
-
                 # 🔥 Gradual Adjustments: Move `initial_price` 10% closer to `long_term_ma` during a sustained >5% uptrend
                 if (
                     time_since_last_buy > 900
@@ -660,6 +664,19 @@ async def trading_bot():
                     print(f"📈  - {symbol} Adjusting Initial Price Upwards: {crypto_data[symbol]['initial_price']:.{price_precision}f} → {new_initial_price:.{price_precision}f}")
                     crypto_data[symbol]["initial_price"] = new_initial_price
                 
+                # 🔥 Gradual Adjustments: Move `initial_price` 10% closer to `long_term_ma` during a sustained >5% uptrend and we hold nothing
+                elif (
+                    time_since_last_buy > 900
+                    and current_price > crypto_data[symbol]["initial_price"]
+                    and current_price > long_term_ma  # Confirm Uptrend
+                    and balances.get(symbol, 0) * current_price < 1  # Holdings worth less than $1 USDC
+                ):
+                    new_initial_price = (
+                        0.9 * crypto_data[symbol]["initial_price"] + 0.1 * long_term_ma
+                    )
+                    print(f"📈  - {symbol} Adjusting Initial Price Upwards: {crypto_data[symbol]['initial_price']:.{price_precision}f} → {new_initial_price:.{price_precision}f}")
+                    crypto_data[symbol]["initial_price"] = new_initial_price
+
                 # 🔽 Adjust Initial Price Downwards in a Sustained Downtrend (If Holdings < 1 USDC)
                 elif (
                     time_since_last_buy > 3600 and  # Time check
@@ -699,7 +716,7 @@ async def trading_bot():
                         updated_avg_price = get_weighted_avg_buy_price(symbol)
                         save_weighted_avg_buy_price(symbol, updated_avg_price)  # Save the new average price
 
-                        message = f"✅ *BOUGHT {buy_amount:.4f} {symbol}* at *${current_price:.2f}* USDC"
+                        message = f"✅ *BOUGHT {buy_amount:.4f} {symbol}* at *${current_price:.{price_precision}f}* USDC"
                         send_telegram_notification(message)
 
                 # Execute sell order if sell signals are confirmed or dynamic_sell_threshold was reached
@@ -736,7 +753,7 @@ async def trading_bot():
                                 print(f"❌  - ERROR: get_weighted_avg_buy_price({symbol}) returned None! Check DB query!")
 
                             else:
-                                print(f"✅  - SUCCESS: Weighted Avg Buy Price for {symbol} = {actual_buy_price:.6f}")
+                                print(f"✅  - SUCCESS: Weighted Avg Buy Price for {symbol} = {actual_buy_price:.{price_precision}f}")
 
                             if actual_buy_price:
                                 crypto_data[symbol]["total_profit"] += (current_price - actual_buy_price) * sell_amount
@@ -751,7 +768,7 @@ async def trading_bot():
                             # 🔥 Save Weighted Avg Buy Price After Sell
                             save_weighted_avg_buy_price(symbol, None)  # Reset buy price after sell
 
-                            message = f"🚀 *SOLD {sell_amount:.4f} {symbol}* at *${current_price:.2f}* USDC"
+                            message = f"🚀 *SOLD {sell_amount:.4f} {symbol}* at *${current_price:.{price_precision}f}* USDC"
                             send_telegram_notification(message)
 
                         else:
