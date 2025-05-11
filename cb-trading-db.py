@@ -606,7 +606,7 @@ async def trading_bot():
             )
             rsi = calculate_rsi(price_history, symbol)
 
-            bollinger_mid, bollinger_upper, bollinger_lower = calculate_bollinger_bands(prices)
+            bollinger_mid, bollinger_upper, bollinger_lower = calculate_bollinger_bands(price_history)
             crypto_data[symbol]['bollinger'] = {
                 'mid': bollinger_mid,
                 'upper': bollinger_upper,
