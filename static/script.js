@@ -6,10 +6,20 @@ window.onload = async () => {
     const res = await fetch('/api/config');
     configData = await res.json();
     buildMainTabs(configData, document.getElementById('configForm'));
+    const testBtn = document.createElement('button');
+    testBtn.className = 'btn btn-danger';
+    testBtn.innerText = '🚨 TEST ADD PNUT';
+    testBtn.onclick = () => {
+        console.log('Adding PNUT manually...');
+        addNewCoin(configData.coins);
+    };
+    document.body.prepend(testBtn);
   };
 
 function addNewCoin(coins) {
   const coinName = prompt("Enter new coin name (e.g., DOGE):");
+  console.log('Prompt done. coinName =', coinName);
+  console.log('configData.coins before =', Object.keys(configData.coins));
   if (!coinName || coinName.trim() === "") return;
 
   const cleanId = `tab-${coinName.replace(/[^a-zA-Z0-9]/g, '')}`;
@@ -60,6 +70,8 @@ function addNewCoin(coins) {
   
     // 👑 Show the new tab
     new bootstrap.Tab(link).show();
+
+    console.log('Added coin tab:', coinName);
   }
 
 function buildMainTabs(data, parent) {
