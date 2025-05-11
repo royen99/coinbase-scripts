@@ -63,7 +63,7 @@ function buildMainTabs(data, parent) {
   }
 
   function addNewCoin(coins, nav, tabContent) {
-    const coinName = prompt("Enter new coin name (e.g., ETH-USD):");
+    const coinName = prompt("Enter new coin name (e.g., DOGE):");
     if (!coinName || coinName.trim() === "") return;
   
     const cleanId = `tab-${coinName.replace(/[^a-zA-Z0-9]/g, '')}`;
@@ -72,7 +72,7 @@ function buildMainTabs(data, parent) {
       return;
     }
   
-    // 💥 Add to global configData.coins
+    // Add to global configData.coins
     if (!configData.coins) configData.coins = {};
     configData.coins[coinName] = {
       enabled: true,
@@ -94,7 +94,7 @@ function buildMainTabs(data, parent) {
       }
     };
   
-    // 💥 Reflect that into local `coins` reference
+    // Reflect that into local `coins` reference
     coins[coinName] = configData.coins[coinName];
   
     // Create new tab
@@ -108,6 +108,7 @@ function buildMainTabs(data, parent) {
     navItem.appendChild(link);
     nav.appendChild(navItem);
   
+    // Create new tab content
     const tabPane = document.createElement('div');
     tabPane.className = 'tab-pane fade p-3 border rounded bg-secondary';
     tabPane.id = cleanId;
@@ -115,9 +116,9 @@ function buildMainTabs(data, parent) {
     tabContent.appendChild(tabPane);
   
     // Activate the new tab
-    new bootstrap.Tab(link).show();
+    const tabTrigger = new bootstrap.Tab(link);
+    tabTrigger.show();
   }
-  
   
 function buildForm(data, parent, prefix = '') {
     if (prefix === '' && data.coins && typeof data.coins === 'object') {
