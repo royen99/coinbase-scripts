@@ -605,7 +605,9 @@ async def trading_bot():
             price_precision = coins_config[symbol]["precision"]["price"]  # Get the decimal places from config
             print(f"📈 {symbol} Price: ${current_price:.{price_precision}f} ({price_change:.2f}%)")
 
-            print(f"🔄 {symbol} - Current Price: ${current_price:.{price_precision}f}, Peak Price: ${peak_price:.{price_precision}f}, Trailing Stop Price: ${trail_stop_price:.{price_precision}f}")
+            peak_display = f"${peak_price:.{price_precision}f}" if peak_price else "N/A"
+            trail_display = f"${trail_stop_price:.{price_precision}f}" if trail_stop_price else "N/A"
+            print(f"🔄 {symbol} - Current Price: ${current_price:.{price_precision}f}, Peak Price: {peak_display}, Trailing Stop Price: {trail_display}")
 
             # Calculate volatility and moving average
             volatility = calculate_volatility(price_history, volatility_window)
