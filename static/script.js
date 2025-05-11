@@ -265,4 +265,16 @@ function buildForm(data, parent, prefix = '') {
     console.log("🧠 calling saveConfig() to persist new coin");
     await saveConfig();
   }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    console.log("🔍 Testing saveConfig binding...");
   
+    const testSave = document.createElement('button');
+    testSave.className = 'btn btn-warning';
+    testSave.innerText = '🔥 Manual SaveConfig Test';
+    testSave.onclick = () => {
+      console.log("🔁 Manually calling saveConfig()");
+      saveConfig();
+    };
+    document.body.appendChild(testSave);
+  });
