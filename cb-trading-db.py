@@ -591,8 +591,6 @@ async def trading_bot():
             peak_price = crypto_data[symbol].get("peak_price")
             trail_stop_price = peak_price * (1 - trail_percent / 100) if peak_price else None
 
-            print(f"🔄 {symbol} - Current Price: ${current_price:.{price_precision}f}, Peak Price: ${peak_price:.{price_precision}f}, Trailing Stop Price: ${trail_stop_price:.{price_precision}f}")
-
             # Ensure we have enough data for indicators
             if len(price_history) < max(macd_long_window + macd_signal_window, rsi_period + 1):
                 print(f"⚠️ {symbol}: Not enough data for indicators. Required: {max(macd_long_window + macd_signal_window, rsi_period + 1)}, Available: {len(price_history)}")
@@ -606,6 +604,8 @@ async def trading_bot():
             price_change = ((current_price - crypto_data[symbol]["initial_price"]) / crypto_data[symbol]["initial_price"]) * 100
             price_precision = coins_config[symbol]["precision"]["price"]  # Get the decimal places from config
             print(f"📈 {symbol} Price: ${current_price:.{price_precision}f} ({price_change:.2f}%)")
+
+            print(f"🔄 {symbol} - Current Price: ${current_price:.{price_precision}f}, Peak Price: ${peak_price:.{price_precision}f}, Trailing Stop Price: ${trail_stop_price:.{price_precision}f}")
 
             # Calculate volatility and moving average
             volatility = calculate_volatility(price_history, volatility_window)
