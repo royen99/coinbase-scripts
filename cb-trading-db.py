@@ -578,6 +578,7 @@ async def trading_bot():
             if previous_price is not None:
                 if current_price > previous_price:
                     crypto_data[symbol]["rising_streak"] = crypto_data[symbol].get("rising_streak", 0) + 1
+                    print(f"📈 {symbol} Rising Streak: {crypto_data[symbol]['rising_streak']}")
                 else:
                     crypto_data[symbol]["rising_streak"] = 0
 
@@ -585,6 +586,7 @@ async def trading_bot():
             if previous_price is not None:
                 if current_price < previous_price:
                     crypto_data[symbol]["falling_streak"] = crypto_data[symbol].get("falling_streak", 0) + 1
+                    print(f"📉 {symbol} Falling Streak: {crypto_data[symbol]['falling_streak']}")
                 else:
                     crypto_data[symbol]["falling_streak"] = 0
         
@@ -756,7 +758,7 @@ async def trading_bot():
                     and current_price < long_term_ma  # Trend filter
                     and time_since_last_buy > 120  # Wait 2 minutes before buying again.
                     and (bollinger_lower is None or current_price < bollinger_lower)  # 💘 Bollinger confirms it’s dip time
-                    and crypto_data[symbol].get("falling_streak", 0) < 3  # ✅ Ensure we’re not in a falling streak
+                    and crypto_data[symbol]["falling_streak"] < 3  # ✅ Ensure we’re not in a falling streak
                     and balances[quote_currency] > 0  # Sufficient balance
                 ):
                     quote_cost = round((buy_percentage / 100) * balances[quote_currency], 2)  # Directly in USDC
