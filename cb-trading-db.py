@@ -765,17 +765,25 @@ async def trading_bot():
 
                         crypto_data[symbol]["peak_price"] = current_price
 
-                # Execute sell order if sell signals are confirmed or dynamic_sell_threshold was reached
                 elif (
-                    macd_sell_signal
-                    and macd_confirmation[symbol]["sell"] >= 3  # ✅ At least 3 positives signals
+                    # Execute sell order if sell signals are confirmed and dynamic_sell_threshold was reached
+                    (
+                        (
+                            macd_sell_signal
+                            and macd_confirmation[symbol]["sell"] >= 3  # ✅ At least 3 positives signals
+                            and rsi > 70  # ✅ RSI above 70 indicates a oversold condition
+                            and (bollinger_upper is None or current_price > bollinger_upper)  # 💔 Bollinger confirms price is hot
+                        )
+                        or
+                        (
+                            trail_stop_price is not None  # ✅ Ensure we have a valid trailing stop price
+                            and current_price < trail_stop_price  # ✅ Price is below trailing stop price
+                        )
+                    )
                     and actual_buy_price is not None  # ✅ Ensure actual_buy_price is valid before using it
                     and current_price > actual_buy_price * (1 + (dynamic_sell_threshold / 100))  # ✅ Profit percentage wanted based on sell threshold
-                    and rsi > 70  # ✅ RSI above 70 indicates a oversold condition
-                    and (bollinger_upper is None or current_price > bollinger_upper)  # 💔 Bollinger confirms price is hot
-                    and trail_stop_price is not None  # ✅ Ensure we have a valid trailing stop price
-                    and current_price < trail_stop_price  # ✅ Price is below trailing stop price
-                ) and balances[symbol] > 0:  # ✅ Ensure we have balance
+                    and balances[symbol] > 0  # ✅ Ensure we have balance
+                ):
 
                     sell_amount = (sell_percentage / 100) * balances[symbol]
 
