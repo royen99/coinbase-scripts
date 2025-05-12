@@ -572,6 +572,7 @@ async def trading_bot():
             # Update price history in memory
             crypto_data[symbol]["price_history"].append(current_price)
             price_history = list(crypto_data[symbol]["price_history"])
+            previous_price = crypto_data[symbol].get("previous_price")
             
             # Get coin-specific settings
             coin_settings = coins_config[symbol]
@@ -731,6 +732,8 @@ async def trading_bot():
                 if bollinger_sell_signal:
                     print(f"💔 {symbol}: Price is above Bollinger Upper Band (${bollinger_upper:.2f}) — sell signal!")
 
+                price_slope = current_price - price_history[-3]
+
                 # Execute buy order if MACD buy signal is confirmed
                 if (
                     price_change <= dynamic_buy_threshold and  # Price threshold
@@ -781,6 +784,7 @@ async def trading_bot():
                         )
                     )
                     and actual_buy_price is not None  # ✅ Ensure actual_buy_price is valid before using it
+                    and previous_price is not None and current_price < previous_price  # ✅ Price is lower than previous price
                     and current_price > actual_buy_price * (1 + (dynamic_sell_threshold / 100))  # ✅ Profit percentage wanted based on sell threshold
                     and (bollinger_upper is None or current_price > bollinger_mid)  # 💔 Bollinger confirms price is still warm
                     and balances[symbol] > 0  # ✅ Ensure we have balance
@@ -845,6 +849,8 @@ async def trading_bot():
             
             # Save state after each coin's update
             save_state(symbol, crypto_data[symbol]["initial_price"], crypto_data[symbol]["total_trades"], crypto_data[symbol]["total_profit"])
+
+            crypto_data[symbol]["previous_price"] = current_price
 
 if __name__ == "__main__":
     asyncio.run(trading_bot())
