@@ -736,7 +736,6 @@ async def trading_bot():
                 elif (
                     time_since_last_buy > 3600 and  # Time check
                     balances.get(symbol, 0) * current_price < 1 and  # Holdings worth less than $1 USDC
-                    crypto_data[symbol]["falling_streak"] > 3 and  # Ensure we’re in a falling streak
                     current_price < previous_price and  # Price is falling
                     current_price < crypto_data[symbol]["initial_price"] * 0.95 # Prevent premature resets
                 ):
