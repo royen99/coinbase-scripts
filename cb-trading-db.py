@@ -722,6 +722,8 @@ async def trading_bot():
                     time_since_last_buy > 900
                     and current_price > crypto_data[symbol]["initial_price"]
                     and current_price > long_term_ma  # Confirm Uptrend
+                    and current_price > previous_price  # Price is rising
+                    and crypto_data[symbol]["rising_streak"] > 3  # Ensure we’re in a rising streak
                     and balances.get(symbol, 0) * current_price < 1  # Holdings worth less than $1 USDC
                 ):
                     new_initial_price = (
@@ -734,7 +736,8 @@ async def trading_bot():
                 elif (
                     time_since_last_buy > 3600 and  # Time check
                     balances.get(symbol, 0) * current_price < 1 and  # Holdings worth less than $1 USDC
-                    # current_price < long_term_ma * 0.95 and  # Confirm downtrend
+                    crypto_data[symbol]["falling_streak"] > 3 and  # Ensure we’re in a falling streak
+                    current_price < previous_price and  # Price is falling
                     current_price < crypto_data[symbol]["initial_price"] * 0.95 # Prevent premature resets
                 ):
                     new_initial_price = (0.9 * crypto_data[symbol]["initial_price"] + 0.1 * current_price)  # Move closer to the current price
