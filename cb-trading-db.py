@@ -581,6 +581,13 @@ async def trading_bot():
                 else:
                     crypto_data[symbol]["rising_streak"] = 0
 
+            # Check for a falling streak (if price is falling and continues to fall)
+            if previous_price is not None:
+                if current_price < previous_price:
+                    crypto_data[symbol]["falling_streak"] = crypto_data[symbol].get("falling_streak", 0) + 1
+                else:
+                    crypto_data[symbol]["falling_streak"] = 0
+        
             # Get coin-specific settings
             coin_settings = coins_config[symbol]
             buy_threshold = coin_settings["buy_percentage"]
@@ -749,6 +756,7 @@ async def trading_bot():
                     and current_price < long_term_ma  # Trend filter
                     and time_since_last_buy > 120  # Wait 2 minutes before buying again.
                     and (bollinger_lower is None or current_price < bollinger_lower)  # 💘 Bollinger confirms it’s dip time
+                    and crypto_data[symbol].get("falling_streak", 0) < 3  # ✅ Ensure we’re not in a falling streak
                     and balances[quote_currency] > 0  # Sufficient balance
                 ):
                     quote_cost = round((buy_percentage / 100) * balances[quote_currency], 2)  # Directly in USDC
@@ -782,7 +790,7 @@ async def trading_bot():
                             macd_sell_signal
                             and macd_confirmation[symbol]["sell"] >= 3  # ✅ At least 3 positives signals
                             and rsi > 70  # ✅ RSI above 70 indicates a oversold condition
-                            and (bollinger_upper is None or current_price > bollinger_upper)  # 💔 Bollinger confirms price is hot
+                            and (bollinger_upper is None or current_price > bollinger_upper)  # ✅ Bollinger confirms price is hot
                         )
                         or
                         (
@@ -793,7 +801,7 @@ async def trading_bot():
                     and actual_buy_price is not None  # ✅ Ensure actual_buy_price is valid before using it
                     and previous_price is not None and current_price < previous_price  # ✅ Price is lower than previous price
                     and current_price > actual_buy_price * (1 + (dynamic_sell_threshold / 100))  # ✅ Profit percentage wanted based on sell threshold
-                    and (bollinger_upper is None or current_price > bollinger_mid)  # 💔 Bollinger confirms price is still warm
+                    and (bollinger_upper is None or current_price > bollinger_mid)  # ✅ Bollinger confirms price is still warm
                     and crypto_data[symbol].get("rising_streak", 0) < 3  # ✅ Ensure we’re not in a rising streak
                     and balances[symbol] > 0  # ✅ Ensure we have balance
                 ):
