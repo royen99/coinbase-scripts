@@ -1,5 +1,8 @@
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from monitor_api import router as monitor_router
+import os
 
 app = FastAPI()
 app.include_router(monitor_router, prefix="/api")
