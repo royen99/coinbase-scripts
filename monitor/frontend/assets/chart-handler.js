@@ -119,6 +119,7 @@ async function loadChart(symbol) {
     }
   });
 
+  loadIndicators(symbol);
   renderSignalList(signalData);
 }
 
