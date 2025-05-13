@@ -9,6 +9,14 @@ router = APIRouter()
 def get_config():
     return load_config()
 
+@router.get("/enabled-coins")
+def get_enabled_coins():
+    """Return list of enabled coins from config"""
+    config = load_config()
+    coins = config.get("coins", {})
+    enabled = [symbol for symbol, settings in coins.items() if settings.get("enabled")]
+    return enabled
+
 @router.get("/prices/{symbol}")
 def get_prices(symbol: str):
     try:
