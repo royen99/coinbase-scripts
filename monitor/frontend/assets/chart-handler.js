@@ -6,7 +6,9 @@ async function loadEnabledCoins() {
     const balances = await balanceRes.json();
     const balanceMap = {};
     balances.forEach(b => balanceMap[b.currency] = b.available_balance);
-  
+
+    const config = await fetch('/api/config').then(r => r.json());
+ 
     const indicatorPromises = coins.map(async symbol => {
       const res = await fetch(`/api/indicators/${symbol}`);
       const data = await res.json();
