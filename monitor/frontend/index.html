@@ -13,13 +13,21 @@
       <!-- 💹 Title Row -->
       <div class="d-flex justify-content-between align-items-center mb-4">
         <h2 class="text-info fw-bold">TuxTrader Monitor 💹</h2>
-        <div class="d-flex flex-column align-items-end text-end">
-            <h5 class="text-muted mb-1">Available Funds</h5>
-            <h4 class="text-warning" id="availableFunds">$0.00</h4>
-            <h5 class="text-muted mb-1">Crypto Holdings</h5>
-            <h4 class="text-info" id="portfolioValue">$0.00</h4>
-            <h5 class="text-muted mb-1">Total Portfolio</h5>
-            <h3 class="text-success fw-bold" id="fullPortfolioValue">$0.00</h3>
+        <div class="d-flex justify-content-end align-items-center gap-4 mb-4" id="walletOverview">
+            <div class="text-end">
+              <small class="text-muted">Available</small><br>
+              <span id="availableFunds" class="fw-bold text-warning">$0.00</span>
+            </div>
+            <div class="vr" style="height: 40px;"></div>
+            <div class="text-end">
+              <small class="text-muted">Holdings</small><br>
+              <span id="portfolioValue" class="fw-bold text-info">$0.00</span>
+            </div>
+            <div class="vr" style="height: 40px;"></div>
+            <div class="text-end">
+              <small class="text-muted">Total</small><br>
+              <span id="fullPortfolioValue" class="fw-bold text-success">$0.00</span>
+            </div>
           </div>
       </div>
   
