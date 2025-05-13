@@ -776,6 +776,9 @@ async def trading_bot():
                 if bollinger_sell_signal:
                     print(f"💔 {symbol}: Price is above Bollinger Upper Band (${bollinger_upper:.2f}) — sell signal!")
 
+                if current_price > actual_buy_price * (1 + (dynamic_sell_threshold / 100)):
+                    print(f"💵 {symbol}: Price is above expected sell price (${expected_sell_price:.{price_precision}f}) — sell signal 🚨 !!!")
+
                 price_slope = current_price - price_history[-3]
 
                 # Execute buy order if MACD buy signal is confirmed
