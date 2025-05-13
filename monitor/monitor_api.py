@@ -10,7 +10,6 @@ def get_config():
 
 @router.get("/prices/{symbol}")
 def get_prices(symbol: str):
-    """Get the latest 200 price entries for a given coin"""
     try:
         conn = get_db_connection()
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -18,20 +17,19 @@ def get_prices(symbol: str):
                 SELECT timestamp, price 
                 FROM price_history 
                 WHERE symbol = %s 
-                ORDER BY timestamp DESC
+                ORDER BY timestamp DESC 
                 LIMIT 200
             """, (symbol,))
             rows = cur.fetchall()
-            # Reverse to ascending so the chart flows left → right
             return list(reversed(rows))
     except Exception as e:
+        print(f"[ERROR] get_prices({symbol}):", e)  # 👈 log the error
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()
 
 @router.get("/signals/{symbol}")
 def get_signals(symbol: str):
-    """Get historical trades (buy/sell) for a coin"""
     try:
         conn = get_db_connection()
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -43,6 +41,7 @@ def get_signals(symbol: str):
             """, (symbol,))
             return cur.fetchall()
     except Exception as e:
+        print(f"[ERROR] get_signals({symbol}):", e)  # 👈 log the error
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()
