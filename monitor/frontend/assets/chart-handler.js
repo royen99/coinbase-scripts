@@ -25,13 +25,11 @@ async function loadEnabledCoins() {
   
       body.appendChild(title);
       body.appendChild(indicatorsDiv);
-      body.appendChild(signalList);
       card.appendChild(body);
       dashboard.appendChild(card);
   
       // Now load data into those sections
       loadIndicators(symbol);
-      loadSignalList(symbol);
     }
   }
 
