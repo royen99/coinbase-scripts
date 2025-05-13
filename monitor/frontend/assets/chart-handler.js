@@ -37,9 +37,6 @@ async function loadEnabledCoins() {
     const dashboard = document.getElementById("coinDashboards");
     dashboard.innerHTML = "";
   
-    // 🏆 START TOTAL PROFIT COUNTER
-    let totalProfit = 0;
-
     for (const { symbol, balance, value, indicators } of coinData) {
       const pricePrecision = config.coins[symbol]?.precision?.price || 6;
       value.toFixed(pricePrecision)
