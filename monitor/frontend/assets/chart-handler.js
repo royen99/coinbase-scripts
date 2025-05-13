@@ -1,10 +1,7 @@
 async function loadEnabledCoins() {
     const coinRes = await fetch('/api/enabled-coins');
     const coins = await coinRes.json();
-
-    const config = await fetch('/api/config').then(r => r.json());
-    const pricePrecision = config.coins[symbol]?.precision?.price || 6;
-
+  
     const balanceRes = await fetch('/api/balances');
     const balances = await balanceRes.json();
     const balanceMap = {};
