@@ -32,6 +32,7 @@ async function loadEnabledCoins() {
     animateValue(document.getElementById("availableFunds"), 0, usdc);
     animateValue(document.getElementById("portfolioValue"), 0, totalCryptoValue);
     animateValue(document.getElementById("fullPortfolioValue"), 0, totalPortfolioValue);
+    animateValue(document.getElementById("totalProfit"), 0, totalProfit);
   
     const dashboard = document.getElementById("coinDashboards");
     dashboard.innerHTML = "";
@@ -60,7 +61,8 @@ async function loadEnabledCoins() {
       // 🏆 Profit badge (fetched earlier or fetch it here if needed)
       const tradeStateRes = await fetch(`/api/trading_state/${symbol}`);
       const tradeStateData = await tradeStateRes.json();
-      const totalProfit = tradeStateData.total_profit || 0;
+      const coinProfit = tradeStateData.total_profit || 0;
+      totalProfit += coinProfit;
       
       const profitBadge = document.createElement("span");
       let profitColor = "bg-secondary";
@@ -68,7 +70,7 @@ async function loadEnabledCoins() {
       else if (totalProfit < 0) profitColor = "bg-danger";
       
       profitBadge.className = `badge rounded-pill fs-6 ${profitColor}`;
-      profitBadge.textContent = `$${totalProfit.toFixed(2)}`;
+      profitBadge.textContent = `Realized Returns: $${totalProfit.toFixed(2)}`;
       
       leftGroup.appendChild(title);
       leftGroup.appendChild(profitBadge);
@@ -234,7 +236,9 @@ async function loadEnabledCoins() {
       if (currentStep >= steps) clearInterval(timer);
     }, stepTime);
   }
-  
+
+  let totalProfit = 0;
+
 // INIT
 loadEnabledCoins();
 loadRecentTrades();
