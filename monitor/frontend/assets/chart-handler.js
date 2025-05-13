@@ -55,11 +55,13 @@ async function loadEnabledCoins() {
   
       const indicatorsDiv = document.createElement("div");
       indicatorsDiv.className = "d-flex gap-3 mb-3 flex-wrap";
-  
+
+      // 🎨 Add Current Price badge
       const currentBadge = document.createElement("span");
       currentBadge.className = "badge rounded-pill bg-info fs-6";
       currentBadge.textContent = `Current: $${indicators.current_price.toFixed(2)}`;
-  
+
+      // 🎨 Add Moving Average (50) badge
       const isAbove = indicators.current_price > indicators.moving_average;
       const maBadge = document.createElement("span");
       maBadge.className = `badge rounded-pill fs-6 ${isAbove ? "bg-success" : "bg-danger"}`;
@@ -68,16 +70,22 @@ async function loadEnabledCoins() {
       indicatorsDiv.appendChild(currentBadge);
       indicatorsDiv.appendChild(maBadge);
  
+      // 🎨 Add Avg Buy Price badge
       const avgBuyRes = await fetch(`/api/avg-buy-price/${symbol}`);
       const avgBuyData = await avgBuyRes.json();
       const avgBuyPrice = avgBuyData.avg_buy_price;
       
       if (avgBuyPrice !== null) {
+        const currentPrice = indicators.current_price;
+        const percentChange = ((currentPrice - avgBuyPrice) / avgBuyPrice) * 100;
+        const isProfit = percentChange >= 0;
+      
         const avgBuyBadge = document.createElement("span");
-        avgBuyBadge.className = "badge rounded-pill bg-light text-dark fs-6";
-        avgBuyBadge.textContent = `Avg Buy: $${avgBuyPrice.toFixed(2)}`;
+        avgBuyBadge.className = `badge rounded-pill fs-6 ${isProfit ? "bg-success" : "bg-danger"}`;
+        avgBuyBadge.textContent = `Avg Buy: $${avgBuyPrice.toFixed(2)} (${percentChange >= 0 ? "+" : ""}${percentChange.toFixed(2)}%)`;
+        
         indicatorsDiv.appendChild(avgBuyBadge);
-      }      
+      }     
 
       body.appendChild(headerRow);
       body.appendChild(indicatorsDiv);
