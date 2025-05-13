@@ -150,9 +150,8 @@ async function loadEnabledCoins() {
       body.appendChild(indicatorsDiv);
       card.appendChild(body);
       dashboard.appendChild(card);
-      let totalProfit = 0;
     }
-    
+    let totalProfit = 0;
   }
   
 
