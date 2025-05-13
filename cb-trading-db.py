@@ -752,7 +752,7 @@ async def trading_bot():
                     time_since_last_buy > 900
                     and current_price > crypto_data[symbol]["initial_price"]
                     and current_price > long_term_ma  # Confirm Uptrend
-                    and current_price > previous_price  # Price is rising
+                    and (current_price is not None and current_price > previous_price)  # Price is rising
                     and crypto_data[symbol]["rising_streak"] > 3  # Ensure we’re in a rising streak
                     and balances.get(symbol, 0) * current_price < 1  # Holdings worth less than $1 USDC
                 ):
