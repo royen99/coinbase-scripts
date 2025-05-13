@@ -1,14 +1,11 @@
-function formatPrice(value) {
-    if (value >= 1) return `$${value.toFixed(2)}`;
-    if (value >= 0.01) return `$${value.toFixed(4)}`;
-    if (value >= 0.0001) return `$${value.toFixed(6)}`;
-    return `$${value.toFixed(8)}`;
-  }
-
 async function loadEnabledCoins() {
     const coinRes = await fetch('/api/enabled-coins');
     const coins = await coinRes.json();
-  
+
+    const config = await fetch('/api/config').then(r => r.json());
+    const pricePrecision = config.coins[symbol]?.precision?.price || 6;
+    value.toFixed(pricePrecision)
+
     const balanceRes = await fetch('/api/balances');
     const balances = await balanceRes.json();
     const balanceMap = {};
@@ -66,13 +63,13 @@ async function loadEnabledCoins() {
       // 🎨 Add Current Price badge
       const currentBadge = document.createElement("span");
       currentBadge.className = "badge rounded-pill bg-info fs-6";
-      currentBadge.textContent = `Current: ${formatPrice(currentPrice)}`;
+      currentBadge.textContent = `Current: $${indicators.current_price.toFixed(2)}`;
 
       // 🎨 Add Moving Average (50) badge
       const isAbove = indicators.current_price > indicators.moving_average;
       const maBadge = document.createElement("span");
       maBadge.className = `badge rounded-pill fs-6 ${isAbove ? "bg-success" : "bg-danger"}`;
-      maBadge.textContent = `MA(50): ${formatPrice(indicators.moving_average)} (${isAbove ? "Above" : "Below"})`;
+      maBadge.textContent = `MA(50): $${indicators.moving_average.toFixed(2)} (${isAbove ? "Above" : "Below"})`;
   
       indicatorsDiv.appendChild(currentBadge);
       indicatorsDiv.appendChild(maBadge);
@@ -89,7 +86,7 @@ async function loadEnabledCoins() {
       
         const avgBuyBadge = document.createElement("span");
         avgBuyBadge.className = `badge rounded-pill fs-6 ${isProfit ? "bg-success" : "bg-danger"}`;
-        avgBuyBadge.textContent = `Avg Buy: ${formatPrice(avgBuyPrice)} (${percentChange >= 0 ? "+" : ""}${percentChange.toFixed(2)}%)`;
+        avgBuyBadge.textContent = `Avg Buy: $${avgBuyPrice.toFixed(2)} (${percentChange >= 0 ? "+" : ""}${percentChange.toFixed(2)}%)`;
         
         indicatorsDiv.appendChild(avgBuyBadge);
       }     
