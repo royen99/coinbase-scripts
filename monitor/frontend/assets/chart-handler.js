@@ -31,10 +31,6 @@ async function loadEnabledCoins() {
       const pricePrecision = config.coins[symbol]?.precision?.price || 6;
       value.toFixed(pricePrecision)
 
-      const sellTarget = config.coins[symbol]?.sell_percentage || 0;
-      const percentChange = ((indicators.current_price - avgBuyPrice) / avgBuyPrice) * 100;
-      const progressToSell = percentChange / sellTarget;
-
       const card = document.createElement("div");
       card.className = "card bg-dark text-white mb-4 shadow";
   
@@ -95,6 +91,27 @@ async function loadEnabledCoins() {
         
         indicatorsDiv.appendChild(avgBuyBadge);
       }     
+
+      // 🔥 Add Target badge
+      const sellTarget = config.coins[symbol]?.sell_percentage || 0;
+      const percentChange = ((indicators.current_price - avgBuyPrice) / avgBuyPrice) * 100;
+      const progressToSell = percentChange / sellTarget;
+
+      if (avgBuyPrice !== null && sellTarget !== 0) {
+        const sellBadge = document.createElement("span");
+        
+        // 🔥 Progress toward target
+        const progress = percentChange / sellTarget;
+        let color = "bg-danger";
+      
+        if (progress >= 1) color = "bg-success";
+        else if (progress >= 0.8) color = "bg-warning";
+      
+        sellBadge.className = `badge rounded-pill fs-6 ${color}`;
+        sellBadge.textContent = `Target: ${percentChange >= 0 ? "+" : ""}${percentChange.toFixed(2)}% / +${sellTarget.toFixed(2)}%`;
+      
+        indicatorsDiv.appendChild(sellBadge);
+      }
 
       // generic part
       body.appendChild(headerRow);
