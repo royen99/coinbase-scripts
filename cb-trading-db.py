@@ -821,20 +821,18 @@ async def trading_bot():
                             macd_sell_signal
                             and macd_confirmation[symbol]["sell"] >= 3  # ✅ At least 3 positives signals
                             and rsi > 70  # ✅ RSI above 70 indicates a oversold condition
-                            and (bollinger_upper is None or current_price > bollinger_upper)  # ✅ Bollinger confirms price is hot
                         )
                         or
                         (
-                            trail_stop_price is not None  # ✅ Ensure we have a valid trailing stop price
-                            and current_price < trail_stop_price  # ✅ Price is below trailing stop price
+                            (bollinger_upper is not None and current_price > bollinger_upper)  # ✅ Bollinger confirms price is hot
                         )
                     )
                     and actual_buy_price is not None  # ✅ Ensure actual_buy_price is valid before using it
-                    and previous_price is not None and current_price < previous_price  # ✅ Price is lower than previous price
+                    # and previous_price is not None and current_price < previous_price  # ✅ Price is lower than previous price
                     and current_price > actual_buy_price * (1 + (dynamic_sell_threshold / 100))  # ✅ Profit percentage wanted based on sell threshold
                     # and (bollinger_upper is None or current_price > bollinger_mid)  # ✅ Bollinger confirms price is still warm
                     and crypto_data[symbol].get("rising_streak", 0) < 3  # ✅ Ensure we’re not in a rising streak
-                    # and (k is None or d is None or (k > 0.8 and k < d))  # ✅ Overbought and bearish cross
+                    and (k is None or d is None or (k > 0.8 and k < d))  # ✅ Overbought and bearish cross
                     and balances[symbol] > 0  # ✅ Ensure we have balance
                 ):
 
