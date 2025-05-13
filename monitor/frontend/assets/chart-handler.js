@@ -26,9 +26,12 @@ async function loadEnabledCoins() {
     const totalValue = coinData.reduce((sum, c) => sum + c.value, 0);
     const totalCryptoValue = coinData.reduce((sum, c) => sum + c.value, 0);
     const totalPortfolioValue = totalCryptoValue + usdc;
-    document.getElementById("availableFunds").textContent = `$${usdc.toFixed(2)}`;
-    document.getElementById("portfolioValue").textContent = `$${totalCryptoValue.toFixed(2)}`;
-    document.getElementById("fullPortfolioValue").textContent = `$${totalPortfolioValue.toFixed(2)}`;
+    // document.getElementById("availableFunds").textContent = `$${usdc.toFixed(2)}`;
+    // document.getElementById("portfolioValue").textContent = `$${totalCryptoValue.toFixed(2)}`;
+    // document.getElementById("fullPortfolioValue").textContent = `$${totalPortfolioValue.toFixed(2)}`;
+    animateValue(document.getElementById("availableFunds"), 0, usdc);
+    animateValue(document.getElementById("portfolioValue"), 0, totalCryptoValue);
+    animateValue(document.getElementById("fullPortfolioValue"), 0, totalPortfolioValue);
   
     const dashboard = document.getElementById("coinDashboards");
     dashboard.innerHTML = "";
@@ -197,9 +200,23 @@ async function loadEnabledCoins() {
     });
   }
   
-  // INIT
-  loadEnabledCoins();
-  loadRecentTrades();
+  function animateValue(element, start, end, duration = 1000, prefix = "$") {
+    const stepTime = 20;
+    const steps = Math.ceil(duration / stepTime);
+    let currentStep = 0;
+  
+    const timer = setInterval(() => {
+      currentStep++;
+      const progress = currentStep / steps;
+      const value = start + (end - start) * progress;
+      element.textContent = `${prefix}${value.toFixed(2)}`;
+      if (currentStep >= steps) clearInterval(timer);
+    }, stepTime);
+  }
+  
+// INIT
+loadEnabledCoins();
+loadRecentTrades();
 
 // Auto-refresh every 30s
 setInterval(() => {
