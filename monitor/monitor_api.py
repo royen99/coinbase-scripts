@@ -1,5 +1,6 @@
 # monitor_api.py
 from fastapi import APIRouter, HTTPException
+from db import get_db_connection, load_config
 from psycopg2.extras import RealDictCursor
 
 router = APIRouter()
