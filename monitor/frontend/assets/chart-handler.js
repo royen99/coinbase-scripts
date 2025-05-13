@@ -32,7 +32,6 @@ async function loadEnabledCoins() {
     animateValue(document.getElementById("availableFunds"), 0, usdc);
     animateValue(document.getElementById("portfolioValue"), 0, totalCryptoValue);
     animateValue(document.getElementById("fullPortfolioValue"), 0, totalPortfolioValue);
-    animateValue(document.getElementById("totalProfit"), 0, totalProfit);
   
     const dashboard = document.getElementById("coinDashboards");
     dashboard.innerHTML = "";
@@ -49,46 +48,24 @@ async function loadEnabledCoins() {
   
       const headerRow = document.createElement("div");
       headerRow.className = "d-flex justify-content-between align-items-center mb-3";
-      
-      // ⬅️ Left: Coin symbol + profit
-      const leftGroup = document.createElement("div");
-      leftGroup.className = "d-flex align-items-center gap-2";
-      
+  
       const title = document.createElement("h4");
       title.className = "card-title text-info fw-bold m-0";
       title.textContent = symbol;
-      
-      // 🏆 Profit badge (fetched earlier or fetch it here if needed)
-      const tradeStateRes = await fetch(`/api/trading_state/${symbol}`);
-      const tradeStateData = await tradeStateRes.json();
-      const coinProfit = tradeStateData.total_profit || 0;
-      totalProfit += coinProfit;
-      
-      const profitBadge = document.createElement("span");
-      let profitColor = "bg-secondary";
-      if (totalProfit > 0) profitColor = "bg-success";
-      else if (totalProfit < 0) profitColor = "bg-danger";
-      
-      profitBadge.className = `badge rounded-pill fs-6 ${profitColor}`;
-      profitBadge.textContent = `Realized Returns: $${totalProfit.toFixed(2)}`;
-      
-      leftGroup.appendChild(title);
-      leftGroup.appendChild(profitBadge);
-      
-      // ➡️ Right: Balance badge
+  
       const badge = document.createElement("span");
       badge.className = "badge rounded-pill fs-6";
-      badge.textContent = `Balance: ${balance.toFixed(4)} ($${value.toFixed(pricePrecision)})`;
-      
+      badge.textContent = `Balance: ${balance.toFixed(4)} ($${value.toFixed(2)})`;
+  
       let colorClass = "bg-outline-light";
       if (value > 200) colorClass = "bg-warning text-dark";
       else if (value > 100) colorClass = "bg-primary";
       else if (value > 50) colorClass = "bg-secondary";
       else if (value > 1) colorClass = "bg-dark";
       badge.className += ` ${colorClass}`;
-      
-      headerRow.appendChild(leftGroup);
-      headerRow.appendChild(badge);      
+  
+      headerRow.appendChild(title);
+      headerRow.appendChild(badge);
   
       const indicatorsDiv = document.createElement("div");
       indicatorsDiv.className = "d-flex gap-3 mb-3 flex-wrap";
@@ -151,7 +128,6 @@ async function loadEnabledCoins() {
       card.appendChild(body);
       dashboard.appendChild(card);
     }
-
   }
   
 
@@ -237,7 +213,7 @@ async function loadEnabledCoins() {
       if (currentStep >= steps) clearInterval(timer);
     }, stepTime);
   }
-
+  
 // INIT
 loadEnabledCoins();
 loadRecentTrades();
