@@ -1,6 +1,31 @@
 const ctx = document.getElementById('priceChart').getContext('2d');
 let chart;
 
+async function loadEnabledCoins() {
+    const res = await fetch('/api/enabled-coins');
+    const coins = await res.json();
+    const select = document.getElementById("symbolSelect");
+    select.innerHTML = "";
+  
+    coins.forEach(symbol => {
+      const opt = document.createElement("option");
+      opt.value = symbol;
+      opt.textContent = symbol;
+      select.appendChild(opt);
+    });
+  
+    if (coins.length) {
+      select.value = coins[0];
+      loadChart(coins[0]);
+    }
+}
+
+document.getElementById("symbolSelect").addEventListener("change", (e) => {
+    loadChart(e.target.value);
+});
+  
+loadEnabledCoins(); // 👈 initial load
+
 async function fetchPrices(symbol) {
   const res = await fetch(`/api/prices/${symbol}`);
   return await res.json();
