@@ -89,4 +89,4 @@ async function loadEnabledCoins() {
   
   // INIT
   loadEnabledCoins();
-  
+  loadRecentTrades();
