@@ -151,6 +151,7 @@ async function loadEnabledCoins() {
       card.appendChild(body);
       dashboard.appendChild(card);
     }
+    let totalProfit = 0;
   }
   
 
@@ -236,8 +237,6 @@ async function loadEnabledCoins() {
       if (currentStep >= steps) clearInterval(timer);
     }, stepTime);
   }
-
-  let totalProfit = 0;
 
 // INIT
 loadEnabledCoins();
