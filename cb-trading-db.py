@@ -572,7 +572,24 @@ async def trading_bot():
             # Update price history in memory
             crypto_data[symbol]["price_history"].append(current_price)
             price_history = list(crypto_data[symbol]["price_history"])
+            previous_price = crypto_data[symbol].get("previous_price")
             
+            # Check for a rising streak (if price is rising and continues to rise)
+            if previous_price is not None:
+                if current_price > previous_price:
+                    crypto_data[symbol]["rising_streak"] = crypto_data[symbol].get("rising_streak", 0) + 1
+                    print(f"📈 {symbol} Rising Streak: {crypto_data[symbol]['rising_streak']}")
+                else:
+                    crypto_data[symbol]["rising_streak"] = 0
+
+            # Check for a falling streak (if price is falling and continues to fall)
+            if previous_price is not None:
+                if current_price < previous_price:
+                    crypto_data[symbol]["falling_streak"] = crypto_data[symbol].get("falling_streak", 0) + 1
+                    print(f"📉 {symbol} Falling Streak: {crypto_data[symbol]['falling_streak']}")
+                else:
+                    crypto_data[symbol]["falling_streak"] = 0
+        
             # Get coin-specific settings
             coin_settings = coins_config[symbol]
             buy_threshold = coin_settings["buy_percentage"]
@@ -603,11 +620,10 @@ async def trading_bot():
 
             price_change = ((current_price - crypto_data[symbol]["initial_price"]) / crypto_data[symbol]["initial_price"]) * 100
             price_precision = coins_config[symbol]["precision"]["price"]  # Get the decimal places from config
-            print(f"📈 {symbol} Price: ${current_price:.{price_precision}f} ({price_change:.2f}%)")
 
             peak_display = f"${peak_price:.{price_precision}f}" if peak_price else "N/A"
             trail_display = f"${trail_stop_price:.{price_precision}f}" if trail_stop_price else "N/A"
-            print(f"🔄 {symbol} - Current Price: ${current_price:.{price_precision}f}, Peak Price: {peak_display}, Trailing Stop Price: {trail_display}")
+            print(f"🚀 {symbol} - Current Price: ${current_price:.{price_precision}f} ({price_change:.2f}%), Peak Price: {peak_display}, Trailing Stop Price: {trail_display}")
 
             # Calculate volatility and moving average
             volatility = calculate_volatility(price_history, volatility_window)
@@ -706,6 +722,8 @@ async def trading_bot():
                     time_since_last_buy > 900
                     and current_price > crypto_data[symbol]["initial_price"]
                     and current_price > long_term_ma  # Confirm Uptrend
+                    and current_price > previous_price  # Price is rising
+                    and crypto_data[symbol]["rising_streak"] > 3  # Ensure we’re in a rising streak
                     and balances.get(symbol, 0) * current_price < 1  # Holdings worth less than $1 USDC
                 ):
                     new_initial_price = (
@@ -718,7 +736,6 @@ async def trading_bot():
                 elif (
                     time_since_last_buy > 3600 and  # Time check
                     balances.get(symbol, 0) * current_price < 1 and  # Holdings worth less than $1 USDC
-                    # current_price < long_term_ma * 0.95 and  # Confirm downtrend
                     current_price < crypto_data[symbol]["initial_price"] * 0.95 # Prevent premature resets
                 ):
                     new_initial_price = (0.9 * crypto_data[symbol]["initial_price"] + 0.1 * current_price)  # Move closer to the current price
@@ -731,6 +748,8 @@ async def trading_bot():
                 if bollinger_sell_signal:
                     print(f"💔 {symbol}: Price is above Bollinger Upper Band (${bollinger_upper:.2f}) — sell signal!")
 
+                price_slope = current_price - price_history[-3]
+
                 # Execute buy order if MACD buy signal is confirmed
                 if (
                     price_change <= dynamic_buy_threshold and  # Price threshold
@@ -739,6 +758,7 @@ async def trading_bot():
                     and current_price < long_term_ma  # Trend filter
                     and time_since_last_buy > 120  # Wait 2 minutes before buying again.
                     and (bollinger_lower is None or current_price < bollinger_lower)  # 💘 Bollinger confirms it’s dip time
+                    and crypto_data[symbol]["falling_streak"] < 3  # ✅ Ensure we’re not in a falling streak
                     and balances[quote_currency] > 0  # Sufficient balance
                 ):
                     quote_cost = round((buy_percentage / 100) * balances[quote_currency], 2)  # Directly in USDC
@@ -765,17 +785,28 @@ async def trading_bot():
 
                         crypto_data[symbol]["peak_price"] = current_price
 
-                # Execute sell order if sell signals are confirmed or dynamic_sell_threshold was reached
                 elif (
-                    macd_sell_signal
-                    and macd_confirmation[symbol]["sell"] >= 3  # ✅ At least 3 positives signals
+                    # Execute sell order if sell signals are confirmed and dynamic_sell_threshold was reached
+                    (
+                        (
+                            macd_sell_signal
+                            and macd_confirmation[symbol]["sell"] >= 3  # ✅ At least 3 positives signals
+                            and rsi > 70  # ✅ RSI above 70 indicates a oversold condition
+                            and (bollinger_upper is None or current_price > bollinger_upper)  # ✅ Bollinger confirms price is hot
+                        )
+                        or
+                        (
+                            trail_stop_price is not None  # ✅ Ensure we have a valid trailing stop price
+                            and current_price < trail_stop_price  # ✅ Price is below trailing stop price
+                        )
+                    )
                     and actual_buy_price is not None  # ✅ Ensure actual_buy_price is valid before using it
+                    and previous_price is not None and current_price < previous_price  # ✅ Price is lower than previous price
                     and current_price > actual_buy_price * (1 + (dynamic_sell_threshold / 100))  # ✅ Profit percentage wanted based on sell threshold
-                    and rsi > 70  # ✅ RSI above 70 indicates a oversold condition
-                    and (bollinger_upper is None or current_price > bollinger_upper)  # 💔 Bollinger confirms price is hot
-                    and trail_stop_price is not None  # ✅ Ensure we have a valid trailing stop price
-                    and current_price < trail_stop_price  # ✅ Price is below trailing stop price
-                ) and balances[symbol] > 0:  # ✅ Ensure we have balance
+                    and (bollinger_upper is None or current_price > bollinger_mid)  # ✅ Bollinger confirms price is still warm
+                    and crypto_data[symbol].get("rising_streak", 0) < 3  # ✅ Ensure we’re not in a rising streak
+                    and balances[symbol] > 0  # ✅ Ensure we have balance
+                ):
 
                     sell_amount = (sell_percentage / 100) * balances[symbol]
 
@@ -836,6 +867,8 @@ async def trading_bot():
             
             # Save state after each coin's update
             save_state(symbol, crypto_data[symbol]["initial_price"], crypto_data[symbol]["total_trades"], crypto_data[symbol]["total_profit"])
+
+            crypto_data[symbol]["previous_price"] = current_price
 
 if __name__ == "__main__":
     asyncio.run(trading_bot())
