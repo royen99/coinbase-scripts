@@ -96,23 +96,6 @@ async function loadEnabledCoins() {
         indicatorsDiv.appendChild(avgBuyBadge);
       }     
 
-        // 🎨 Add Progress to Sell badge
-      if (avgBuyPrice !== null && sellTarget !== 0) {
-        const sellBadge = document.createElement("span");
-        
-        // 🔥 Progress toward target
-        const progress = percentChange / sellTarget;
-        let color = "bg-danger";
-      
-        if (progress >= 1) color = "bg-success";
-        else if (progress >= 0.8) color = "bg-warning";
-      
-        sellBadge.className = `badge rounded-pill fs-6 ${color}`;
-        sellBadge.textContent = `Target: ${percentChange >= 0 ? "+" : ""}${percentChange.toFixed(2)}% / +${sellTarget.toFixed(2)}%`;
-      
-        indicatorsDiv.appendChild(sellBadge);
-      }
-
       // generic part
       body.appendChild(headerRow);
       body.appendChild(indicatorsDiv);
