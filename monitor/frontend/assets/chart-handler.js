@@ -29,6 +29,7 @@ async function loadEnabledCoins() {
   
     for (const { symbol, balance, value, indicators } of coinData) {
       const pricePrecision = config.coins[symbol]?.precision?.price || 6;
+      value.toFixed(pricePrecision)
 
       const card = document.createElement("div");
       card.className = "card bg-dark text-white mb-4 shadow";
