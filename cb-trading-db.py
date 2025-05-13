@@ -834,7 +834,7 @@ async def trading_bot():
                     and current_price > actual_buy_price * (1 + (dynamic_sell_threshold / 100))  # ✅ Profit percentage wanted based on sell threshold
                     and (bollinger_upper is None or current_price > bollinger_mid)  # ✅ Bollinger confirms price is still warm
                     and crypto_data[symbol].get("rising_streak", 0) < 3  # ✅ Ensure we’re not in a rising streak
-                    and (k is None or d is None or (k > 0.8 and k < d))  # ✅ Overbought and bearish cross
+                    # and (k is None or d is None or (k > 0.8 and k < d))  # ✅ Overbought and bearish cross
                     and balances[symbol] > 0  # ✅ Ensure we have balance
                 ):
 
