@@ -497,6 +497,20 @@ def get_weighted_avg_buy_price(symbol):
     
     return weighted_avg_price
 
+def calculate_stochastic_rsi(rsi_values, period=14, k_period=3, d_period=3):
+    if len(rsi_values) < period + d_period:
+        return None, None
+
+    rsi_series = pd.Series(rsi_values)
+    stoch_rsi = (rsi_series - rsi_series.rolling(window=period).min()) / (
+        rsi_series.rolling(window=period).max() - rsi_series.rolling(window=period).min()
+    )
+
+    k_line = stoch_rsi.rolling(window=k_period).mean()
+    d_line = k_line.rolling(window=d_period).mean()
+
+    return k_line.iloc[-1], d_line.iloc[-1]
+
 def calculate_bollinger_bands(prices, period=20, num_std_dev=2):
     price_series = pd.Series(prices)
     middle_band = price_series.rolling(window=period).mean()
@@ -636,6 +650,21 @@ async def trading_bot():
             )
             rsi = calculate_rsi(price_history, symbol)
 
+            # Calculate Stochastic RSI
+            crypto_data[symbol]["rsi_history"].append(rsi)
+            if len(crypto_data[symbol]["rsi_history"]) > 50:
+                crypto_data[symbol]["rsi_history"].pop(0)
+
+            k, d = calculate_stochastic_rsi(crypto_data[symbol]["rsi_history"])
+            crypto_data[symbol]["stoch_k"] = k
+            crypto_data[symbol]["stoch_d"] = d
+
+            if (k < 0.2 and k > d):
+                print(f"🔥 {symbol} Stochastic RSI Buy Signal: K = {k:.2f}, D = {d:.2f}")
+
+            if (k > 0.8 and k < d):
+                print(f"🔥 {symbol} Stochastic RSI Sell Signal: K = {k:.2f}, D = {d:.2f}")
+
             bollinger_mid, bollinger_upper, bollinger_lower = calculate_bollinger_bands(price_history)
             crypto_data[symbol]['bollinger'] = {
                 'mid': bollinger_mid,
@@ -759,6 +788,7 @@ async def trading_bot():
                     and time_since_last_buy > 120  # Wait 2 minutes before buying again.
                     and (bollinger_lower is None or current_price < bollinger_lower)  # 💘 Bollinger confirms it’s dip time
                     and crypto_data[symbol]["falling_streak"] < 3  # ✅ Ensure we’re not in a falling streak
+                    and (k is None or d is None or (k < 0.2 and k > d))  # Oversold and bullish cross
                     and balances[quote_currency] > 0  # Sufficient balance
                 ):
                     quote_cost = round((buy_percentage / 100) * balances[quote_currency], 2)  # Directly in USDC
@@ -805,6 +835,7 @@ async def trading_bot():
                     and current_price > actual_buy_price * (1 + (dynamic_sell_threshold / 100))  # ✅ Profit percentage wanted based on sell threshold
                     and (bollinger_upper is None or current_price > bollinger_mid)  # ✅ Bollinger confirms price is still warm
                     and crypto_data[symbol].get("rising_streak", 0) < 3  # ✅ Ensure we’re not in a rising streak
+                    and (k is None or d is None or (k > 0.8 and k < d))  # ✅ Overbought and bearish cross
                     and balances[symbol] > 0  # ✅ Ensure we have balance
                 ):
 
