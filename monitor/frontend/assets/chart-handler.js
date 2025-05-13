@@ -7,7 +7,6 @@ async function loadEnabledCoins() {
     const balanceMap = {};
     balances.forEach(b => balanceMap[b.currency] = b.available_balance);
   
-    // Pre-fetch all indicators to get current price per coin
     const indicatorPromises = coins.map(async symbol => {
       const res = await fetch(`/api/indicators/${symbol}`);
       const data = await res.json();
@@ -17,9 +16,11 @@ async function loadEnabledCoins() {
     });
   
     const coinData = await Promise.all(indicatorPromises);
-  
-    // 💰 Sort by USD value, descending
     coinData.sort((a, b) => b.value - a.value);
+  
+    // 💰 Total portfolio value
+    const totalValue = coinData.reduce((sum, c) => sum + c.value, 0);
+    document.getElementById("portfolioValue").textContent = `$${totalValue.toFixed(2)}`;
   
     const dashboard = document.getElementById("coinDashboards");
     dashboard.innerHTML = "";
@@ -39,15 +40,13 @@ async function loadEnabledCoins() {
       title.textContent = symbol;
   
       const badge = document.createElement("span");
-      badge.id = `balance-${symbol}`;
       badge.className = "badge rounded-pill fs-6";
       badge.textContent = `Balance: ${balance.toFixed(4)} ($${value.toFixed(2)})`;
   
-      // 🎨 Badge color
       let colorClass = "bg-outline-light";
-      if (value > 5000) colorClass = "bg-warning text-dark";
-      else if (value > 1000) colorClass = "bg-primary";
-      else if (value > 100) colorClass = "bg-secondary";
+      if (value > 200) colorClass = "bg-warning text-dark";
+      else if (value > 100) colorClass = "bg-primary";
+      else if (value > 50) colorClass = "bg-secondary";
       else if (value > 1) colorClass = "bg-dark";
       badge.className += ` ${colorClass}`;
   
@@ -56,28 +55,26 @@ async function loadEnabledCoins() {
   
       const indicatorsDiv = document.createElement("div");
       indicatorsDiv.className = "d-flex gap-3 mb-3 flex-wrap";
-      indicatorsDiv.id = `indicators-${symbol}`;
+  
+      const currentBadge = document.createElement("span");
+      currentBadge.className = "badge rounded-pill bg-info fs-6";
+      currentBadge.textContent = `Current: $${indicators.current_price.toFixed(2)}`;
+  
+      const isAbove = indicators.current_price > indicators.moving_average;
+      const maBadge = document.createElement("span");
+      maBadge.className = `badge rounded-pill fs-6 ${isAbove ? "bg-success" : "bg-danger"}`;
+      maBadge.textContent = `MA(50): $${indicators.moving_average.toFixed(2)} (${isAbove ? "Above" : "Below"})`;
+  
+      indicatorsDiv.appendChild(currentBadge);
+      indicatorsDiv.appendChild(maBadge);
   
       body.appendChild(headerRow);
       body.appendChild(indicatorsDiv);
       card.appendChild(body);
       dashboard.appendChild(card);
-  
-      // Indicators
-      const currentPrice = indicators.current_price;
-      const maBadge = document.createElement("span");
-      const isAbove = currentPrice > indicators.moving_average;
-      maBadge.className = `badge rounded-pill fs-6 ${isAbove ? "bg-success" : "bg-danger"}`;
-      maBadge.textContent = `MA(50): $${indicators.moving_average.toFixed(2)} (${isAbove ? "Above" : "Below"})`;
-  
-      const currentBadge = document.createElement("span");
-      currentBadge.className = "badge rounded-pill bg-info fs-6";
-      currentBadge.textContent = `Current: $${currentPrice.toFixed(2)}`;
-  
-      indicatorsDiv.appendChild(currentBadge);
-      indicatorsDiv.appendChild(maBadge);
     }
   }
+  
 
   async function loadRecentTrades() {
     const res = await fetch(`/api/recent-trades`);
@@ -151,3 +148,9 @@ async function loadEnabledCoins() {
   // INIT
   loadEnabledCoins();
   loadRecentTrades();
+
+// Auto-refresh every 30s
+setInterval(() => {
+    loadEnabledCoins();
+    loadRecentTrades();
+  }, 30000);
