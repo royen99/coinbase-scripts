@@ -746,19 +746,6 @@ async def trading_bot():
                     )
                     print(f"📈  - {symbol} Adjusting Initial Price Upwards: {crypto_data[symbol]['initial_price']:.{price_precision}f} → {new_initial_price:.{price_precision}f}")
                     crypto_data[symbol]["initial_price"] = new_initial_price
-                
-                # 🔥 Gradual Adjustments: Move `initial_price` 10% closer to `long_term_ma` during a sustained >5% uptrend and we hold nothing
-                elif (
-                    time_since_last_buy > 900
-                    and current_price > crypto_data[symbol]["initial_price"]
-                    and current_price > long_term_ma  # Confirm Uptrend
-                    and balances.get(symbol, 0) * current_price < 1  # Holdings worth less than $1 USDC
-                ):
-                    new_initial_price = (
-                        0.9 * crypto_data[symbol]["initial_price"] + 0.1 * long_term_ma
-                    )
-                    print(f"📈  - {symbol} Adjusting Initial Price Upwards: {crypto_data[symbol]['initial_price']:.{price_precision}f} → {new_initial_price:.{price_precision}f}")
-                    crypto_data[symbol]["initial_price"] = new_initial_price
 
                 # 🔽 Adjust Initial Price Downwards in a Sustained Downtrend (If Holdings < 1 USDC)
                 elif (
