@@ -7,6 +7,8 @@ async function loadEnabledCoins() {
     const balanceMap = {};
     balances.forEach(b => balanceMap[b.currency] = b.available_balance);
 
+    const usdc = balanceMap["USDC"] || 0;
+
     const config = await fetch('/api/config').then(r => r.json());
  
     const indicatorPromises = coins.map(async symbol => {
@@ -22,7 +24,11 @@ async function loadEnabledCoins() {
   
     // 💰 Total portfolio value
     const totalValue = coinData.reduce((sum, c) => sum + c.value, 0);
-    document.getElementById("portfolioValue").textContent = `$${totalValue.toFixed(2)}`;
+    const totalCryptoValue = coinData.reduce((sum, c) => sum + c.value, 0);
+    const totalPortfolioValue = totalCryptoValue + usdc;
+    document.getElementById("availableFunds").textContent = `$${usdc.toFixed(2)}`;
+    document.getElementById("portfolioValue").textContent = `$${totalCryptoValue.toFixed(2)}`;
+    document.getElementById("fullPortfolioValue").textContent = `$${totalPortfolioValue.toFixed(2)}`;
   
     const dashboard = document.getElementById("coinDashboards");
     dashboard.innerHTML = "";
