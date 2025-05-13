@@ -49,7 +49,7 @@ async function loadEnabledCoins() {
       const headerRow = document.createElement("div");
       headerRow.className = "d-flex justify-content-between align-items-center mb-3";
       
-      // ⬅️ Left group: symbol + profit
+      // ⬅️ Left: Coin symbol + profit
       const leftGroup = document.createElement("div");
       leftGroup.className = "d-flex align-items-center gap-2";
       
@@ -57,7 +57,7 @@ async function loadEnabledCoins() {
       title.className = "card-title text-info fw-bold m-0";
       title.textContent = symbol;
       
-      // ⬇️ Fetch + style the profit badge
+      // 🏆 Profit badge (fetched earlier or fetch it here if needed)
       const tradeStateRes = await fetch(`/api/trading_state/${symbol}`);
       const tradeStateData = await tradeStateRes.json();
       const totalProfit = tradeStateData.total_profit || 0;
@@ -70,18 +70,23 @@ async function loadEnabledCoins() {
       profitBadge.className = `badge rounded-pill fs-6 ${profitColor}`;
       profitBadge.textContent = `$${totalProfit.toFixed(2)}`;
       
-      // 📎 Append symbol + profit to left group
       leftGroup.appendChild(title);
       leftGroup.appendChild(profitBadge);
       
-      // ➡️ Right: Balance + value badge
+      // ➡️ Right: Balance badge
       const badge = document.createElement("span");
-      badge.className = `badge rounded-pill fs-6 ${colorClass}`;
+      badge.className = "badge rounded-pill fs-6";
       badge.textContent = `Balance: ${balance.toFixed(4)} ($${value.toFixed(pricePrecision)})`;
       
-      // 🧩 Final assembly
+      let colorClass = "bg-outline-light";
+      if (value > 200) colorClass = "bg-warning text-dark";
+      else if (value > 100) colorClass = "bg-primary";
+      else if (value > 50) colorClass = "bg-secondary";
+      else if (value > 1) colorClass = "bg-dark";
+      badge.className += ` ${colorClass}`;
+      
       headerRow.appendChild(leftGroup);
-      headerRow.appendChild(badge);
+      headerRow.appendChild(badge);      
   
       const indicatorsDiv = document.createElement("div");
       indicatorsDiv.className = "d-flex gap-3 mb-3 flex-wrap";
