@@ -28,6 +28,8 @@ async function loadEnabledCoins() {
     dashboard.innerHTML = "";
   
     for (const { symbol, balance, value, indicators } of coinData) {
+      const pricePrecision = config.coins[symbol]?.precision?.price || 6;
+
       const card = document.createElement("div");
       card.className = "card bg-dark text-white mb-4 shadow";
   
