@@ -8,24 +8,27 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-  <div class="container-fluid p-4">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-      <h2 class="text-info fw-bold">Crypto Monitor 💹</h2>
-
-      <div class="container-fluid mb-4">
-        <h3 class="text-info">Total Portfolio Value: <span id="portfolioValue" class="text-warning">$0.00</span></h3>
+    <div class="container-fluid p-4">
+  
+      <!-- 💹 Title Row -->
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="text-info fw-bold">TuxTrader Monitor 💹</h2>
+        <h3 class="text-info m-0">Total Wallet Value: <span id="portfolioValue" class="text-warning">$0.00</span></h3>
       </div>
-      
+  
+      <!-- 💰 Coin Dashboard Cards -->
       <div class="container-fluid" id="coinDashboards"></div>
-    <div class="container-fluid" id="coinDashboards"></div>
-  </div>
-
-    <hr class="my-5">
-    <div class="container-fluid">
-      <h4 class="text-secondary">Recent Trades</h4>
-      <ul class="list-group" id="globalTradeList"></ul>
+  
+      <!-- 🔻 Recent Trades Section -->
+      <hr class="my-5">
+      <div class="container-fluid">
+        <h4 class="text-secondary">Recent Trades</h4>
+        <ul class="list-group" id="globalTradeList"></ul>
+      </div>
+  
     </div>
-
-  <script src="assets/chart-handler.js"></script>
-</body>
+  
+    <script src="assets/chart-handler.js"></script>
+  </body>
+  
 </html>
