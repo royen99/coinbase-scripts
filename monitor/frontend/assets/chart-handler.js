@@ -46,7 +46,7 @@ async function loadEnabledCoins() {
   
       const badge = document.createElement("span");
       badge.className = "badge rounded-pill fs-6";
-      badge.textContent = `Balance: ${balance.toFixed(4)} ($${value.toFixed(2)})`;
+      badge.textContent = `Balance: ${balance.toFixed(4)} ($${value.toFixed(pricePrecision)})`;
   
       let colorClass = "bg-outline-light";
       if (value > 200) colorClass = "bg-warning text-dark";
