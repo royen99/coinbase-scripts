@@ -67,7 +67,18 @@ async function loadEnabledCoins() {
   
       indicatorsDiv.appendChild(currentBadge);
       indicatorsDiv.appendChild(maBadge);
-  
+ 
+      const avgBuyRes = await fetch(`/api/avg-buy-price/${symbol}`);
+      const avgBuyData = await avgBuyRes.json();
+      const avgBuyPrice = avgBuyData.avg_buy_price;
+      
+      if (avgBuyPrice !== null) {
+        const avgBuyBadge = document.createElement("span");
+        avgBuyBadge.className = "badge rounded-pill bg-light text-dark fs-6";
+        avgBuyBadge.textContent = `Avg Buy: $${avgBuyPrice.toFixed(2)}`;
+        indicatorsDiv.appendChild(avgBuyBadge);
+      }      
+
       body.appendChild(headerRow);
       body.appendChild(indicatorsDiv);
       card.appendChild(body);
