@@ -46,7 +46,7 @@ async function loadEnabledCoins() {
   
       const badge = document.createElement("span");
       badge.className = "badge rounded-pill fs-6";
-      badge.textContent = `Balance: ${balance.toFixed(4)} ($${value.toFixed(pricePrecision)})`;
+      badge.textContent = `Balance: ${balance.toFixed(4)} ($${value.toFixed(2)})`;
   
       let colorClass = "bg-outline-light";
       if (value > 200) colorClass = "bg-warning text-dark";
@@ -64,13 +64,13 @@ async function loadEnabledCoins() {
       // 🎨 Add Current Price badge
       const currentBadge = document.createElement("span");
       currentBadge.className = "badge rounded-pill bg-info fs-6";
-      currentBadge.textContent = `Current: $${indicators.current_price.toFixed(2)}`;
+      currentBadge.textContent = `Current: $${indicators.current_price.toFixed(pricePrecision)}`;
 
       // 🎨 Add Moving Average (50) badge
       const isAbove = indicators.current_price > indicators.moving_average;
       const maBadge = document.createElement("span");
       maBadge.className = `badge rounded-pill fs-6 ${isAbove ? "bg-success" : "bg-danger"}`;
-      maBadge.textContent = `MA(50): $${indicators.moving_average.toFixed(2)} (${isAbove ? "Above" : "Below"})`;
+      maBadge.textContent = `MA(50): $${indicators.moving_average.toFixed(pricePrecision)} (${isAbove ? "Above" : "Below"})`;
   
       indicatorsDiv.appendChild(currentBadge);
       indicatorsDiv.appendChild(maBadge);
@@ -87,7 +87,7 @@ async function loadEnabledCoins() {
       
         const avgBuyBadge = document.createElement("span");
         avgBuyBadge.className = `badge rounded-pill fs-6 ${isProfit ? "bg-success" : "bg-danger"}`;
-        avgBuyBadge.textContent = `Avg Buy: $${avgBuyPrice.toFixed(2)} (${percentChange >= 0 ? "+" : ""}${percentChange.toFixed(2)}%)`;
+        avgBuyBadge.textContent = `Avg Buy: $${avgBuyPrice.toFixed(pricePrecision)} (${percentChange >= 0 ? "+" : ""}${percentChange.toFixed(2)}%)`;
         
         indicatorsDiv.appendChild(avgBuyBadge);
       }     
