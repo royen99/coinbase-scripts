@@ -57,71 +57,31 @@ async function fetchSignals(symbol) {
 }
 
 async function loadChart(symbol) {
-  const priceData = await fetchPrices(symbol);
-  const signalData = await fetchSignals(symbol);
-
-  const labels = priceData.map(p => new Date(p.timestamp).toLocaleTimeString());
-  const prices = priceData.map(p => p.price);
-
-  const buyPoints = signalData.filter(s => s.action === 'buy');
-  const sellPoints = signalData.filter(s => s.action === 'sell');
-
-  if (chart) chart.destroy();
-
-  chart = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [
-        {
-          label: `${symbol} Price`,
-          data: prices,
-          borderColor: 'cyan',
-          tension: 0.2
-        },
-        {
-          label: 'Buy',
-          data: buyPoints.map(s => ({ x: new Date(s.timestamp).toLocaleTimeString(), y: s.price })),
-          backgroundColor: 'lime',
-          type: 'scatter',
-          pointRadius: 5,
-        },
-        {
-          label: 'Sell',
-          data: sellPoints.map(s => ({ x: new Date(s.timestamp).toLocaleTimeString(), y: s.price })),
-          backgroundColor: 'red',
-          type: 'scatter',
-          pointRadius: 5,
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: {
-          labels: {
-            color: 'white'
-          }
-        },
-        tooltip: {
-          mode: 'nearest',
-          intersect: false
-        }
-      },
-      scales: {
-        x: {
-          ticks: { color: 'white' }
-        },
-        y: {
-          ticks: { color: 'white' }
-        }
-      }
-    }
-  });
-
-  loadIndicators(symbol);
-  renderSignalList(signalData);
-}
+    // Load indicators
+    const indicatorRes = await fetch(`/api/indicators/${symbol}`);
+    const indicatorsData = await indicatorRes.json();
+  
+    const indicators = document.getElementById("indicators");
+    indicators.innerHTML = "";
+  
+    const currentBadge = document.createElement("span");
+    currentBadge.className = "badge rounded-pill bg-info fs-6";
+    currentBadge.textContent = `Current: $${indicatorsData.current_price.toFixed(2)}`;
+  
+    const maBadge = document.createElement("span");
+    const isAbove = indicatorsData.current_price > indicatorsData.moving_average;
+    maBadge.className = `badge rounded-pill fs-6 ${isAbove ? "bg-success" : "bg-danger"}`;
+    maBadge.textContent = `MA(50): $${indicatorsData.moving_average.toFixed(2)} (${isAbove ? "Above" : "Below"})`;
+  
+    indicators.appendChild(currentBadge);
+    indicators.appendChild(maBadge);
+  
+    // Load and show signal history
+    const signalRes = await fetch(`/api/signals/${symbol}`);
+    const signalData = await signalRes.json();
+    renderSignalList(signalData);
+  }
+  
 
 function renderSignalList(signals) {
   const list = document.getElementById("signalList");
