@@ -7,12 +7,24 @@ async function loadEnabledCoins() {
     const balanceMap = {};
     balances.forEach(b => balanceMap[b.currency] = b.available_balance);
   
+    // Pre-fetch all indicators to get current price per coin
+    const indicatorPromises = coins.map(async symbol => {
+      const res = await fetch(`/api/indicators/${symbol}`);
+      const data = await res.json();
+      const balance = balanceMap[symbol] || 0;
+      const value = balance * data.current_price;
+      return { symbol, balance, value, indicators: data };
+    });
+  
+    const coinData = await Promise.all(indicatorPromises);
+  
+    // 💰 Sort by USD value, descending
+    coinData.sort((a, b) => b.value - a.value);
+  
     const dashboard = document.getElementById("coinDashboards");
     dashboard.innerHTML = "";
   
-    for (const symbol of coins) {
-      const balance = balanceMap[symbol] || 0;
-  
+    for (const { symbol, balance, value, indicators } of coinData) {
       const card = document.createElement("div");
       card.className = "card bg-dark text-white mb-4 shadow";
   
@@ -26,13 +38,21 @@ async function loadEnabledCoins() {
       title.className = "card-title text-info fw-bold m-0";
       title.textContent = symbol;
   
-      const balanceBadge = document.createElement("span");
-      balanceBadge.id = `balance-${symbol}`;
-      balanceBadge.className = "badge rounded-pill bg-secondary fs-6";
-      balanceBadge.textContent = `Balance: ${balance.toFixed(4)}`;
+      const badge = document.createElement("span");
+      badge.id = `balance-${symbol}`;
+      badge.className = "badge rounded-pill fs-6";
+      badge.textContent = `Balance: ${balance.toFixed(4)} ($${value.toFixed(2)})`;
+  
+      // 🎨 Badge color
+      let colorClass = "bg-outline-light";
+      if (value > 5000) colorClass = "bg-warning text-dark";
+      else if (value > 1000) colorClass = "bg-primary";
+      else if (value > 100) colorClass = "bg-secondary";
+      else if (value > 1) colorClass = "bg-dark";
+      badge.className += ` ${colorClass}`;
   
       headerRow.appendChild(title);
-      headerRow.appendChild(balanceBadge);
+      headerRow.appendChild(badge);
   
       const indicatorsDiv = document.createElement("div");
       indicatorsDiv.className = "d-flex gap-3 mb-3 flex-wrap";
@@ -43,9 +63,21 @@ async function loadEnabledCoins() {
       card.appendChild(body);
       dashboard.appendChild(card);
   
-      loadIndicators(symbol, balance); // pass the balance to display value
+      // Indicators
+      const currentPrice = indicators.current_price;
+      const maBadge = document.createElement("span");
+      const isAbove = currentPrice > indicators.moving_average;
+      maBadge.className = `badge rounded-pill fs-6 ${isAbove ? "bg-success" : "bg-danger"}`;
+      maBadge.textContent = `MA(50): $${indicators.moving_average.toFixed(2)} (${isAbove ? "Above" : "Below"})`;
+  
+      const currentBadge = document.createElement("span");
+      currentBadge.className = "badge rounded-pill bg-info fs-6";
+      currentBadge.textContent = `Current: $${currentPrice.toFixed(2)}`;
+  
+      indicatorsDiv.appendChild(currentBadge);
+      indicatorsDiv.appendChild(maBadge);
     }
-  }  
+  }
 
   async function loadRecentTrades() {
     const res = await fetch(`/api/recent-trades`);
@@ -77,8 +109,16 @@ async function loadEnabledCoins() {
     const currentPrice = data.current_price;
     const value = currentPrice * balance;
   
-    // Update balance badge with $ value too
+    // 🎨 Determine badge color based on USD value
+    let colorClass = "bg-outline-light";
+    if (value > 200) colorClass = "bg-warning text-dark";
+    else if (value > 100) colorClass = "bg-primary";
+    else if (value > 50) colorClass = "bg-secondary";
+    else if (value > 1) colorClass = "bg-dark";
+  
+    // 💰 Update balance badge
     const badge = document.getElementById(`balance-${symbol}`);
+    badge.className = `badge rounded-pill fs-6 ${colorClass}`;
     badge.textContent = `Balance: ${balance.toFixed(4)} ($${value.toFixed(2)})`;
   
     const currentBadge = document.createElement("span");
@@ -93,6 +133,7 @@ async function loadEnabledCoins() {
     container.appendChild(currentBadge);
     container.appendChild(maBadge);
   }
+  
   
   async function loadSignalList(symbol) {
     const res = await fetch(`/api/signals/${symbol}`);
