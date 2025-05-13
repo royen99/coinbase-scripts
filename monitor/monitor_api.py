@@ -88,3 +88,32 @@ def get_balances():
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()
+
+@router.get("/indicators/{symbol}")
+def get_indicators(symbol: str):
+    """Returns current price and simple moving average"""
+    try:
+        conn = get_db_connection()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("""
+                SELECT price 
+                FROM price_history 
+                WHERE symbol = %s 
+                ORDER BY timestamp DESC 
+                LIMIT 50
+            """, (symbol,))
+            rows = cur.fetchall()
+            prices = [row['price'] for row in rows]
+            if not prices:
+                raise HTTPException(status_code=404, detail="No price data found")
+            current_price = prices[0]
+            moving_average = sum(prices) / len(prices)
+            return {
+                "current_price": current_price,
+                "moving_average": round(moving_average, 4)
+            }
+    except Exception as e:
+        print(f"[ERROR] get_indicators({symbol}):", e)
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()

@@ -20,6 +20,26 @@ async function loadEnabledCoins() {
     }
 }
 
+async function loadIndicators(symbol) {
+    const res = await fetch(`/api/indicators/${symbol}`);
+    const data = await res.json();
+  
+    const indicators = document.getElementById("indicators");
+    indicators.innerHTML = "";
+  
+    const currentBadge = document.createElement("span");
+    currentBadge.className = "badge rounded-pill bg-info fs-6";
+    currentBadge.textContent = `Current: $${data.current_price.toFixed(2)}`;
+  
+    const maBadge = document.createElement("span");
+    const isAbove = data.current_price > data.moving_average;
+    maBadge.className = `badge rounded-pill fs-6 ${isAbove ? "bg-success" : "bg-danger"}`;
+    maBadge.textContent = `MA(50): $${data.moving_average.toFixed(2)} (${isAbove ? "Above" : "Below"})`;
+  
+    indicators.appendChild(currentBadge);
+    indicators.appendChild(maBadge);
+  }
+  
 document.getElementById("symbolSelect").addEventListener("change", (e) => {
     loadChart(e.target.value);
 });
