@@ -651,6 +651,7 @@ async def trading_bot():
             rsi = calculate_rsi(price_history, symbol)
 
             # Calculate Stochastic RSI
+            crypto_data[symbol].setdefault("rsi_history", [])
             crypto_data[symbol]["rsi_history"].append(rsi)
             if len(crypto_data[symbol]["rsi_history"]) > 50:
                 crypto_data[symbol]["rsi_history"].pop(0)
