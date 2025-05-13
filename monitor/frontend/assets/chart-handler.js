@@ -34,7 +34,27 @@ async function loadEnabledCoins() {
       loadSignalList(symbol);
     }
   }
+
+  async function loadRecentTrades() {
+    const res = await fetch(`/api/recent-trades`);
+    const trades = await res.json();
   
+    const list = document.getElementById("globalTradeList");
+    list.innerHTML = "";
+  
+    trades.forEach(t => {
+      const li = document.createElement("li");
+      li.className = `list-group-item d-flex justify-content-between align-items-center list-group-item-${t.side === 'buy' ? 'success' : 'danger'}`;
+      li.innerHTML = `
+        <div>
+          <strong>${t.side.toUpperCase()}</strong> ${t.amount} <code>${t.symbol}</code> @ $${t.price.toFixed(2)}
+        </div>
+        <small class="text-muted">${new Date(t.timestamp).toLocaleString()}</small>
+      `;
+      list.appendChild(li);
+    });
+  }
+
   async function loadIndicators(symbol) {
     const res = await fetch(`/api/indicators/${symbol}`);
     const data = await res.json();

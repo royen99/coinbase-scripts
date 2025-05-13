@@ -117,3 +117,22 @@ def get_indicators(symbol: str):
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()
+
+@router.get("/recent-trades")
+def get_recent_trades():
+    """Return last 25 trades across all coins"""
+    try:
+        conn = get_db_connection()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("""
+                SELECT symbol, side, price, amount, timestamp
+                FROM trades
+                ORDER BY timestamp DESC
+                LIMIT 25
+            """)
+            return cur.fetchall()
+    except Exception as e:
+        print(f"[ERROR] get_recent_trades():", e)
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
