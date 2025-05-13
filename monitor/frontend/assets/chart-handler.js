@@ -4,7 +4,6 @@ async function loadEnabledCoins() {
 
     const config = await fetch('/api/config').then(r => r.json());
     const pricePrecision = config.coins[symbol]?.precision?.price || 6;
-    value.toFixed(pricePrecision)
 
     const balanceRes = await fetch('/api/balances');
     const balances = await balanceRes.json();
