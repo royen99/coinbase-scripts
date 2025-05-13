@@ -660,10 +660,10 @@ async def trading_bot():
             crypto_data[symbol]["stoch_k"] = k
             crypto_data[symbol]["stoch_d"] = d
 
-            if (k < 0.2 and k > d):
+            if k is not None and d is not None and (k < 0.2 and k > d):
                 print(f"🔥 {symbol} Stochastic RSI Buy Signal: K = {k:.2f}, D = {d:.2f}")
 
-            if (k > 0.8 and k < d):
+            if k is not None and d is not None and (k > 0.8 and k < d):
                 print(f"🔥 {symbol} Stochastic RSI Sell Signal: K = {k:.2f}, D = {d:.2f}")
 
             bollinger_mid, bollinger_upper, bollinger_lower = calculate_bollinger_bands(price_history)
