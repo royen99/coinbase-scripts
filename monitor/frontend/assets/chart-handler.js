@@ -201,15 +201,6 @@ async function loadEnabledCoins() {
     badge.className = `badge rounded-pill fs-6 ${colorClass}`;
     badge.textContent = `Balance: ${balance.toFixed(4)} ($${value.toFixed(2)})`;
   
-    const currentBadge = document.createElement("span");
-    currentBadge.className = "badge rounded-pill bg-info fs-6";
-    currentBadge.textContent = `Current: $${currentPrice.toFixed(2)}`;
-  
-    const maBadge = document.createElement("span");
-    const isAbove = currentPrice > data.moving_average;
-    maBadge.className = `badge rounded-pill fs-6 ${isAbove ? "bg-success" : "bg-danger"}`;
-    maBadge.textContent = `MA(50): $${data.moving_average.toFixed(2)} (${isAbove ? "Above" : "Below"})`;
-  
     container.appendChild(currentBadge);
     container.appendChild(maBadge);
   }
