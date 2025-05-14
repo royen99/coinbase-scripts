@@ -40,6 +40,15 @@ async function loadEnabledCoins() {
       const pricePrecision = config.coins[symbol]?.precision?.price || 6;
       value.toFixed(pricePrecision)
 
+      const initialPrice = tradeStateData.initial_price || indicators.current_price;
+      const buyPercentage = config.coins[symbol]?.buy_percentage || 0;
+      const currentPrice = indicators.current_price;
+
+      // 🧮 Calculate price difference vs target
+      const targetBuyPrice = initialPrice * (1 + buyPercentage / 100);
+      const priceDropPercent = ((currentPrice - initialPrice) / initialPrice) * 100;
+      const isNearBuyZone = priceDropPercent <= buyPercentage * 0.9; // e.g. 90% to target
+
       const card = document.createElement("div");
       card.className = "card bg-dark text-white mb-4 shadow";
   
@@ -100,6 +109,23 @@ async function loadEnabledCoins() {
         
         indicatorsDiv.appendChild(avgBuyBadge);
       }     
+
+      // Show buy zone badge only if balance less then 1 USDC
+      if (balance < 1) {
+        const buyZoneBadge = document.createElement("span");
+      
+        let color = "bg-secondary";
+        if (priceDropPercent <= buyPercentage) {
+          color = "bg-success"; // in buy zone!
+        } else if (isNearBuyZone) {
+          color = "bg-warning"; // getting close
+        }
+      
+        buyZoneBadge.className = `badge rounded-pill fs-6 ${color}`;
+        buyZoneBadge.textContent = `Buy Zone: ${priceDropPercent.toFixed(2)}% / ${buyPercentage.toFixed(2)}%`;
+      
+        indicatorsDiv.appendChild(buyZoneBadge);
+      }
 
       // 🔥 Add Target badge
       const sellTarget = config.coins[symbol]?.sell_percentage || 0;
