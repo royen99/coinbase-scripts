@@ -821,7 +821,7 @@ async def trading_bot():
                     and actual_buy_price is not None  # ✅ Ensure actual_buy_price is valid before using it
                     # and previous_price is not None and current_price < previous_price  # ✅ Price is lower than previous price
                     and current_price > actual_buy_price * (1 + (dynamic_sell_threshold / 100))  # ✅ Profit percentage wanted based on sell threshold
-                    and crypto_data[symbol].get("rising_streak", 0) < 2  # ✅ Ensure we’re not in a rising streak
+                    and crypto_data[symbol].get("falling_streak", 0) > 1  # ✅ Ensure we’re not in a rising streak
                     and balances[symbol] > 0  # ✅ Ensure we have balance
                 ):
 
