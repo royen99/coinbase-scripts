@@ -110,7 +110,7 @@ def get_indicators(symbol: str):
             moving_average = sum(prices) / len(prices)
             return {
                 "current_price": current_price,
-                "moving_average": round(moving_average, 4)
+                "moving_average": round(moving_average, 8)
             }
     except Exception as e:
         print(f"[ERROR] get_indicators({symbol}):", e)
