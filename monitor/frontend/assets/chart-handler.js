@@ -112,8 +112,8 @@ async function loadEnabledCoins() {
         indicatorsDiv.appendChild(avgBuyBadge);
       }     
 
-      // Show buy zone badge only if balance less then 1 USDC
-      if (balance < 1) {
+      // Show buy zone badge only if value of balance less then 1 USDC
+      if (value < 1) {
         const buyZoneBadge = document.createElement("span");
       
         let color = "bg-secondary";
