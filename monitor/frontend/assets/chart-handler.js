@@ -55,8 +55,8 @@ async function loadEnabledCoins() {
 
       // 🔥 Determine speed color
       let priceColor = "bg-info";
-      if (priceChangePercent > 0.5) priceColor = "bg-success";     // rising fast
-      else if (priceChangePercent < -0.5) priceColor = "bg-danger"; // dropping fast
+      if (priceChangePercent > 0.1) priceColor = "bg-success";     // rising fast
+      else if (priceChangePercent < -0.1) priceColor = "bg-danger"; // dropping fast
       else if (Math.abs(priceChangePercent) > 0.1) priceColor = "bg-warning"; // moving mildly
 
       // 🧮 Calculate price difference vs target
