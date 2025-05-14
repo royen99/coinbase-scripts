@@ -97,7 +97,7 @@ async function loadEnabledCoins() {
       // 🎨 Add Current Price badge
       const currentBadge = document.createElement("span");
       currentBadge.className = `badge rounded-pill fs-6 ${priceColor}`;
-      currentBadge.textContent = `Current: $${currentPrice.toFixed(pricePrecision)}`;
+      currentBadge.textContent = `Current: $${currentPrice.toFixed(pricePrecision)} (${priceChangePercent.toFixed(2)}%)`;
 
       // 🎨 Add Moving Average (50) badge
       const isAbove = indicators.current_price > indicators.moving_average;
