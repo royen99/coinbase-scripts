@@ -176,7 +176,7 @@ def get_weighted_avg_buy_price(symbol: str):
             return None
 
         weighted_avg = sum(t[0] * t[1] for t in buy_trades) / total_amount
-        return round(weighted_avg, 6)
+        return round(weighted_avg, 8)
 
     except Exception as e:
         print(f"[ERROR] Weighted Avg for {symbol}: {e}")
