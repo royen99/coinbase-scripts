@@ -40,6 +40,8 @@ async function loadEnabledCoins() {
       const pricePrecision = config.coins[symbol]?.precision?.price || 6;
       value.toFixed(pricePrecision)
 
+      const tradeStateRes = await fetch(`/api/trading_state/${symbol}`);
+      const tradeStateData = await tradeStateRes.json();
       const initialPrice = tradeStateData.initial_price || indicators.current_price;
       const buyPercentage = config.coins[symbol]?.buy_percentage || 0;
       const currentPrice = indicators.current_price;
