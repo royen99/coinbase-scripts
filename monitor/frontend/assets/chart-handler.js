@@ -1,3 +1,5 @@
+const lastPrices = {};
+
 async function loadEnabledCoins() {
     const coinRes = await fetch('/api/enabled-coins');
     const coins = await coinRes.json();
@@ -8,7 +10,6 @@ async function loadEnabledCoins() {
     balances.forEach(b => balanceMap[b.currency] = b.available_balance);
 
     const usdc = balanceMap["USDC"] || 0;
-    const lastPrices = {};
 
     const config = await fetch('/api/config').then(r => r.json());
  
