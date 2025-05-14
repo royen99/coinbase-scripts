@@ -8,6 +8,7 @@ async function loadEnabledCoins() {
     balances.forEach(b => balanceMap[b.currency] = b.available_balance);
 
     const usdc = balanceMap["USDC"] || 0;
+    const lastPrices = {};
 
     const config = await fetch('/api/config').then(r => r.json());
  
@@ -46,6 +47,18 @@ async function loadEnabledCoins() {
       const buyPercentage = config.coins[symbol]?.buy_percentage || 0;
       const currentPrice = indicators.current_price;
 
+      // Calculate price change percentage
+      const lastPrice = lastPrices[symbol] || currentPrice;
+      const priceDelta = currentPrice - lastPrice;
+      const priceChangePercent = (priceDelta / lastPrice) * 100;
+      lastPrices[symbol] = currentPrice;
+
+      // 🔥 Determine speed color
+      let priceColor = "bg-info";
+      if (priceChangePercent > 0.5) priceColor = "bg-success";     // rising fast
+      else if (priceChangePercent < -0.5) priceColor = "bg-danger"; // dropping fast
+      else if (Math.abs(priceChangePercent) > 0.1) priceColor = "bg-warning"; // moving mildly
+
       // 🧮 Calculate price difference vs target
       const targetBuyPrice = initialPrice * (1 + buyPercentage / 100);
       const priceDropPercent = ((currentPrice - initialPrice) / initialPrice) * 100;
@@ -83,8 +96,8 @@ async function loadEnabledCoins() {
 
       // 🎨 Add Current Price badge
       const currentBadge = document.createElement("span");
-      currentBadge.className = "badge rounded-pill bg-info fs-6";
-      currentBadge.textContent = `Current: $${indicators.current_price.toFixed(pricePrecision)}`;
+      currentBadge.className = `badge rounded-pill fs-6 ${priceColor}`;
+      currentBadge.textContent = `Current: $${currentPrice.toFixed(pricePrecision)}`;
 
       // 🎨 Add Moving Average (50) badge
       const isAbove = indicators.current_price > indicators.moving_average;
