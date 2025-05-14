@@ -768,17 +768,24 @@ async def trading_bot():
 
                 price_slope = current_price - price_history[-3]
 
-                # Execute buy order if MACD buy signal is confirmed
+                # Execute buy order if signals are confirmed
                 if (
-                    price_change <= dynamic_buy_threshold and  # Price threshold
-                    (macd_buy_signal and macd_confirmation[symbol]["buy"] >= 3)  # MACD filter
+                    (
+                        (
+                            (bollinger_lower is None or current_price < bollinger_lower)  # 💘 Bollinger confirms it’s dip time
+                        )
+                        or
+                        (
+                            (bollinger_mid is None or current_price < bollinger_mid)  # 💘 Wait with buying for Bollinger to drop
+                            and (k is None or d is None or (k < 0.2 and k > d))  # Oversold and bullish cross
+                        )
+                    )
+                    and price_change <= dynamic_buy_threshold  # Price threshold
+                    # and (macd_buy_signal and macd_confirmation[symbol]["buy"] >= 3)  # MACD filter
                     and (actual_buy_price is None or current_price < actual_buy_price) # If price is cheaper then what we have bought already.
                     and current_price < long_term_ma  # Trend filter
                     and time_since_last_buy > 120  # Wait 2 minutes before buying again.
-                    and (bollinger_mid is None or current_price < bollinger_mid)  # 💘 Bollinger confirms it’s dip time
-                    and (bollinger_lower is None or current_price > bollinger_lower)  # 💘 Wait with buying for Bollinger to drop
                     and crypto_data[symbol]["rising_streak"] > 1  # ✅ Ensure we’re not in a falling streak
-                    and (k is None or d is None or (k < 0.2 and k > d))  # Oversold and bullish cross
                     and balances[quote_currency] > 0  # Sufficient balance
                 ):
                     quote_cost = round((buy_percentage / 100) * balances[quote_currency], 2)  # Directly in USDC
@@ -881,7 +888,7 @@ async def trading_bot():
                 print(f"📉  - Deviation: {deviation:.2f} ({deviation_percentage:.2f}%)")
                 # send_telegram_notification(message)
 
-            print(f"📊  - {symbol} Avg buy price: {actual_buy_price} | Performance - Total Trades: {crypto_data[symbol]['total_trades']} | Total Profit: ${crypto_data[symbol]['total_profit']:.2f}")
+            print(f"📊  - {symbol} Avg buy price: {actual_buy_price} | Slope: {price_slope} | Performance - Total Trades: {crypto_data[symbol]['total_trades']} | Total Profit: ${crypto_data[symbol]['total_profit']:.2f}")
             
             # Save state after each coin's update
             save_state(symbol, crypto_data[symbol]["initial_price"], crypto_data[symbol]["total_trades"], crypto_data[symbol]["total_profit"])
