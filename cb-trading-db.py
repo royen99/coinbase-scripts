@@ -771,13 +771,13 @@ async def trading_bot():
                 # Execute buy order if MACD buy signal is confirmed
                 if (
                     price_change <= dynamic_buy_threshold and  # Price threshold
-                    (macd_buy_signal and macd_confirmation[symbol]["buy"] >= 3 and rsi < 30)  # MACD + RSI filter
+                    (macd_buy_signal and macd_confirmation[symbol]["buy"] >= 3)  # MACD filter
                     and (actual_buy_price is None or current_price < actual_buy_price) # If price is cheaper then what we have bought already.
                     and current_price < long_term_ma  # Trend filter
                     and time_since_last_buy > 120  # Wait 2 minutes before buying again.
                     and (bollinger_mid is None or current_price < bollinger_mid)  # 💘 Bollinger confirms it’s dip time
                     and (bollinger_lower is None or current_price > bollinger_lower)  # 💘 Wait with buying for Bollinger to drop
-                    and crypto_data[symbol]["falling_streak"] < 3  # ✅ Ensure we’re not in a falling streak
+                    and crypto_data[symbol]["rising_streak"] > 1  # ✅ Ensure we’re not in a falling streak
                     and (k is None or d is None or (k < 0.2 and k > d))  # Oversold and bullish cross
                     and balances[quote_currency] > 0  # Sufficient balance
                 ):
