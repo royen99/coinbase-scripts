@@ -829,12 +829,14 @@ async def trading_bot():
                     # Ensure we have enough balance and meet minimum order size
                     if quote_cost < coins_config[symbol]["min_order_sizes"]["buy"]:
                         print(f"🚫  - Buy order too small: ${quote_cost:.2f} (minimum: ${coins_config[symbol]['min_order_sizes']['buy']})")
+                        crypto_data[symbol]["manual_cmd"] = None
                         continue
 
                     buy_amount = quote_cost / current_price  # Convert to coin amount
                     print(f"💰 Buying {buy_amount:.6f} {symbol} (${quote_cost:.2f} USDC)!")
 
                     if await place_order(symbol, "BUY", buy_amount, current_price):
+                        crypto_data[symbol]["manual_cmd"] = None
                         crypto_data[symbol]["total_trades"] += 1
                         crypto_data[symbol]["last_buy_time"] = time.time()  # ⏳ Track last buy time
                         # coin_settings["buy_percentage"] *= 2  # Persist the change
@@ -913,6 +915,7 @@ async def trading_bot():
 
                             message = f"🚀 *SOLD {sell_amount:.4f} {symbol}* at *${current_price:.{price_precision}f}* USDC"
                             send_telegram_notification(message)
+                            crypto_data[symbol]["manual_cmd"] = None
 
                         else:
                             print(f"🚫  - Sell order failed for {symbol}!")
