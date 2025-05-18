@@ -519,6 +519,33 @@ def calculate_bollinger_bands(prices, period=20, num_std_dev=2):
     lower_band = middle_band - (num_std_dev * std_dev)
     return middle_band.iloc[-1], upper_band.iloc[-1], lower_band.iloc[-1]
 
+async def process_manual_commands():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT id, symbol, action 
+        FROM manual_commands 
+        WHERE executed = FALSE
+    """)
+    commands = cursor.fetchall()
+
+    for cmd in commands:
+        cmd_id, symbol, action = cmd
+        action = action.upper()
+
+        if symbol in crypto_data:
+            crypto_data[symbol]["manual_cmd"] = action
+            print(f"📥 Manual command received: {action} for {symbol}")
+        else:
+            print(f"⚠️ Unknown symbol in manual command: {symbol}")
+
+        # Mark as executed
+        cursor.execute("UPDATE manual_commands SET executed = TRUE WHERE id = %s", (cmd_id,))
+        conn.commit()
+
+    cursor.close()
+    conn.close()
+
 # Initialize somee global variables
 crypto_data = {}
 actual_buy_price = {}
@@ -565,6 +592,9 @@ async def trading_bot():
         # Fetch prices for all cryptocurrencies concurrently
         price_tasks = [get_crypto_price(symbol) for symbol in crypto_symbols]
         prices = await asyncio.gather(*price_tasks)
+
+        # 🧠 Refresh manual commands for this cycle
+        await process_manual_commands()
 
         for symbol, current_price in zip(crypto_symbols, prices):
             if not current_price:
@@ -770,7 +800,7 @@ async def trading_bot():
 
                 # Execute buy order if signals are confirmed
                 if (
-                    (
+                    ((
                         (
                             (bollinger_lower is None or current_price < bollinger_lower)  # 💘 Bollinger confirms it’s dip time
                         )
@@ -787,6 +817,8 @@ async def trading_bot():
                     and time_since_last_buy > 120  # Wait 2 minutes before buying again.
                     and crypto_data[symbol]["rising_streak"] > 1  # ✅ Ensure we’re not in a falling streak
                     and balances[quote_currency] > 0  # Sufficient balance
+                    )
+                    or crypto_data[symbol].get("manual_cmd") == "BUY"  # Manual buy command
                 ):
                     quote_cost = round((buy_percentage / 100) * balances[quote_currency], 2)  # Directly in USDC
 
@@ -814,7 +846,7 @@ async def trading_bot():
 
                 elif (
                     # Execute sell order if sell signals are confirmed and dynamic_sell_threshold was reached
-                    (
+                    ((
                         (
                             macd_sell_signal
                             and macd_confirmation[symbol]["sell"] >= 3  # ✅ At least 3 positives signals
@@ -831,6 +863,8 @@ async def trading_bot():
                     and current_price > actual_buy_price * (1 + (dynamic_sell_threshold / 100))  # ✅ Profit percentage wanted based on sell threshold
                     and crypto_data[symbol].get("falling_streak", 0) > 1  # ✅ Ensure we’re not in a rising streak
                     and balances[symbol] > 0  # ✅ Ensure we have balance
+                    )
+                    or crypto_data[symbol].get("manual_cmd") == "SELL"  # Manual sell command
                 ):
 
                     sell_amount = (sell_percentage / 100) * balances[symbol]
@@ -894,6 +928,7 @@ async def trading_bot():
             save_state(symbol, crypto_data[symbol]["initial_price"], crypto_data[symbol]["total_trades"], crypto_data[symbol]["total_profit"])
 
             crypto_data[symbol]["previous_price"] = current_price
+            crypto_data[symbol]["manual_cmd"] = None  # Reset manual command after processing
 
 if __name__ == "__main__":
     asyncio.run(trading_bot())
