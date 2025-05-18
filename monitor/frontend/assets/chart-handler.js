@@ -93,7 +93,7 @@ async function loadEnabledCoins() {
       buyBtn.onclick = () => sendManualCommand(symbol, "BUY");
       rightGroup.appendChild(buyBtn);
 
-      if (balance >= 1) {
+      if (value >= 1) {
         const sellBtn = document.createElement("button");
         sellBtn.className = "btn btn-sm btn-outline-danger";
         sellBtn.textContent = "SELL";
