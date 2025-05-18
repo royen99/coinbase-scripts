@@ -820,7 +820,7 @@ async def trading_bot():
                     and (actual_buy_price is None or current_price < actual_buy_price) # If price is cheaper then what we have bought already.
                     and current_price < long_term_ma  # Trend filter
                     and time_since_last_buy > 120  # Wait 2 minutes before buying again.
-                    and crypto_data[symbol].get("rising_streak") > 1  # ✅ Ensure we’re not in a falling streak
+                    and crypto_data[symbol]["rising_streak"] is not None and crypto_data[symbol]["rising_streak"] > 1  # ✅ Ensure we’re not in a falling streak
                     and balances[quote_currency] > 0  # Sufficient balance
                     )
                     or crypto_data[symbol].get("manual_cmd") == "BUY"  # Manual buy command
