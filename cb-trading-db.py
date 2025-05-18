@@ -497,6 +497,20 @@ def get_weighted_avg_buy_price(symbol):
     
     return weighted_avg_price
 
+def calculate_stochastic_rsi(rsi_values, period=14, k_period=3, d_period=3):
+    if len(rsi_values) < period + d_period:
+        return None, None
+
+    rsi_series = pd.Series(rsi_values)
+    stoch_rsi = (rsi_series - rsi_series.rolling(window=period).min()) / (
+        rsi_series.rolling(window=period).max() - rsi_series.rolling(window=period).min()
+    )
+
+    k_line = stoch_rsi.rolling(window=k_period).mean()
+    d_line = k_line.rolling(window=d_period).mean()
+
+    return k_line.iloc[-1], d_line.iloc[-1]
+
 def calculate_bollinger_bands(prices, period=20, num_std_dev=2):
     price_series = pd.Series(prices)
     middle_band = price_series.rolling(window=period).mean()
@@ -636,6 +650,22 @@ async def trading_bot():
             )
             rsi = calculate_rsi(price_history, symbol)
 
+            # Calculate Stochastic RSI
+            crypto_data[symbol].setdefault("rsi_history", [])
+            crypto_data[symbol]["rsi_history"].append(rsi)
+            if len(crypto_data[symbol]["rsi_history"]) > 50:
+                crypto_data[symbol]["rsi_history"].pop(0)
+
+            k, d = calculate_stochastic_rsi(crypto_data[symbol]["rsi_history"])
+            crypto_data[symbol]["stoch_k"] = k
+            crypto_data[symbol]["stoch_d"] = d
+
+            if k is not None and d is not None and (k < 0.2 and k > d):
+                print(f"🔥 {symbol} Stochastic RSI Buy Signal: K = {k:.2f}, D = {d:.2f}")
+
+            if k is not None and d is not None and (k > 0.8 and k < d):
+                print(f"🔥 {symbol} Stochastic RSI Sell Signal: K = {k:.2f}, D = {d:.2f}")
+
             bollinger_mid, bollinger_upper, bollinger_lower = calculate_bollinger_bands(price_history)
             crypto_data[symbol]['bollinger'] = {
                 'mid': bollinger_mid,
@@ -716,21 +746,6 @@ async def trading_bot():
                     )
                     print(f"📈  - {symbol} Adjusting Initial Price Upwards: {crypto_data[symbol]['initial_price']:.{price_precision}f} → {new_initial_price:.{price_precision}f}")
                     crypto_data[symbol]["initial_price"] = new_initial_price
-                
-                # 🔥 Gradual Adjustments: Move `initial_price` 10% closer to `long_term_ma` during a sustained >5% uptrend and we hold nothing
-                elif (
-                    time_since_last_buy > 900
-                    and current_price > crypto_data[symbol]["initial_price"]
-                    and current_price > long_term_ma  # Confirm Uptrend
-                    and current_price > previous_price  # Price is rising
-                    and crypto_data[symbol]["rising_streak"] > 3  # Ensure we’re in a rising streak
-                    and balances.get(symbol, 0) * current_price < 1  # Holdings worth less than $1 USDC
-                ):
-                    new_initial_price = (
-                        0.9 * crypto_data[symbol]["initial_price"] + 0.1 * long_term_ma
-                    )
-                    print(f"📈  - {symbol} Adjusting Initial Price Upwards: {crypto_data[symbol]['initial_price']:.{price_precision}f} → {new_initial_price:.{price_precision}f}")
-                    crypto_data[symbol]["initial_price"] = new_initial_price
 
                 # 🔽 Adjust Initial Price Downwards in a Sustained Downtrend (If Holdings < 1 USDC)
                 elif (
@@ -748,17 +763,29 @@ async def trading_bot():
                 if bollinger_sell_signal:
                     print(f"💔 {symbol}: Price is above Bollinger Upper Band (${bollinger_upper:.2f}) — sell signal!")
 
+                if actual_buy_price is not None and current_price > actual_buy_price * (1 + (dynamic_sell_threshold / 100)):
+                    print(f"💵 {symbol}: Price is above expected sell price (${expected_sell_price:.{price_precision}f}) — sell signal 🚨 !!!")
+
                 price_slope = current_price - price_history[-3]
 
-                # Execute buy order if MACD buy signal is confirmed
+                # Execute buy order if signals are confirmed
                 if (
-                    price_change <= dynamic_buy_threshold and  # Price threshold
-                    (macd_buy_signal and macd_confirmation[symbol]["buy"] >= 3 and rsi < 30)  # MACD + RSI filter
+                    (
+                        (
+                            (bollinger_lower is None or current_price < bollinger_lower)  # 💘 Bollinger confirms it’s dip time
+                        )
+                        or
+                        (
+                            (bollinger_mid is None or current_price < bollinger_mid)  # 💘 Wait with buying for Bollinger to drop
+                            and (k is None or d is None or (k < 0.2 and k > d))  # Oversold and bullish cross
+                        )
+                    )
+                    and price_change <= dynamic_buy_threshold  # Price threshold
+                    # and (macd_buy_signal and macd_confirmation[symbol]["buy"] >= 3)  # MACD filter
                     and (actual_buy_price is None or current_price < actual_buy_price) # If price is cheaper then what we have bought already.
                     and current_price < long_term_ma  # Trend filter
                     and time_since_last_buy > 120  # Wait 2 minutes before buying again.
-                    and (bollinger_lower is None or current_price < bollinger_lower)  # 💘 Bollinger confirms it’s dip time
-                    and crypto_data[symbol]["falling_streak"] < 3  # ✅ Ensure we’re not in a falling streak
+                    and crypto_data[symbol]["rising_streak"] > 1  # ✅ Ensure we’re not in a falling streak
                     and balances[quote_currency] > 0  # Sufficient balance
                 ):
                     quote_cost = round((buy_percentage / 100) * balances[quote_currency], 2)  # Directly in USDC
@@ -791,20 +818,18 @@ async def trading_bot():
                         (
                             macd_sell_signal
                             and macd_confirmation[symbol]["sell"] >= 3  # ✅ At least 3 positives signals
-                            and rsi > 70  # ✅ RSI above 70 indicates a oversold condition
-                            and (bollinger_upper is None or current_price > bollinger_upper)  # ✅ Bollinger confirms price is hot
+                            and (k is None or d is None or (k > 0.8 and k < d))  # ✅ Overbought and bearish cross
+                            and (bollinger_upper is None or current_price > bollinger_mid)  # ✅ Bollinger confirms price is still warm
                         )
                         or
                         (
-                            trail_stop_price is not None  # ✅ Ensure we have a valid trailing stop price
-                            and current_price < trail_stop_price  # ✅ Price is below trailing stop price
+                            (bollinger_upper is not None and current_price > bollinger_upper)  # ✅ Bollinger confirms price is hot
                         )
                     )
                     and actual_buy_price is not None  # ✅ Ensure actual_buy_price is valid before using it
-                    and previous_price is not None and current_price < previous_price  # ✅ Price is lower than previous price
+                    # and previous_price is not None and current_price < previous_price  # ✅ Price is lower than previous price
                     and current_price > actual_buy_price * (1 + (dynamic_sell_threshold / 100))  # ✅ Profit percentage wanted based on sell threshold
-                    and (bollinger_upper is None or current_price > bollinger_mid)  # ✅ Bollinger confirms price is still warm
-                    and crypto_data[symbol].get("rising_streak", 0) < 3  # ✅ Ensure we’re not in a rising streak
+                    and crypto_data[symbol].get("falling_streak", 0) > 1  # ✅ Ensure we’re not in a rising streak
                     and balances[symbol] > 0  # ✅ Ensure we have balance
                 ):
 
@@ -863,7 +888,7 @@ async def trading_bot():
                 print(f"📉  - Deviation: {deviation:.2f} ({deviation_percentage:.2f}%)")
                 # send_telegram_notification(message)
 
-            print(f"📊  - {symbol} Avg buy price: {actual_buy_price} | Performance - Total Trades: {crypto_data[symbol]['total_trades']} | Total Profit: ${crypto_data[symbol]['total_profit']:.2f}")
+            print(f"📊  - {symbol} Avg buy price: {actual_buy_price} | Slope: {price_slope} | Performance - Total Trades: {crypto_data[symbol]['total_trades']} | Total Profit: ${crypto_data[symbol]['total_profit']:.2f}")
             
             # Save state after each coin's update
             save_state(symbol, crypto_data[symbol]["initial_price"], crypto_data[symbol]["total_trades"], crypto_data[symbol]["total_profit"])

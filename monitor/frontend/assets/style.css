@@ -1,0 +1,19 @@
+body {
+    background-color: #121212;
+  }
+  
+  .card {
+    border-radius: 1rem;
+  }
+  
+  canvas {
+    width: 100% !important;
+    max-height: 400px;
+  }
+
+  .card {
+    border-radius: 1rem;
+  }
+  .card-title {
+    font-size: 1.5rem;
+  }
