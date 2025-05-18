@@ -610,10 +610,6 @@ async def trading_bot():
                 print(f"🚨 {symbol}: Price unchanged ({current_price:.{price_precision}f} == {crypto_data[symbol]['price_history'][-1]:.{price_precision}f}). Skipping.")
                 continue
 
-            # Show value of crypto_data[symbol].get("manual_cmd")
-            if "manual_cmd" in crypto_data[symbol]:
-                print(f"📥 {symbol} Manual Command: {crypto_data[symbol]['manual_cmd']}")
-
             # Save price history
             save_price_history(symbol, current_price)
 
