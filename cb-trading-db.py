@@ -613,6 +613,7 @@ async def trading_bot():
             # Show value of crypto_data[symbol].get("manual_cmd")
             if "manual_cmd" in crypto_data[symbol]:
                 print(f"📥 {symbol} Manual Command: {crypto_data[symbol]['manual_cmd']}")
+                continue
 
             # Save price history
             save_price_history(symbol, current_price)
