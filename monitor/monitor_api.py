@@ -1,5 +1,6 @@
 # monitor_api.py
 from fastapi import APIRouter, HTTPException
+from fastapi import Body
 from db import get_db_connection, load_config
 from psycopg2.extras import RealDictCursor
 
@@ -183,6 +184,30 @@ def get_weighted_avg_buy_price(symbol: str):
         return None
     finally:
         cur.close()
+        conn.close()
+
+@router.post("/manual-command")
+def create_manual_command(
+    symbol: str = Body(...),
+    action: str = Body(...),
+    amount: float = Body(None)
+):
+    """Insert a manual BUY/SELL command into the DB."""
+    if action not in ("BUY", "SELL"):
+        raise HTTPException(status_code=400, detail="Invalid action type")
+
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO manual_commands (symbol, action, amount)
+                VALUES (%s, %s, %s)
+            """, (symbol, action, amount))
+            conn.commit()
+        return { "status": "success" }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
         conn.close()
 
 @router.get("/avg-buy-price/{symbol}")

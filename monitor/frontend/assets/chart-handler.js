@@ -73,24 +73,49 @@ async function loadEnabledCoins() {
   
       const headerRow = document.createElement("div");
       headerRow.className = "d-flex justify-content-between align-items-center mb-3";
-  
+
+      // ⬅️ Left group: Symbol
+      const leftGroup = document.createElement("div");
+      leftGroup.className = "d-flex align-items-center gap-2";
+
       const title = document.createElement("h4");
       title.className = "card-title text-info fw-bold m-0";
       title.textContent = symbol;
-  
+      leftGroup.appendChild(title);
+
+      // ➡️ Right group: BUY / SELL buttons + balance badge
+      const rightGroup = document.createElement("div");
+      rightGroup.className = "d-flex align-items-center gap-2";
+
+      const buyBtn = document.createElement("button");
+      buyBtn.className = "btn btn-sm btn-outline-success";
+      buyBtn.textContent = "BUY";
+      buyBtn.onclick = () => sendManualCommand(symbol, "BUY");
+      rightGroup.appendChild(buyBtn);
+
+      if (balance >= 1) {
+        const sellBtn = document.createElement("button");
+        sellBtn.className = "btn btn-sm btn-outline-danger";
+        sellBtn.textContent = "SELL";
+        sellBtn.onclick = () => sendManualCommand(symbol, "SELL");
+        rightGroup.appendChild(sellBtn);
+      }
+
       const badge = document.createElement("span");
       badge.className = "badge rounded-pill fs-6";
-      badge.textContent = `Balance: ${balance.toFixed(4)} ($${value.toFixed(2)})`;
-  
+      badge.textContent = `Balance: ${balance.toFixed(4)} ($${value.toFixed(pricePrecision)})`;
+
       let colorClass = "bg-outline-light";
       if (value > 200) colorClass = "bg-warning text-dark";
       else if (value > 100) colorClass = "bg-primary";
       else if (value > 50) colorClass = "bg-secondary";
       else if (value > 1) colorClass = "bg-dark";
       badge.className += ` ${colorClass}`;
-  
-      headerRow.appendChild(title);
-      headerRow.appendChild(badge);
+
+      rightGroup.appendChild(badge);
+
+      headerRow.appendChild(leftGroup);
+      headerRow.appendChild(rightGroup);
   
       const indicatorsDiv = document.createElement("div");
       indicatorsDiv.className = "d-flex gap-3 mb-3 flex-wrap";
@@ -232,6 +257,20 @@ async function loadEnabledCoins() {
       container.appendChild(li);
     });
   }
+
+async function sendManualCommand(symbol, action) {
+  const res = await fetch('/api/manual-command', {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ symbol, action })
+  });
+
+  if (res.ok) {
+    alert(`Manual ${action} placed for ${symbol}`);
+  } else {
+    alert(`Error placing ${action} for ${symbol}`);
+  }
+}
   
   function animateValue(element, start, end, duration = 1000, prefix = "$") {
     const stepTime = 20;
