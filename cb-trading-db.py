@@ -594,7 +594,6 @@ async def trading_bot():
         prices = await asyncio.gather(*price_tasks)
 
         # 🧠 Refresh manual commands for this cycle
-        crypto_data[symbol]["manual_cmd"] = None  # Set to None at the start of each cycle
         await process_manual_commands()
 
         for symbol, current_price in zip(crypto_symbols, prices):
@@ -928,7 +927,8 @@ async def trading_bot():
                 # send_telegram_notification(message)
 
             print(f"📊  - {symbol} Avg buy price: {actual_buy_price} | Slope: {price_slope} | Performance - Total Trades: {crypto_data[symbol]['total_trades']} | Total Profit: ${crypto_data[symbol]['total_profit']:.2f}")
-            
+            crypto_data[symbol]["manual_cmd"] = None  # Set to None at the start of each cycle
+
             # Save state after each coin's update
             save_state(symbol, crypto_data[symbol]["initial_price"], crypto_data[symbol]["total_trades"], crypto_data[symbol]["total_profit"])
 
