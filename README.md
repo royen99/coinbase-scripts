@@ -178,6 +178,14 @@ CREATE TABLE trades (
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE manual_commands (
+    id SERIAL PRIMARY KEY,
+    symbol TEXT NOT NULL,
+    action TEXT NOT NULL CHECK (action IN ('BUY', 'SELL')),
+    amount REAL,  -- Optional; you can auto-calc if null
+    timestamp TIMESTAMP DEFAULT NOW(),
+    executed BOOLEAN DEFAULT FALSE
+);
 
 CREATE INDEX idx_symbol_timestamp ON price_history (symbol, timestamp);
 ```
