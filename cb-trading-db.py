@@ -812,7 +812,7 @@ async def trading_bot():
                     )
                     and price_change <= dynamic_buy_threshold  # Price threshold
                     # and (macd_buy_signal and macd_confirmation[symbol]["buy"] >= 3)  # MACD filter
-                    and (actual_buy_price is None or current_price < actual_buy_price * 0.99) # If price is 1% cheaper then what we have bought already.
+                    and (actual_buy_price is None or current_price < actual_buy_price * 0.98) # If price is 2% cheaper then what we have bought already.
                     and current_price < long_term_ma  # Trend filter
                     and time_since_last_buy > 120  # Wait 2 minutes before buying again.
                     and crypto_data[symbol].get("rising_streak", 0) > 1  # ✅ Ensure we’re not in a falling streak
