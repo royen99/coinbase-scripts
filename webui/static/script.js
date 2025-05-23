@@ -6,9 +6,13 @@ const sensitiveValueMap = {};  // key: DOM id => real value
 const sensitiveFields = ['privatekey', 'bot_token', 'chat_id', 'password', 'api_key', 'secret'];
 
 window.onload = async () => {
-    const res = await fetch('/api/config');
-    configData = await res.json();
-    buildMainTabs(configData, document.getElementById('configForm'));
+  console.log("📦 window.onload triggered");
+  const formCheck = document.getElementById('configForm');
+  console.log("🧩 configForm exists?", !!formCheck);
+
+  const res = await fetch('/api/config');
+  configData = await res.json();
+  buildMainTabs(configData, document.getElementById('configForm'));
 };
 
 function showToast(message, type = 'success') {
@@ -93,6 +97,7 @@ function buildMainTabs(data, parent) {
   
     // Restore coins for save later
     data.coins = coins;
+    console.log("🧱 Main tabs built");
   }
 
 function buildForm(data, parent, prefix = '') {
@@ -222,6 +227,7 @@ function buildForm(data, parent, prefix = '') {
 
     parent.appendChild(group);
   }
+  console.log("✅ buildForm complete for:", prefix || "root");
 }
 
 
