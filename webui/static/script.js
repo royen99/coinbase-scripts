@@ -96,96 +96,134 @@ function buildMainTabs(data, parent) {
   }
 
 function buildForm(data, parent, prefix = '') {
-  
-    for (const key in data) {
-      const value = data[key];
-      const id = prefix + key;
-  
-      const group = document.createElement('div');
-      group.className = 'col-md-6';
-  
-      const label = document.createElement('label');
-      label.innerText = key;
-      label.className = 'form-label';
-  
-      let input;
-      if (typeof value === 'boolean') {
-        input = document.createElement('input');
-        input.type = 'checkbox';
-        input.checked = value;
-        input.className = 'form-check-input';
+  for (const key in data) {
+    const value = data[key];
+    const id = prefix + key;
+
+    const group = document.createElement('div');
+    group.className = 'col-md-6';
+
+    const label = document.createElement('label');
+    label.innerText = key;
+    label.className = 'form-label';
+
+    let input;
+
+    if (typeof value === 'boolean') {
+      input = document.createElement('input');
+      input.type = 'checkbox';
+      input.checked = value;
+      input.className = 'form-check-input';
+      input.id = id;
+
+      const checkDiv = document.createElement('div');
+      checkDiv.className = 'form-check';
+      checkDiv.appendChild(input);
+      checkDiv.appendChild(label);
+      group.appendChild(checkDiv);
+
+    } else if (typeof value === 'object' && value !== null) {
+      const fieldset = document.createElement('fieldset');
+      const legend = document.createElement('legend');
+      legend.innerText = key;
+      legend.className = 'text-info';
+      fieldset.appendChild(legend);
+      buildForm(value, fieldset, id + '.');
+      group.appendChild(fieldset);
+
+    } else {
+      const lowerKey = key.toLowerCase();
+      const isSensitive = sensitiveFields.some(field => lowerKey.includes(field));
+
+      if (typeof value === 'string' && value.includes('\n')) {
+        input = document.createElement('textarea');
+        input.className = 'form-control';
+        input.rows = value.split('\n').length || 4;
         input.id = id;
-  
-        const checkDiv = document.createElement('div');
-        checkDiv.className = 'form-check';
-        checkDiv.appendChild(input);
-        checkDiv.appendChild(label);
-        group.appendChild(checkDiv);
-      } else if (typeof value === 'object' && value !== null) {
-        const fieldset = document.createElement('fieldset');
-        const legend = document.createElement('legend');
-        legend.innerText = key;
-        legend.className = 'text-info';
-        fieldset.appendChild(legend);
-        buildForm(value, fieldset, id + '.');
-        group.appendChild(fieldset);
-      } else {
-        const lowerKey = key.toLowerCase();
-        const isSensitive = sensitiveFields.some(field => lowerKey.includes(field));
 
-        if (typeof value === 'string' && value.includes('\n')) {
-          const lowerKey = key.toLowerCase();
-          const isSensitive = sensitiveFields.some(field => lowerKey.includes(field));
+        if (isSensitive) {
+          input.value = '••••••••••••••••••••';
+          input.readOnly = true;
 
-          input = document.createElement('textarea');
-          input.className = 'form-control';
-          input.rows = value.split('\n').length || 4;
-          input.id = id;
+          const hidden = document.createElement('input');
+          hidden.type = 'hidden';
+          hidden.id = id + '__real';
+          hidden.value = value;
 
-          if (isSensitive) {
-            input.value = '••••••••••••••••••••';
-            input.readOnly = true;
+          const toggleBtn = document.createElement('button');
+          toggleBtn.type = 'button';
+          toggleBtn.className = 'btn btn-sm btn-outline-light mt-1';
+          toggleBtn.innerText = '👁 Show';
 
-            // 🔐 Create a hidden input to store real value
-            const hidden = document.createElement('input');
-            hidden.type = 'hidden';
-            hidden.id = id + '__real';
-            hidden.value = value;
+          let revealed = false;
+          toggleBtn.onclick = () => {
+            if (!revealed) {
+              input.value = hidden.value;
+              input.readOnly = false;
+              toggleBtn.innerText = '🙈 Hide';
+              revealed = true;
+            } else {
+              input.value = '••••••••••••••••••••';
+              input.readOnly = true;
+              toggleBtn.innerText = '👁 Show';
+              revealed = false;
+            }
+          };
 
-            const toggleBtn = document.createElement('button');
-            toggleBtn.type = 'button';
-            toggleBtn.className = 'btn btn-sm btn-outline-light mt-1';
-            toggleBtn.innerText = '👁 Show';
-
-            let revealed = false;
-            toggleBtn.onclick = () => {
-              if (!revealed) {
-                input.value = hidden.value;
-                input.readOnly = false;
-                toggleBtn.innerText = '🙈 Hide';
-                revealed = true;
-              } else {
-                input.value = '••••••••••••••••••••';
-                input.readOnly = true;
-                toggleBtn.innerText = '👁 Show';
-              }
-            };
-
-            group.appendChild(label);
-            group.appendChild(input);
-            group.appendChild(toggleBtn);
-            group.appendChild(hidden);  // 👈 store it in the DOM, always available
-          } else {
-            input.value = value;
-            group.appendChild(label);
-            group.appendChild(input);
-          }
-
-          parent.appendChild(group);
-          return;  // 👈 prevent duplicate append at bottom
+          group.appendChild(label);
+          group.appendChild(input);
+          group.appendChild(toggleBtn);
+          group.appendChild(hidden);
+        } else {
+          input.value = value;
+          group.appendChild(label);
+          group.appendChild(input);
         }
 
+        parent.appendChild(group);
+        continue;  // ✅ skip to next field
+      }
+
+      // regular input field (non-multiline)
+      input = document.createElement('input');
+      input.className = 'form-control';
+      input.value = value;
+      input.id = id;
+
+      if (isSensitive) {
+        input.type = 'password';
+
+        const toggleBtn = document.createElement('button');
+        toggleBtn.type = 'button';
+        toggleBtn.className = 'btn btn-sm btn-outline-light ms-2';
+        toggleBtn.innerText = '👁 Show';
+        toggleBtn.onclick = () => {
+          input.type = input.type === 'password' ? 'text' : 'password';
+          toggleBtn.innerText = input.type === 'password' ? '👁 Show' : '🙈 Hide';
+        };
+
+        const inputGroup = document.createElement('div');
+        inputGroup.className = 'input-group';
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'form-control-wrapper flex-grow-1';
+        wrapper.appendChild(input);
+
+        inputGroup.appendChild(wrapper);
+        inputGroup.appendChild(toggleBtn);
+
+        group.appendChild(label);
+        group.appendChild(inputGroup);
+      } else {
+        group.appendChild(label);
+        group.appendChild(input);
+      }
+    }
+
+    parent.appendChild(group);
   }
+}
+
 
   function createCoinTabs(coins, parent) {
     const nav = document.createElement('ul');
@@ -241,10 +279,14 @@ function buildForm(data, parent, prefix = '') {
   
 function collectFormDataFromDOM() {
   const result = {};
-  const inputs = document.querySelectorAll('#configForm input, #configForm textarea');
+  const elements = document.querySelectorAll('#configForm input, #configForm textarea');
 
-  inputs.forEach(input => {
-    const path = input.id.split('.');
+  elements.forEach(el => {
+    const id = el.id;
+
+    if (!id || id.endsWith('__real')) return; // skip helper hidden inputs
+
+    const path = id.split('.');
     let current = result;
 
     for (let i = 0; i < path.length - 1; i++) {
@@ -254,21 +296,25 @@ function collectFormDataFromDOM() {
     }
 
     const key = path[path.length - 1];
-    let val;
 
-    if (input.type === 'checkbox') {
-      val = input.checked;
-    } else if (input.tagName === 'TEXTAREA' && input.value.startsWith('••')) {
-        const hidden = document.getElementById(input.id + '__real');
-        val = hidden ? hidden.value : input.value;
-      } else {
-      val = input.value;
+    let val;
+    if (el.type === 'checkbox') {
+      val = el.checked;
+    } else if (
+      el.tagName === 'TEXTAREA' &&
+      el.value.startsWith('••') &&
+      document.getElementById(id + '__real')
+    ) {
+      // 🔥 Replace bullets with original secret
+      val = document.getElementById(id + '__real').value;
+    } else {
+      val = el.value;
     }
 
-    // Type conversion
-    if (val === "true" || val === "false") {
-      val = val === "true";
-    } else if (!isNaN(val) && val.trim() !== "") {
+    // Sanitize value
+    if (val === 'true' || val === 'false') {
+      val = val === 'true';
+    } else if (!isNaN(val) && val.trim() !== '') {
       val = Number(val);
     }
 
