@@ -312,10 +312,12 @@ function collectFormDataFromDOM() {
     }
 
     // Sanitize value
-    if (val === 'true' || val === 'false') {
-      val = val === 'true';
-    } else if (!isNaN(val) && val.trim() !== '') {
-      val = Number(val);
+    if (typeof val === 'string') {
+      if (val === 'true' || val === 'false') {
+        val = val === 'true';
+      } else if (!isNaN(val) && val.trim() !== '') {
+        val = Number(val);
+      }
     }
 
     current[key] = val;
