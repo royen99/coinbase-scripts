@@ -324,21 +324,66 @@ function collectFormDataFromDOM() {
   return result;
 }
   
-  async function saveConfig() {
-    console.log("🚨 saveConfig() called");
-    const updated = collectFormDataFromDOM(); // 🔥 use the new DOM-only method
-    const res = await fetch('/api/config', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updated)
-    });
-  
-    if (res.ok) {
-        showToast("💾 Saved successfully!", 'success');
-      } else {
-        showToast("❌ Save failed", 'danger');
-      }
+async function saveConfig() {
+  console.log("🚨 saveConfig() called");
+
+  const inputs = document.querySelectorAll('#configForm input, #configForm textarea');
+  const result = {};
+
+  inputs.forEach(input => {
+    if (!input.id || input.id.endsWith('__real')) return;
+
+    const path = input.id.split('.');
+    let current = result;
+
+    for (let i = 0; i < path.length - 1; i++) {
+      const part = path[i];
+      if (!current[part]) current[part] = {};
+      current = current[part];
+    }
+
+    const key = path[path.length - 1];
+    let val;
+
+    if (input.type === 'checkbox') {
+      val = input.checked;
+    } else if (
+      input.tagName === 'TEXTAREA' &&
+      input.value.startsWith('••') &&
+      document.getElementById(input.id + '__real')
+    ) {
+      val = document.getElementById(input.id + '__real').value;
+      console.log(`🔒 ${input.id}: using hidden real value =`, val);
+    } else {
+      val = input.value;
+      console.log(`📝 ${input.id}: using visible value =`, val);
+    }
+
+    // Sanitize
+    if (val === 'true' || val === 'false') {
+      val = val === 'true';
+    } else if (!isNaN(val) && val.trim() !== '') {
+      val = Number(val);
+    }
+
+    current[key] = val;
+  });
+
+  console.log("🧪 Final config to save:", result);
+
+  const res = await fetch('/api/config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(result, null, 2)
+  });
+
+  if (res.ok) {
+    showToast("💾 Saved successfully!", 'success');
+  } else {
+    showToast("❌ Save failed", 'danger');
   }
+}
+
 
   async function deleteCoin(coinName) {
     if (!confirm(`Are you sure you want to delete ${coinName}?`)) return;
