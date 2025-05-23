@@ -3,7 +3,7 @@ let coinTabNavRef = null;
 let coinTabContentRef = null;
 const sensitiveValueMap = {};  // key: DOM id => real value
 
-const sensitiveFields = ['privatekey', 'bot_token', 'chat_id', 'password', 'api_key', 'secret'];
+const sensitiveFields = ['privateKey', 'bot_token', 'chat_id', 'password', 'api_key', 'secret'];
 
 window.onload = async () => {
     const res = await fetch('/api/config');
