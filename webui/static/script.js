@@ -267,42 +267,44 @@ function buildForm(data, parent, prefix = '') {
     parent.appendChild(tabContent);
   }
   
-  function collectFormDataFromDOM() {
-    const result = {};
-    const inputs = document.querySelectorAll('#configForm input, #configForm textarea');
-  
-    inputs.forEach(input => {
-      const path = input.id.split('.');
-      let current = result;
-  
-      for (let i = 0; i < path.length - 1; i++) {
-        const part = path[i];
-        if (!current[part]) current[part] = {};
-        current = current[part];
-      }
-  
-      const key = path[path.length - 1];
-      if (input.type === 'checkbox') {
-        current[key] = input.checked;
-      } else {
-        let val;
+function collectFormDataFromDOM() {
+  const result = {};
+  const inputs = document.querySelectorAll('#configForm input, #configForm textarea');
 
-        if (sensitiveValueMap[input.id] && input.value.startsWith('••')) {
-          val = sensitiveValueMap[input.id];
-        } else {
-          val = input.value;
-        }
-        if (val === "true" || val === "false") {
-          val = val === "true";
-        } else if (!isNaN(val) && val.trim() !== "") {
-          val = Number(val);
-        }
-        current[key] = val;
-      }
-    });
-  
-    return result;
-  }
+  inputs.forEach(input => {
+    const path = input.id.split('.');
+    let current = result;
+
+    for (let i = 0; i < path.length - 1; i++) {
+      const part = path[i];
+      if (!current[part]) current[part] = {};
+      current = current[part];
+    }
+
+    const key = path[path.length - 1];
+    let val;
+
+    if (input.type === 'checkbox') {
+      val = input.checked;
+    } else if (sensitiveValueMap[input.id] !== undefined) {
+      // 🔒 Always prefer original value if marked sensitive
+      val = input.value.startsWith('••') ? sensitiveValueMap[input.id] : input.value;
+    } else {
+      val = input.value;
+    }
+
+    // Type conversion
+    if (val === "true" || val === "false") {
+      val = val === "true";
+    } else if (!isNaN(val) && val.trim() !== "") {
+      val = Number(val);
+    }
+
+    current[key] = val;
+  });
+
+  return result;
+}
   
   async function saveConfig() {
     console.log("🚨 saveConfig() called");
