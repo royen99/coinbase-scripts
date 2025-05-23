@@ -134,15 +134,23 @@ function buildForm(data, parent, prefix = '') {
         const isSensitive = sensitiveFields.some(field => lowerKey.includes(field));
 
         if (typeof value === 'string' && value.includes('\n')) {
+          const lowerKey = key.toLowerCase();
+          const isSensitive = sensitiveFields.some(field => lowerKey.includes(field));
+
           input = document.createElement('textarea');
           input.className = 'form-control';
           input.rows = value.split('\n').length || 4;
           input.id = id;
 
           if (isSensitive) {
-            sensitiveValueMap[id] = value;
-            input.setAttribute('data-secret', value);  // 🔥 store the real key directly in DOM
+            input.value = '••••••••••••••••••••';
             input.readOnly = true;
+
+            // 🔐 Create a hidden input to store real value
+            const hidden = document.createElement('input');
+            hidden.type = 'hidden';
+            hidden.id = id + '__real';
+            hidden.value = value;
 
             const toggleBtn = document.createElement('button');
             toggleBtn.type = 'button';
@@ -152,7 +160,7 @@ function buildForm(data, parent, prefix = '') {
             let revealed = false;
             toggleBtn.onclick = () => {
               if (!revealed) {
-                input.value = sensitiveValueMap[id];
+                input.value = hidden.value;
                 input.readOnly = false;
                 toggleBtn.innerText = '🙈 Hide';
                 revealed = true;
@@ -160,59 +168,23 @@ function buildForm(data, parent, prefix = '') {
                 input.value = '••••••••••••••••••••';
                 input.readOnly = true;
                 toggleBtn.innerText = '👁 Show';
-                revealed = false;
               }
             };
 
             group.appendChild(label);
             group.appendChild(input);
             group.appendChild(toggleBtn);
+            group.appendChild(hidden);  // 👈 store it in the DOM, always available
           } else {
             input.value = value;
             group.appendChild(label);
             group.appendChild(input);
           }
+
+          parent.appendChild(group);
+          return;  // 👈 prevent duplicate append at bottom
         }
-        else {
-          input = document.createElement('input');
-          input.className = 'form-control';
-          input.value = value;
-          input.id = id;
 
-          if (isSensitive) {
-            sensitiveValueMap[id] = value;
-            input.type = 'password';
-
-            const toggleBtn = document.createElement('button');
-            toggleBtn.type = 'button';
-            toggleBtn.className = 'btn btn-sm btn-outline-light ms-2';
-            toggleBtn.innerText = '👁 Show';
-            toggleBtn.onclick = () => {
-              input.type = input.type === 'password' ? 'text' : 'password';
-              toggleBtn.innerText = input.type === 'password' ? '👁 Show' : '🙈 Hide';
-            };
-
-            const inputGroup = document.createElement('div');
-            inputGroup.className = 'input-group';
-
-            const wrapper = document.createElement('div');
-            wrapper.className = 'form-control-wrapper flex-grow-1';
-            wrapper.appendChild(input);
-
-            inputGroup.appendChild(wrapper);
-            inputGroup.appendChild(toggleBtn);
-
-            group.appendChild(label);
-            group.appendChild(inputGroup);
-          } else {
-            group.appendChild(label);
-            group.appendChild(input);
-          }
-        }
-      }
-  
-      parent.appendChild(group);
-    }
   }
 
   function createCoinTabs(coins, parent) {
@@ -286,9 +258,10 @@ function collectFormDataFromDOM() {
 
     if (input.type === 'checkbox') {
       val = input.checked;
-    } else if (input.getAttribute('data-secret')) {
-      val = input.value.startsWith('••') ? input.getAttribute('data-secret') : input.value;
-    } else {
+    } else if (input.tagName === 'TEXTAREA' && input.value.startsWith('••')) {
+        const hidden = document.getElementById(input.id + '__real');
+        val = hidden ? hidden.value : input.value;
+      } else {
       val = input.value;
     }
 
