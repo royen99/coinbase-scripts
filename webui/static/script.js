@@ -330,7 +330,9 @@ async function saveConfig() {
   const inputs = document.querySelectorAll('#configForm input, #configForm textarea');
   const result = {};
 
+  console.log("🔍 Total inputs found:", inputs.length);
   inputs.forEach(input => {
+    console.log("🔎 Checking:", input.tagName, input.id, "=", input.value);
     if (!input.id || input.id.endsWith('__real')) return;
 
     const path = input.id.split('.');
