@@ -1,6 +1,7 @@
 let configData = {};
 let coinTabNavRef = null;
 let coinTabContentRef = null;
+const sensitiveValueMap = {};  // key: DOM id => real value
 
 const sensitiveFields = ['privatekey', 'bot_token', 'chat_id', 'password', 'api_key', 'secret'];
 
@@ -138,7 +139,7 @@ function buildForm(data, parent, prefix = '') {
           input.rows = value.split('\n').length || 4;
           input.id = id;
 
-          const realValue = value;
+          sensitiveValueMap[id] = value;
 
           if (isSensitive) {
             input.value = '••••••••••••••••••••';
@@ -152,7 +153,7 @@ function buildForm(data, parent, prefix = '') {
             let revealed = false;
             toggleBtn.onclick = () => {
               if (!revealed) {
-                input.value = realValue;
+                input.value = sensitiveValueMap[id];
                 input.readOnly = false;
                 toggleBtn.innerText = '🙈 Hide';
                 revealed = true;
@@ -249,7 +250,13 @@ function buildForm(data, parent, prefix = '') {
       if (input.type === 'checkbox') {
         current[key] = input.checked;
       } else {
-        let val = input.value;
+        let val;
+
+        if (sensitiveValueMap[input.id] && input.value.startsWith('••')) {
+          val = sensitiveValueMap[input.id];
+        } else {
+          val = input.value;
+        }
         if (val === "true" || val === "false") {
           val = val === "true";
         } else if (!isNaN(val) && val.trim() !== "") {
