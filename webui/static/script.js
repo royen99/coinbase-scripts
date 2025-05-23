@@ -331,7 +331,7 @@ function collectFormDataFromDOM() {
 }
   
 async function saveConfig() {
-  console.log("🚨 saveConfig() called");
+  console.log("🚨 saveConfig() called!");
 
   const inputs = document.querySelectorAll('#configForm input, #configForm textarea');
   const result = {};

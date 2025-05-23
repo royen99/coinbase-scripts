@@ -31,4 +31,4 @@ async def save_config(request: Request):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8001, log_level="info", root_path="/")
+    uvicorn.run(app, host="0.0.0.0", port=8002, log_level="info", root_path="/")
