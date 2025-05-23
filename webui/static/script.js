@@ -1,6 +1,7 @@
 let configData = {};
 let coinTabNavRef = null;
 let coinTabContentRef = null;
+const sensitiveValueMap = {};  // key: DOM id => real value
 
 const sensitiveFields = ['privatekey', 'bot_token', 'chat_id', 'password', 'api_key', 'secret'];
 
@@ -95,113 +96,134 @@ function buildMainTabs(data, parent) {
   }
 
 function buildForm(data, parent, prefix = '') {
-  
-    for (const key in data) {
-      const value = data[key];
-      const id = prefix + key;
-  
-      const group = document.createElement('div');
-      group.className = 'col-md-6';
-  
-      const label = document.createElement('label');
-      label.innerText = key;
-      label.className = 'form-label';
-  
-      let input;
-      if (typeof value === 'boolean') {
-        input = document.createElement('input');
-        input.type = 'checkbox';
-        input.checked = value;
-        input.className = 'form-check-input';
+  for (const key in data) {
+    const value = data[key];
+    const id = prefix + key;
+
+    const group = document.createElement('div');
+    group.className = 'col-md-6';
+
+    const label = document.createElement('label');
+    label.innerText = key;
+    label.className = 'form-label';
+
+    let input;
+
+    if (typeof value === 'boolean') {
+      input = document.createElement('input');
+      input.type = 'checkbox';
+      input.checked = value;
+      input.className = 'form-check-input';
+      input.id = id;
+
+      const checkDiv = document.createElement('div');
+      checkDiv.className = 'form-check';
+      checkDiv.appendChild(input);
+      checkDiv.appendChild(label);
+      group.appendChild(checkDiv);
+
+    } else if (typeof value === 'object' && value !== null) {
+      const fieldset = document.createElement('fieldset');
+      const legend = document.createElement('legend');
+      legend.innerText = key;
+      legend.className = 'text-info';
+      fieldset.appendChild(legend);
+      buildForm(value, fieldset, id + '.');
+      group.appendChild(fieldset);
+
+    } else {
+      const lowerKey = key.toLowerCase();
+      const isSensitive = sensitiveFields.some(field => lowerKey.includes(field));
+
+      if (typeof value === 'string' && value.includes('\n')) {
+        input = document.createElement('textarea');
+        input.className = 'form-control';
+        input.rows = value.split('\n').length || 4;
         input.id = id;
-  
-        const checkDiv = document.createElement('div');
-        checkDiv.className = 'form-check';
-        checkDiv.appendChild(input);
-        checkDiv.appendChild(label);
-        group.appendChild(checkDiv);
-      } else if (typeof value === 'object' && value !== null) {
-        const fieldset = document.createElement('fieldset');
-        const legend = document.createElement('legend');
-        legend.innerText = key;
-        legend.className = 'text-info';
-        fieldset.appendChild(legend);
-        buildForm(value, fieldset, id + '.');
-        group.appendChild(fieldset);
-      } else {
-        const lowerKey = key.toLowerCase();
-        const isSensitive = sensitiveFields.some(field => lowerKey.includes(field));
-        
-        if (typeof value === 'string' && value.includes('\n')) {
-          // 🔒 Multiline sensitive field
-          input = document.createElement('textarea');
-          input.className = 'form-control';
-          input.rows = value.split('\n').length || 4;
-          input.value = isSensitive ? '••••••••••••••••••••' : value;
-          input.id = id;
-          input.readOnly = isSensitive;
-        
+
+        if (isSensitive) {
+          input.value = '••••••••••••••••••••';
+          input.readOnly = true;
+
+          const hidden = document.createElement('input');
+          hidden.type = 'hidden';
+          hidden.id = id + '__real';
+          hidden.value = value;
+
+          const toggleBtn = document.createElement('button');
+          toggleBtn.type = 'button';
+          toggleBtn.className = 'btn btn-sm btn-outline-light mt-1';
+          toggleBtn.innerText = '👁 Show';
+
+          let revealed = false;
+          toggleBtn.onclick = () => {
+            if (!revealed) {
+              input.value = hidden.value;
+              input.readOnly = false;
+              toggleBtn.innerText = '🙈 Hide';
+              revealed = true;
+            } else {
+              input.value = '••••••••••••••••••••';
+              input.readOnly = true;
+              toggleBtn.innerText = '👁 Show';
+              revealed = false;
+            }
+          };
+
           group.appendChild(label);
           group.appendChild(input);
-        
-          if (isSensitive) {
-            const toggleBtn = document.createElement('button');
-            toggleBtn.type = 'button';
-            toggleBtn.className = 'btn btn-sm btn-outline-light mt-1';
-            toggleBtn.innerText = '👁 Show';
-            toggleBtn.onclick = () => {
-              if (input.value.startsWith('••')) {
-                input.value = value;
-                toggleBtn.innerText = '🙈 Hide';
-              } else {
-                input.value = '••••••••••••••••••••';
-                toggleBtn.innerText = '👁 Show';
-              }
-            };
-            group.appendChild(toggleBtn);
-          }
-        
+          group.appendChild(toggleBtn);
+          group.appendChild(hidden);
         } else {
-          input = document.createElement('input');
-          input.className = 'form-control';
           input.value = value;
-          input.id = id;
-        
-          if (isSensitive) {
-            input.type = 'password';
-        
-            const toggleBtn = document.createElement('button');
-            toggleBtn.type = 'button';
-            toggleBtn.className = 'btn btn-sm btn-outline-light ms-2';
-            toggleBtn.innerText = '👁 Show';
-            toggleBtn.onclick = () => {
-              input.type = input.type === 'password' ? 'text' : 'password';
-              toggleBtn.innerText = input.type === 'password' ? '👁 Show' : '🙈 Hide';
-            };
-        
-            const inputGroup = document.createElement('div');
-            inputGroup.className = 'input-group';
-        
-            const wrapper = document.createElement('div');
-            wrapper.className = 'form-control-wrapper flex-grow-1';
-            wrapper.appendChild(input);
-        
-            inputGroup.appendChild(wrapper);
-            inputGroup.appendChild(toggleBtn);
-        
-            group.appendChild(label);
-            group.appendChild(inputGroup);
-          } else {
-            group.appendChild(label);
-            group.appendChild(input);
-          }
+          group.appendChild(label);
+          group.appendChild(input);
         }
-        
+
+        parent.appendChild(group);
+        continue;  // ✅ skip to next field
       }
-  
-      parent.appendChild(group);
+
+      // regular input field (non-multiline)
+      input = document.createElement('input');
+      input.className = 'form-control';
+      input.value = value;
+      input.id = id;
+
+      if (isSensitive) {
+        input.type = 'password';
+
+        const toggleBtn = document.createElement('button');
+        toggleBtn.type = 'button';
+        toggleBtn.className = 'btn btn-sm btn-outline-light ms-2';
+        toggleBtn.innerText = '👁 Show';
+        toggleBtn.onclick = () => {
+          input.type = input.type === 'password' ? 'text' : 'password';
+          toggleBtn.innerText = input.type === 'password' ? '👁 Show' : '🙈 Hide';
+        };
+
+        const inputGroup = document.createElement('div');
+        inputGroup.className = 'input-group';
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'form-control-wrapper flex-grow-1';
+        wrapper.appendChild(input);
+
+        inputGroup.appendChild(wrapper);
+        inputGroup.appendChild(toggleBtn);
+
+        group.appendChild(label);
+        group.appendChild(inputGroup);
+      } else {
+        group.appendChild(label);
+        group.appendChild(input);
+      }
     }
+
+    parent.appendChild(group);
   }
+}
+
 
   function createCoinTabs(coins, parent) {
     const nav = document.createElement('ul');
@@ -255,36 +277,54 @@ function buildForm(data, parent, prefix = '') {
     parent.appendChild(tabContent);
   }
   
-  function collectFormDataFromDOM() {
-    const result = {};
-    const inputs = document.querySelectorAll('#configForm input, #configForm textarea');
-  
-    inputs.forEach(input => {
-      const path = input.id.split('.');
-      let current = result;
-  
-      for (let i = 0; i < path.length - 1; i++) {
-        const part = path[i];
-        if (!current[part]) current[part] = {};
-        current = current[part];
+function collectFormDataFromDOM() {
+  const result = {};
+  const elements = document.querySelectorAll('#configForm input, #configForm textarea');
+
+  elements.forEach(el => {
+    const id = el.id;
+
+    if (!id || id.endsWith('__real')) return; // skip helper hidden inputs
+
+    const path = id.split('.');
+    let current = result;
+
+    for (let i = 0; i < path.length - 1; i++) {
+      const part = path[i];
+      if (!current[part]) current[part] = {};
+      current = current[part];
+    }
+
+    const key = path[path.length - 1];
+
+    let val;
+    if (el.type === 'checkbox') {
+      val = el.checked;
+    } else if (
+      el.tagName === 'TEXTAREA' &&
+      el.value.startsWith('••') &&
+      document.getElementById(id + '__real')
+    ) {
+      // 🔥 Replace bullets with original secret
+      val = document.getElementById(id + '__real').value;
+    } else {
+      val = el.value;
+    }
+
+    // Sanitize value
+    if (typeof val === 'string') {
+      if (val === 'true' || val === 'false') {
+        val = val === 'true';
+      } else if (!isNaN(val) && val.trim() !== '') {
+        val = Number(val);
       }
-  
-      const key = path[path.length - 1];
-      if (input.type === 'checkbox') {
-        current[key] = input.checked;
-      } else {
-        let val = input.value;
-        if (val === "true" || val === "false") {
-          val = val === "true";
-        } else if (!isNaN(val) && val.trim() !== "") {
-          val = Number(val);
-        }
-        current[key] = val;
-      }
-    });
-  
-    return result;
-  }
+    }
+
+    current[key] = val;
+  });
+
+  return result;
+}
   
   async function saveConfig() {
     console.log("🚨 saveConfig() called");
@@ -329,8 +369,9 @@ function buildForm(data, parent, prefix = '') {
       enabled: true,
       buy_percentage: -3,
       sell_percentage: 3,
-      volatility_window: 10,
-      trend_window: 26,
+      rebuy_discount: 1.5,
+      volatility_window: 20,
+      trend_window: 200,
       macd_short_window: 12,
       macd_long_window: 26,
       macd_signal_window: 9,
