@@ -141,7 +141,7 @@ function buildForm(data, parent, prefix = '') {
 
           if (isSensitive) {
             sensitiveValueMap[id] = value;
-            input.value = '••••••••••••••••••••';
+            input.setAttribute('data-secret', value);  // 🔥 store the real key directly in DOM
             input.readOnly = true;
 
             const toggleBtn = document.createElement('button');
@@ -286,9 +286,8 @@ function collectFormDataFromDOM() {
 
     if (input.type === 'checkbox') {
       val = input.checked;
-    } else if (sensitiveValueMap[input.id] !== undefined) {
-      // 🔒 Always prefer original value if marked sensitive
-      val = input.value.startsWith('••') ? sensitiveValueMap[input.id] : input.value;
+    } else if (input.getAttribute('data-secret')) {
+      val = input.value.startsWith('••') ? input.getAttribute('data-secret') : input.value;
     } else {
       val = input.value;
     }
