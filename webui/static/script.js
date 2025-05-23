@@ -133,70 +133,46 @@ function buildForm(data, parent, prefix = '') {
         const isSensitive = sensitiveFields.some(field => lowerKey.includes(field));
         
         if (typeof value === 'string' && value.includes('\n')) {
-          // 🔒 Multiline sensitive field
           input = document.createElement('textarea');
           input.className = 'form-control';
           input.rows = value.split('\n').length || 4;
-          input.value = isSensitive ? '••••••••••••••••••••' : value;
           input.id = id;
-          input.readOnly = isSensitive;
-        
-          group.appendChild(label);
-          group.appendChild(input);
-        
+
+          const realValue = value;
+
           if (isSensitive) {
+            input.value = '••••••••••••••••••••';
+            input.readOnly = true;
+
             const toggleBtn = document.createElement('button');
             toggleBtn.type = 'button';
             toggleBtn.className = 'btn btn-sm btn-outline-light mt-1';
             toggleBtn.innerText = '👁 Show';
+
+            let revealed = false;
             toggleBtn.onclick = () => {
-              if (input.value.startsWith('••')) {
-                input.value = value;
+              if (!revealed) {
+                input.value = realValue;
+                input.readOnly = false;
                 toggleBtn.innerText = '🙈 Hide';
+                revealed = true;
               } else {
                 input.value = '••••••••••••••••••••';
+                input.readOnly = true;
                 toggleBtn.innerText = '👁 Show';
+                revealed = false;
               }
             };
-            group.appendChild(toggleBtn);
-          }
-        
-        } else {
-          input = document.createElement('input');
-          input.className = 'form-control';
-          input.value = value;
-          input.id = id;
-        
-          if (isSensitive) {
-            input.type = 'password';
-        
-            const toggleBtn = document.createElement('button');
-            toggleBtn.type = 'button';
-            toggleBtn.className = 'btn btn-sm btn-outline-light ms-2';
-            toggleBtn.innerText = '👁 Show';
-            toggleBtn.onclick = () => {
-              input.type = input.type === 'password' ? 'text' : 'password';
-              toggleBtn.innerText = input.type === 'password' ? '👁 Show' : '🙈 Hide';
-            };
-        
-            const inputGroup = document.createElement('div');
-            inputGroup.className = 'input-group';
-        
-            const wrapper = document.createElement('div');
-            wrapper.className = 'form-control-wrapper flex-grow-1';
-            wrapper.appendChild(input);
-        
-            inputGroup.appendChild(wrapper);
-            inputGroup.appendChild(toggleBtn);
-        
+
             group.appendChild(label);
-            group.appendChild(inputGroup);
+            group.appendChild(input);
+            group.appendChild(toggleBtn);
           } else {
+            input.value = value;
             group.appendChild(label);
             group.appendChild(input);
           }
         }
-        
       }
   
       parent.appendChild(group);
