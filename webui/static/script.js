@@ -3,7 +3,7 @@ let coinTabNavRef = null;
 let coinTabContentRef = null;
 const sensitiveValueMap = {};  // key: DOM id => real value
 
-const sensitiveFields = ['privateKey', 'bot_token', 'chat_id', 'password', 'api_key', 'secret'];
+const sensitiveFields = ['privatekey', 'bot_token', 'chat_id', 'password', 'api_key', 'secret'];
 
 window.onload = async () => {
     const res = await fetch('/api/config');
@@ -132,16 +132,15 @@ function buildForm(data, parent, prefix = '') {
       } else {
         const lowerKey = key.toLowerCase();
         const isSensitive = sensitiveFields.some(field => lowerKey.includes(field));
-        
+
         if (typeof value === 'string' && value.includes('\n')) {
           input = document.createElement('textarea');
           input.className = 'form-control';
           input.rows = value.split('\n').length || 4;
           input.id = id;
 
-          sensitiveValueMap[id] = value;
-
           if (isSensitive) {
+            sensitiveValueMap[id] = value;
             input.value = '••••••••••••••••••••';
             input.readOnly = true;
 
@@ -170,6 +169,42 @@ function buildForm(data, parent, prefix = '') {
             group.appendChild(toggleBtn);
           } else {
             input.value = value;
+            group.appendChild(label);
+            group.appendChild(input);
+          }
+        }
+        else {
+          input = document.createElement('input');
+          input.className = 'form-control';
+          input.value = value;
+          input.id = id;
+
+          if (isSensitive) {
+            sensitiveValueMap[id] = value;
+            input.type = 'password';
+
+            const toggleBtn = document.createElement('button');
+            toggleBtn.type = 'button';
+            toggleBtn.className = 'btn btn-sm btn-outline-light ms-2';
+            toggleBtn.innerText = '👁 Show';
+            toggleBtn.onclick = () => {
+              input.type = input.type === 'password' ? 'text' : 'password';
+              toggleBtn.innerText = input.type === 'password' ? '👁 Show' : '🙈 Hide';
+            };
+
+            const inputGroup = document.createElement('div');
+            inputGroup.className = 'input-group';
+
+            const wrapper = document.createElement('div');
+            wrapper.className = 'form-control-wrapper flex-grow-1';
+            wrapper.appendChild(input);
+
+            inputGroup.appendChild(wrapper);
+            inputGroup.appendChild(toggleBtn);
+
+            group.appendChild(label);
+            group.appendChild(inputGroup);
+          } else {
             group.appendChild(label);
             group.appendChild(input);
           }
