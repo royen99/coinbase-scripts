@@ -141,6 +141,27 @@ async def trading_bot():
     while True:
         best_bid, best_ask = await get_order_book()
         balances = await get_balances()
+
+        # 💸 Calculate candidate prices based on offsets
+        buy_price = round(best_ask * (1 + (buy_offset_percent / 100)), 4)
+        sell_price = round(best_bid * (1 + (sell_offset_percent / 100)), 4)
+
+        print(f"🔍 Buy Target: {buy_price} (offset {buy_offset_percent}%)")
+        print(f"🔍 Sell Target: {sell_price} (offset {sell_offset_percent}%)")
+
+        # Add preview logic
+        if balances[quote_currency] > 0.5 and best_ask > 0:
+            amount = round((trade_percentage / 100) * balances[quote_currency] / buy_price, 2)
+            print(f"✅ Would BUY ~{amount} EUR at {buy_price} (USDC: {balances[quote_currency]:.2f})")
+        else:
+            print("⛔ Not enough USDC to buy.")
+
+        if balances[base_currency] > 1 and best_bid > 0:
+            amount = round((trade_percentage / 100) * balances[base_currency], 2)
+            print(f"✅ Would SELL ~{amount} EUR at {sell_price} (EUR: {balances[base_currency]:.2f})")
+        else:
+            print("⛔ Not enough EUR to sell.")
+
         now = datetime.utcnow()
 
         for order_id in list(open_orders.keys()):
