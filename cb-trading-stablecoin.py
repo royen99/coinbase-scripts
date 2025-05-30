@@ -208,7 +208,7 @@ async def trading_bot():
 
     if not initial_price:
         _, initial_ask = await get_order_book()
-        initial_price = initial_ask
+        initial_price = float(initial_ask)
         save_initial_price(symbol, initial_price)
         print(f"📌 Saved new initial price: {initial_price}")
     else:
