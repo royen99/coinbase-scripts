@@ -4,6 +4,7 @@ import jwt
 import secrets
 import json
 import time
+import psycopg2
 from datetime import datetime, timedelta
 from cryptography.hazmat.primitives import serialization
 
@@ -24,6 +25,23 @@ cancel_hours = config.get("cancel_hours", 3)
 request_host = "api.coinbase.com"
 open_orders = {}
 
+# Database connection parameters
+DB_HOST = config["database"]["host"]
+DB_PORT = config["database"]["port"]
+DB_NAME = config["database"]["name"]
+DB_USER = config["database"]["user"]
+DB_PASSWORD = config["database"]["password"]
+
+def get_db_connection():
+    """Connect to the PostgreSQL database."""
+    conn = psycopg2.connect(
+        host=DB_HOST,
+        port=DB_PORT,
+        database=DB_NAME,
+        user=DB_USER,
+        password=DB_PASSWORD
+    )
+    return conn
 
 def build_jwt(uri):
     """Generate a JWT token for Coinbase API authentication."""
@@ -95,6 +113,21 @@ async def get_balances():
     print(f"💰 USDC: {balances[base_currency]:.2f}, EUR: {balances[quote_currency]:.2f}")
     return balances
 
+def save_price_history(symbol, price):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+        INSERT INTO price_history (symbol, price)
+        VALUES (%s, %s)
+        """, (symbol, price))
+        conn.commit()
+    except Exception as e:
+        print(f"💾 Error saving price: {e}")
+    finally:
+        cursor.close()
+        conn.close()
+
 async def place_limit_order(side, size, price):
     path = "/api/v3/brokerage/orders"
     order_data = {
@@ -146,9 +179,11 @@ async def trading_bot():
         best_bid, best_ask = await get_order_book()
         balances = await get_balances()
 
+        save_price_history("USDC-EUR", best_bid)
+
         # 💸 Calculate candidate prices based on offsets
-        buy_price = initial_ask * (1 + (buy_offset_percent / 100))
-        sell_price = initial_bid * (1 + (sell_offset_percent / 100))
+        buy_price = round(initial_ask * (1 + (buy_offset_percent / 100)), 4)
+        sell_price = round(initial_bid * (1 + (sell_offset_percent / 100)), 4)
 
         print(f"🔍 Buy Target: {buy_price} (offset {buy_offset_percent}%)")
         print(f"🔍 Sell Target: {sell_price} (offset {sell_offset_percent}%)")
