@@ -24,6 +24,7 @@ cancel_hours = config.get("cancel_hours", 3)
 request_host = "api.coinbase.com"
 open_orders = {}
 
+
 def build_jwt(uri):
     """Generate a JWT token for Coinbase API authentication."""
     private_key_bytes = key_secret.encode("utf-8")
@@ -138,13 +139,16 @@ async def cancel_order(order_id):
 
 async def trading_bot():
     print(f"🤖 Starting USDC↔EUR limit trading on {product_id}")
+    initial_bid, initial_ask = await get_order_book()
+    print(f"📌 Anchored Initial Bid/Ask: {initial_bid}, {initial_ask}")
+
     while True:
         best_bid, best_ask = await get_order_book()
         balances = await get_balances()
 
         # 💸 Calculate candidate prices based on offsets
-        buy_price = round(best_ask * (1 + (buy_offset_percent / 100)), 4)
-        sell_price = round(best_bid * (1 + (sell_offset_percent / 100)), 4)
+        buy_price = initial_ask * (1 + (buy_offset_percent / 100))
+        sell_price = initial_bid * (1 + (sell_offset_percent / 100))
 
         print(f"🔍 Buy Target: {buy_price} (offset {buy_offset_percent}%)")
         print(f"🔍 Sell Target: {sell_price} (offset {sell_offset_percent}%)")
