@@ -638,6 +638,7 @@ async def trading_bot():
             coin_settings = coins_config[symbol]
             buy_threshold = coin_settings["buy_percentage"]
             sell_threshold = coin_settings["sell_percentage"]
+            rebuy_discount = coin_settings["rebuy_discount"]
             volatility_window = coin_settings["volatility_window"]
             trend_window = coin_settings["trend_window"]
             macd_short_window = coin_settings["macd_short_window"]
@@ -646,7 +647,7 @@ async def trading_bot():
             rsi_period = coin_settings["rsi_period"]
             trail_percent = coin_settings.get("trail_percent", 0.5)  # Default to 0.5% if not specified
 
-            if balances[symbol] > 0 and current_price > crypto_data[symbol].get("peak_price", 0):
+            if balances.get(symbol, 0.0) > 0 and current_price > crypto_data[symbol].get("peak_price", 0):
                 crypto_data[symbol]["peak_price"] = current_price
 
             peak_price = crypto_data[symbol].get("peak_price")
@@ -812,7 +813,7 @@ async def trading_bot():
                     )
                     and price_change <= dynamic_buy_threshold  # Price threshold
                     # and (macd_buy_signal and macd_confirmation[symbol]["buy"] >= 3)  # MACD filter
-                    and (actual_buy_price is None or current_price < actual_buy_price * 0.98) # If price is 2% cheaper then what we have bought already.
+                    and (actual_buy_price is None or current_price < actual_buy_price * (1 - rebuy_discount / 100)) # If price is X% cheaper then what we have bought already.
                     and current_price < long_term_ma  # Trend filter
                     and time_since_last_buy > 120  # Wait 2 minutes before buying again.
                     and crypto_data[symbol].get("rising_streak", 0) > 1  # ✅ Ensure we’re not in a falling streak
