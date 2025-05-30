@@ -25,8 +25,10 @@ request_host = "api.coinbase.com"
 open_orders = {}
 
 def build_jwt(uri):
+    """Generate a JWT token for Coinbase API authentication."""
     private_key_bytes = key_secret.encode("utf-8")
     private_key = serialization.load_pem_private_key(private_key_bytes, password=None)
+
     jwt_payload = {
         "sub": key_name,
         "iss": "cdp",
@@ -34,22 +36,27 @@ def build_jwt(uri):
         "exp": int(time.time()) + 120,
         "uri": uri,
     }
+
     jwt_token = jwt.encode(
         jwt_payload,
         private_key,
         algorithm="ES256",
         headers={"kid": key_name, "nonce": secrets.token_hex()},
     )
+
     return jwt_token if isinstance(jwt_token, str) else jwt_token.decode("utf-8")
 
 async def api_request(method, path, body=None):
+    """Send authenticated requests to Coinbase API asynchronously."""
     uri = f"{method} {request_host}{path}"
     jwt_token = build_jwt(uri)
+
     headers = {
         "Authorization": f"Bearer {jwt_token}",
         "Content-Type": "application/json",
         "CB-VERSION": "2024-02-05"
     }
+
     url = f"https://{request_host}{path}"
     async with aiohttp.ClientSession() as session:
         async with session.request(method, url, headers=headers, json=body) as response:
