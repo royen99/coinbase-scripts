@@ -69,8 +69,6 @@ async def get_order_book():
     path = "/api/v3/brokerage/best_bid_ask"
     data = await api_request("GET", path)
 
-    print("📦 Full best_bid_ask dump:", json.dumps(data, indent=2))  # Debug
-
     try:
         for book in data.get("pricebooks", []):
             if book.get("product_id") == product_id:
