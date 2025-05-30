@@ -150,17 +150,17 @@ async def trading_bot():
         print(f"🔍 Sell Target: {sell_price} (offset {sell_offset_percent}%)")
 
         # Add preview logic
-        if balances[quote_currency] > 0.5 and best_ask > 0:
+        if balances[quote_currency] > 5:
             amount = round((trade_percentage / 100) * balances[quote_currency] / buy_price, 2)
-            print(f"✅ Would BUY ~{amount} EUR at {buy_price} (USDC: {balances[quote_currency]:.2f})")
+            print(f"✅ Would BUY ~{amount} USDC at {buy_price} (EUR: {balances[quote_currency]:.2f})")
         else:
-            print("⛔ Not enough USDC to buy.")
+            print("⛔ Not enough EUR to buy.")
 
-        if balances[base_currency] > 1 and best_bid > 0:
+        if balances[base_currency] > 5:
             amount = round((trade_percentage / 100) * balances[base_currency], 2)
-            print(f"✅ Would SELL ~{amount} EUR at {sell_price} (EUR: {balances[base_currency]:.2f})")
+            print(f"✅ Would SELL ~{amount} USDC at {sell_price} (USDC: {balances[base_currency]:.2f})")
         else:
-            print("⛔ Not enough EUR to sell.")
+            print("⛔ Not enough USDC to sell.")
 
         now = datetime.utcnow()
 
@@ -173,15 +173,15 @@ async def trading_bot():
                 print(f"✔️ Order Filled: {order_id}")
                 del open_orders[order_id]
 
-        if balances[quote_currency] > 5 and best_ask > 0:
-            buy_price = best_ask * (1 + (buy_offset_percent / 100))
-            amount = (trade_percentage / 100) * balances[quote_currency] / buy_price
-            await place_limit_order("BUY", round(amount, 2), buy_price)
+            # BUY = spend EUR to get USDC
+            if balances[quote_currency] > 5 and best_ask > 0:
+                amount = (trade_percentage / 100) * balances[quote_currency] / buy_price
+                await place_limit_order("BUY", round(amount, 2), buy_price)
 
-        if balances[base_currency] > 5 and best_bid > 0:
-            sell_price = best_bid * (1 + (sell_offset_percent / 100))
-            amount = (trade_percentage / 100) * balances[base_currency]
-            await place_limit_order("SELL", round(amount, 2), sell_price)
+            # SELL = sell USDC to get EUR
+            if balances[base_currency] > 5 and best_bid > 0:
+                amount = (trade_percentage / 100) * balances[base_currency]
+                await place_limit_order("SELL", round(amount, 2), sell_price)
 
         await asyncio.sleep(60)
 
