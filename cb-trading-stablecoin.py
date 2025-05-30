@@ -212,6 +212,7 @@ async def trading_bot():
         save_initial_price(symbol, initial_price)
         print(f"📌 Saved new initial price: {initial_price}")
     else:
+        initial_price = float(initial_price)
         print(f"📌 Loaded initial price from DB: {initial_price}")
 
     while True:
