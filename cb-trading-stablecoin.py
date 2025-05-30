@@ -66,18 +66,24 @@ async def api_request(method, path, body=None):
                 return {"error": await response.text()}
 
 async def get_order_book():
-    path = f"/api/v3/brokerage/products/{product_id}"
+    path = "/api/v3/brokerage/best_bid_ask"
     data = await api_request("GET", path)
 
-    print("📦 Fallback mid-price response:", json.dumps(data, indent=2))  # Debug output
+    print("📦 Full best_bid_ask dump:", json.dumps(data, indent=2))  # Debug
 
     try:
-        mid_price = float(data["price"])
-        print(f"📈 Mid Market Price: {mid_price}")
-        return mid_price, mid_price
-    except Exception as e:
-        print(f"🚨 Failed to fetch mid price: {e} — Data: {data}")
+        for book in data.get("pricebooks", []):
+            if book.get("product_id") == product_id:
+                best_bid = float(book["bids"][0]["price"]) if book.get("bids") else 0.0
+                best_ask = float(book["asks"][0]["price"]) if book.get("asks") else 0.0
+                print(f"📊 Best Bid: {best_bid}, Best Ask: {best_ask}")
+                return best_bid, best_ask
+        print("🚫 USDC-EUR not found in best_bid_ask response.")
         return 0.0, 0.0
+    except Exception as e:
+        print(f"🚨 Parsing error: {e} — Raw: {data}")
+        return 0.0, 0.0
+
 
 async def get_balances():
     path = "/api/v3/brokerage/accounts"
