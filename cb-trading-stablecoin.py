@@ -66,9 +66,10 @@ async def api_request(method, path, body=None):
                 return {"error": await response.text()}
 
 async def get_order_book():
-    path = f"/api/v3/brokerage/best_bid_ask?product_ids=USDC-EUR"
+    path = f"/api/v3/brokerage/best_bid_ask?product_ids={product_id}"
     data = await api_request("GET", path)
 
+    print("📦 Raw best_bid_ask response:", json.dumps(data, indent=2))
     try:
         book = data.get("pricebooks", [])[0]
         best_bid = float(book["bids"][0]["price"]) if book.get("bids") else 0.0
