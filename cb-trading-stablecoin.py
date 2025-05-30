@@ -113,6 +113,37 @@ async def get_balances():
     print(f"💰 USDC: {balances[base_currency]:.2f}, EUR: {balances[quote_currency]:.2f}")
     return balances
 
+def save_initial_price(symbol, price):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            INSERT INTO trading_state (symbol, initial_price, total_trades, total_profit)
+            VALUES (%s, %s, 0, 0)
+            ON CONFLICT (symbol) DO UPDATE
+            SET initial_price = EXCLUDED.initial_price
+        """, (symbol, price))
+        conn.commit()
+    except Exception as e:
+        print(f"❌ Error saving initial price: {e}")
+    finally:
+        cursor.close()
+        conn.close()
+
+def load_initial_price(symbol):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT initial_price FROM trading_state WHERE symbol = %s", (symbol,))
+        row = cursor.fetchone()
+        return row[0] if row else None
+    except Exception as e:
+        print(f"❌ Error loading initial price: {e}")
+        return None
+    finally:
+        cursor.close()
+        conn.close()
+
 def save_price_history(symbol, price):
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -172,8 +203,16 @@ async def cancel_order(order_id):
 
 async def trading_bot():
     print(f"🤖 Starting USDC↔EUR limit trading on {product_id}")
-    initial_bid, initial_ask = await get_order_book()
-    print(f"📌 Anchored Initial Bid/Ask: {initial_bid}, {initial_ask}")
+    symbol = product_id
+    initial_price = load_initial_price(symbol)
+
+    if not initial_price:
+        _, initial_ask = await get_order_book()
+        initial_price = initial_ask
+        save_initial_price(symbol, initial_price)
+        print(f"📌 Saved new initial price: {initial_price}")
+    else:
+        print(f"📌 Loaded initial price from DB: {initial_price}")
 
     while True:
         best_bid, best_ask = await get_order_book()
@@ -182,8 +221,8 @@ async def trading_bot():
         save_price_history("USDC-EUR", best_bid)
 
         # 💸 Calculate candidate prices based on offsets
-        buy_price = round(initial_ask * (1 + (buy_offset_percent / 100)), 4)
-        sell_price = round(initial_bid * (1 + (sell_offset_percent / 100)), 4)
+        buy_price = round(initial_price * (1 + (buy_offset_percent / 100)), 4)
+        sell_price = round(initial_price * (1 + (sell_offset_percent / 100)), 4)
 
         print(f"🔍 Buy Target: {buy_price} (offset {buy_offset_percent}%)")
         print(f"🔍 Sell Target: {sell_price} (offset {sell_offset_percent}%)")
