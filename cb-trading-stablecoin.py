@@ -66,7 +66,7 @@ async def api_request(method, path, body=None):
                 return {"error": await response.text()}
 
 async def get_order_book():
-    path = f"/api/v3/brokerage/best_bid_ask?product_ids={product_id}"
+    path = f"/api/v3/brokerage/best_bid_ask?product_ids=USDC-EUR"
     data = await api_request("GET", path)
 
     try:
