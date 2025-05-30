@@ -49,13 +49,16 @@ def api_request(method, path, body=None):
 def get_order_book():
     path = f"/api/v3/brokerage/products/{product_id}/book?level=2"
     data = api_request("GET", path)
+
+    print("📦 Raw order book response:", json.dumps(data, indent=2))  # 🔍 DEBUG
+
     try:
         best_bid = float(data["bids"][0]["price"]) if data.get("bids") else 0.0
         best_ask = float(data["asks"][0]["price"]) if data.get("asks") else 0.0
         print(f"📊 Best Bid: {best_bid}, Best Ask: {best_ask}")
         return best_bid, best_ask
     except Exception as e:
-        print(f"🚨 Error reading order book: {e}")
+        print(f"🚨 Error parsing order book: {e}")
         return 0.0, 0.0
 
 def get_balances():
