@@ -66,16 +66,17 @@ async def api_request(method, path, body=None):
                 return {"error": await response.text()}
 
 async def get_order_book():
-    path = f"/api/v3/brokerage/products/{product_id}/book?level=2"
+    path = f"/api/v3/brokerage/best_bid_ask?product_ids={product_id}"
     data = await api_request("GET", path)
-    print("📦 Raw order book response:", json.dumps(data, indent=2))  # DEBUG
+
     try:
-        best_bid = float(data["bids"][0]["price"]) if data.get("bids") else 0.0
-        best_ask = float(data["asks"][0]["price"]) if data.get("asks") else 0.0
+        book = data.get("pricebooks", [])[0]
+        best_bid = float(book["bids"][0]["price"]) if book.get("bids") else 0.0
+        best_ask = float(book["asks"][0]["price"]) if book.get("asks") else 0.0
         print(f"📊 Best Bid: {best_bid}, Best Ask: {best_ask}")
         return best_bid, best_ask
     except Exception as e:
-        print(f"🚨 Error reading order book: {e}")
+        print(f"🚨 Error reading bid/ask: {e} — Data: {data}")
         return 0.0, 0.0
 
 async def get_balances():
