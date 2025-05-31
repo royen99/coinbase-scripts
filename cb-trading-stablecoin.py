@@ -187,6 +187,37 @@ async def check_order_status(order_id):
     data = await api_request("GET", path)
     return data.get("order", {}).get("order_status") == "FILLED"
 
+def get_price_signal(symbol):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            SELECT 
+              AVG(price), 
+              STDDEV(price), 
+              MIN(price), 
+              MAX(price)
+            FROM price_history
+            WHERE symbol = %s AND timestamp > NOW() - INTERVAL '24 hours'
+        """, (symbol,))
+        row = cursor.fetchone()
+        if not row or not row[0]:
+            return None
+
+        avg_price, std_dev, min_price, max_price = map(float, row)
+        return {
+            "avg": avg_price,
+            "std_dev": std_dev,
+            "min": min_price,
+            "max": max_price
+        }
+    except Exception as e:
+        print(f"❌ Error fetching price stats: {e}")
+        return None
+    finally:
+        cursor.close()
+        conn.close()
+
 async def cancel_order(order_id):
     path = f"/api/v3/brokerage/orders/{order_id}"
     uri = f"DELETE {request_host}{path}"
@@ -220,6 +251,21 @@ async def trading_bot():
         balances = await get_balances()
 
         save_price_history("USDC-EUR", best_bid)
+
+        stats = get_price_signal("USDC-EUR")
+        if stats:
+            print(f"📊 24h Avg: {stats['avg']:.5f} ± {stats['std_dev']:.5f} | Range: {stats['min']} → {stats['max']}")
+
+            # Mid-price signal
+            current_price = (best_bid + best_ask) / 2
+            deviation = current_price - stats["avg"]
+
+            if deviation < -1.5 * stats["std_dev"]:
+                print(f"🔽 Signal: Undervalued ({deviation:+.6f}) — 🟢 BUY bias")
+            elif deviation > 1.5 * stats["std_dev"]:
+                print(f"🔼 Signal: Overvalued ({deviation:+.6f}) — 🔴 SELL bias")
+            else:
+                print(f"➖ Signal: Normal range ({deviation:+.6f}) — 🟡 Hold")
 
         # 💸 Calculate candidate prices based on offsets
         buy_price = round(initial_price * (1 + (buy_offset_percent / 100)), 4)
