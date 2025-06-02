@@ -302,14 +302,16 @@ async def trading_bot():
 
         # 🔥 Always evaluate buy/sell regardless of open_orders state
         if balances[quote_currency] > 5 and best_ask <= buy_price:
-            amount = (trade_percentage / 100) * balances[quote_currency] / buy_price
-            actual_buy_price = min(buy_price, best_ask)
-            await place_limit_order("BUY", round(amount, 2), actual_buy_price)
+            # 💋 Ensure we don't trigger post-only rejection
+            adjusted_buy_price = round(min(buy_price, best_ask - 0.0001), 4)
+            amount = (trade_percentage / 100) * balances[quote_currency] / adjusted_buy_price
+            await place_limit_order("BUY", round(amount, 2), adjusted_buy_price)
 
         if balances[base_currency] > 5 and best_bid >= sell_price:
+            # 💋 Ensure we don't trigger post-only rejection
+            adjusted_sell_price = round(max(sell_price, best_bid + 0.0001), 4)
             amount = (trade_percentage / 100) * balances[base_currency]
-            actual_sell_price = max(sell_price, best_bid)
-            await place_limit_order("SELL", round(amount, 2), actual_sell_price)
+            await place_limit_order("SELL", round(amount, 2), adjusted_sell_price)
 
         await asyncio.sleep(60)
 
