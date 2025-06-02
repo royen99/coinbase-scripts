@@ -301,12 +301,14 @@ async def trading_bot():
             # BUY = spend EUR to get USDC
             if balances[quote_currency] > 5 and best_ask > 0:
                 amount = (trade_percentage / 100) * balances[quote_currency] / buy_price
-                await place_limit_order("BUY", round(amount, 2), buy_price)
+                actual_buy_price = min(buy_price, best_ask)
+                await place_limit_order("BUY", round(amount, 2), actual_buy_price)
 
             # SELL = sell USDC to get EUR
             if balances[base_currency] > 5 and best_bid > 0:
                 amount = (trade_percentage / 100) * balances[base_currency]
-                await place_limit_order("SELL", round(amount, 2), sell_price)
+                actual_sell_price = max(sell_price, best_bid)
+                await place_limit_order("SELL", round(amount, 2), actual_sell_price)
 
         await asyncio.sleep(60)
 
