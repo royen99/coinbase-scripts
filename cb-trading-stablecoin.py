@@ -180,7 +180,9 @@ async def place_limit_order(side, size, price):
         open_orders[order_id] = datetime.utcnow()
         print(f"✅ Order Placed: {order_id}")
     else:
-        print(f"❌ Order Failed: {res.get('error_response', {}).get('message', res.get('error', 'Unknown'))}")
+        error = res.get("error_response", {}).get("message") or res.get("error") or "Unknown error"
+        print(f"❌ Order Failed: {error}")
+        print(f"⚠️ Full Error Response: {json.dumps(res, indent=2)}")
 
 async def check_order_status(order_id):
     path = f"/api/v3/brokerage/orders/historical/{order_id}"
