@@ -302,9 +302,9 @@ async def trading_bot():
 
         # 🔥 Always evaluate buy/sell regardless of open_orders state
         if balances[quote_currency] > 5 and best_ask <= buy_price:
-            # 💋 Ensure we don't trigger post-only rejection
             adjusted_buy_price = round(min(buy_price, best_ask - 0.0001), 4)
-            amount = (trade_percentage / 100) * balances[quote_currency] / adjusted_buy_price
+            safe_balance = balances[quote_currency] * 0.995  # 🔒 0.5% buffer to avoid INSUFFICIENT_FUND
+            amount = (trade_percentage / 100) * safe_balance / adjusted_buy_price
             await place_limit_order("BUY", round(amount, 2), adjusted_buy_price)
 
         if balances[base_currency] > 5 and best_bid >= sell_price:
