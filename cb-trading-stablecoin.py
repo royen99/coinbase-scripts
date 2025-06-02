@@ -299,12 +299,12 @@ async def trading_bot():
                 del open_orders[order_id]
 
         # 🔥 Always evaluate buy/sell regardless of open_orders state
-        if balances[quote_currency] > 5 and best_ask > 0:
+        if balances[quote_currency] > 5 and best_ask <= buy_price:
             amount = (trade_percentage / 100) * balances[quote_currency] / buy_price
             actual_buy_price = min(buy_price, best_ask)
             await place_limit_order("BUY", round(amount, 2), actual_buy_price)
 
-        if balances[base_currency] > 5 and best_bid > 0:
+        if balances[base_currency] > 5 and best_bid >= sell_price:
             amount = (trade_percentage / 100) * balances[base_currency]
             actual_sell_price = max(sell_price, best_bid)
             await place_limit_order("SELL", round(amount, 2), actual_sell_price)
