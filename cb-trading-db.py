@@ -733,7 +733,8 @@ async def trading_bot():
             print(f"🔔  - Bollinger Bands for {symbol}: Mid: ${bollinger_mid:.{price_precision}f}, Upper: ${bollinger_upper:.{price_precision}f}, Lower: ${bollinger_lower:.{price_precision}f}")
 
             # Check if the price is close to the moving average
-            if moving_avg and abs(current_price - moving_avg) < (0.05 * moving_avg):  # Only trade if price is within 5% of the moving average
+            if moving_avg and abs(current_price - moving_avg) < (0.05 * moving_avg) and crypto_data[symbol].get("manual_cmd") is None:
+
                 # MACD Buy Signal: MACD line crosses above Signal line
                 macd_buy_signal = macd_line is not None and signal_line is not None and macd_line > signal_line
                 
@@ -910,7 +911,8 @@ async def trading_bot():
                             # 🔥 Save Weighted Avg Buy Price After Sell
                             save_weighted_avg_buy_price(symbol, None)  # Reset buy price after sell
 
-                            message = f"🚀 *SOLD {sell_amount:.4f} {symbol}* at *${current_price:.{price_precision}f}* USDC"
+                            # Send Telegram notification incl. total profit from this trade
+                            message = f"🚀 *SOLD {sell_amount:.4f} {symbol}* at *${current_price:.{price_precision}f}* USDC, *Total Profit: {crypto_data[symbol]['total_profit']:.2f}* USDC"
                             send_telegram_notification(message)
                             crypto_data[symbol]["manual_cmd"] = None
 
