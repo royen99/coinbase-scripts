@@ -900,6 +900,7 @@ async def trading_bot():
 
                             if actual_buy_price:
                                 crypto_data[symbol]["total_profit"] += (current_price - actual_buy_price) * sell_amount
+                                sell_profit = (current_price - actual_buy_price) * sell_amount
                                 print(f"💰  - {symbol} Profit Calculated: (Sell: {current_price:.{price_precision}f} - Buy: {actual_buy_price:.{price_precision}f}) * {sell_amount:.4f} = {crypto_data[symbol]['total_profit']:.2f} USDC")
                             else:
                                 print(f"⚠️  - No buy data found for {symbol}. Profit calculation skipped.")
@@ -912,7 +913,7 @@ async def trading_bot():
                             save_weighted_avg_buy_price(symbol, None)  # Reset buy price after sell
 
                             # Send Telegram notification incl. total profit from this trade
-                            message = f"🚀 *SOLD {sell_amount:.4f} {symbol}* at *${current_price:.{price_precision}f}* USDC, *Total Profit: {crypto_data[symbol]['total_profit']:.2f}* USDC"
+                            message = f"🚀 *SOLD {sell_amount:.4f} {symbol}* at *${current_price:.{price_precision}f}* USDC, *Total Profit: {sell_profit:.2f}* USDC"
                             send_telegram_notification(message)
                             crypto_data[symbol]["manual_cmd"] = None
 
