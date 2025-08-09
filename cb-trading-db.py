@@ -576,7 +576,7 @@ async def trading_bot():
             print(f"🔍 Monitoring {symbol}... Initial Price: ${initial_price}, Price History: {crypto_data[symbol]['price_history']}")
 
     while True:
-        await asyncio.sleep(30)  # Wait before checking prices again
+        await asyncio.sleep(25)  # Wait before checking prices again
 
         # Fetch balances
         balances = await get_balances()
