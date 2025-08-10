@@ -726,11 +726,12 @@ async def trading_bot():
                 expected_buy_price = crypto_data[symbol]["initial_price"] * (1 + dynamic_buy_threshold / 100)
                 expected_sell_price = crypto_data[symbol]["initial_price"] * (1 + dynamic_sell_threshold / 100)
 
-            # Log expected prices
-            print(f"📊  - Expected Prices for {symbol}: Buy at: ${expected_buy_price:.{price_precision}f} ({dynamic_buy_threshold:.2f}%) / Sell at: ${expected_sell_price:.{price_precision}f} ({dynamic_sell_threshold:.2f}%) | MA: {moving_avg:.{price_precision}f}")
+            if DEBUG_MODE:
+                # Log expected prices
+                print(f"📊  - Expected Prices for {symbol}: Buy at: ${expected_buy_price:.{price_precision}f} ({dynamic_buy_threshold:.2f}%) / Sell at: ${expected_sell_price:.{price_precision}f} ({dynamic_sell_threshold:.2f}%) | MA: {moving_avg:.{price_precision}f}")
 
-            # Log Bollinger Bands
-            print(f"🔔  - Bollinger Bands for {symbol}: Mid: ${bollinger_mid:.{price_precision}f}, Upper: ${bollinger_upper:.{price_precision}f}, Lower: ${bollinger_lower:.{price_precision}f}")
+                # Log Bollinger Bands
+                print(f"🔔  - Bollinger Bands for {symbol}: Mid: ${bollinger_mid:.{price_precision}f}, Upper: ${bollinger_upper:.{price_precision}f}, Lower: ${bollinger_lower:.{price_precision}f}")
 
             # Check if the price is close to the moving average
             if (moving_avg and abs(current_price - moving_avg) < (0.05 * moving_avg)) or crypto_data[symbol].get("manual_cmd") is not None:
@@ -779,6 +780,10 @@ async def trading_bot():
                     print(f"📈  - {symbol} Adjusting Initial Price Upwards: {crypto_data[symbol]['initial_price']:.{price_precision}f} → {new_initial_price:.{price_precision}f}")
                     crypto_data[symbol]["initial_price"] = new_initial_price
 
+                    # Persist only the new initial price and leave other values unchanged
+                    save_state(symbol, new_initial_price, crypto_data[symbol]["total_trades"], crypto_data[symbol]["last_buy_time"])
+
+
                 # 🔽 Adjust Initial Price Downwards in a Sustained Downtrend (If Holdings < 1 USDC)
                 elif (
                     time_since_last_buy > 3600 and  # Time check
@@ -788,6 +793,9 @@ async def trading_bot():
                     new_initial_price = (0.9 * crypto_data[symbol]["initial_price"] + 0.1 * current_price)  # Move closer to the current price
                     print(f"📉   - {symbol} Adjusting Initial Price Downwards: {crypto_data[symbol]['initial_price']:.{price_precision}f} → {new_initial_price:.{price_precision}f}")
                     crypto_data[symbol]["initial_price"] = new_initial_price
+
+                    # Persist only the new initial price and leave other values unchanged
+                    save_state(symbol, new_initial_price, crypto_data[symbol]["total_trades"], crypto_data[symbol]["last_buy_time"])
 
                 if bollinger_buy_signal:
                     print(f"💘 {symbol}: Price is below Bollinger Lower Band (${bollinger_lower:.2f}) — buy signal!")
