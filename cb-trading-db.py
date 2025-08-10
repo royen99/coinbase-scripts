@@ -780,9 +780,8 @@ async def trading_bot():
                     print(f"📈  - {symbol} Adjusting Initial Price Upwards: {crypto_data[symbol]['initial_price']:.{price_precision}f} → {new_initial_price:.{price_precision}f}")
                     crypto_data[symbol]["initial_price"] = new_initial_price
 
-                    # Persist only the new initial price and leave other values unchanged
-                    save_state(symbol, new_initial_price, crypto_data[symbol]["total_trades"], crypto_data[symbol]["last_buy_time"])
-
+                    # Persist only the new initial price and leave other values unchanged, this has save_state(symbol, initial_price, total_trades, total_profit)
+                    save_state(symbol, new_initial_price, crypto_data[symbol]["total_trades"], crypto_data[symbol]["total_profit"])    
 
                 # 🔽 Adjust Initial Price Downwards in a Sustained Downtrend (If Holdings < 1 USDC)
                 elif (
@@ -795,7 +794,7 @@ async def trading_bot():
                     crypto_data[symbol]["initial_price"] = new_initial_price
 
                     # Persist only the new initial price and leave other values unchanged
-                    save_state(symbol, new_initial_price, crypto_data[symbol]["total_trades"], crypto_data[symbol]["last_buy_time"])
+                    save_state(symbol, new_initial_price, crypto_data[symbol]["total_trades"], crypto_data[symbol]["total_profit"])
 
                 if bollinger_buy_signal:
                     print(f"💘 {symbol}: Price is below Bollinger Lower Band (${bollinger_lower:.2f}) — buy signal!")
