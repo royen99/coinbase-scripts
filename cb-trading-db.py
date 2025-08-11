@@ -546,6 +546,21 @@ async def process_manual_commands():
     cursor.close()
     conn.close()
 
+def _fmt(v, nd=6):
+    try:
+        return f"{v:.{nd}f}"
+    except Exception:
+        return str(v)
+
+def debug_buy_blockers(symbol, reasons):
+    """reasons = list of dicts: {'name': str, 'ok': bool, 'detail': str}"""
+    blockers = [r for r in reasons if not r['ok']]
+    if not blockers:
+        return
+    print(f"🧰 BUY blocked for {symbol}. Unmet conditions:")
+    for r in blockers:
+        print(f"   - {r['name']}: {r['detail']}")
+
 # Initialize somee global variables
 crypto_data = {}
 actual_buy_price = {}
@@ -808,52 +823,104 @@ async def trading_bot():
                 price_slope = current_price - price_history[-3]
 
                 # Execute buy order if signals are confirmed
-                if (
-                    ((
-                        (
-                            (bollinger_lower is None or current_price < bollinger_lower)  # 💘 Bollinger confirms it’s dip time
-                        )
-                        or
-                        (
-                            (bollinger_mid is None or current_price < bollinger_mid)  # 💘 Wait with buying for Bollinger to drop
-                            and (k is None or d is None or (k < 0.2 and k > d))  # Oversold and bullish cross
-                        )
-                    )
-                    and price_change <= dynamic_buy_threshold  # Price threshold
-                    # and (macd_buy_signal and macd_confirmation[symbol]["buy"] >= 3)  # MACD filter
-                    and (actual_buy_price is None or current_price < actual_buy_price * (1 - rebuy_discount / 100)) # If price is X% cheaper then what we have bought already.
-                    and current_price < long_term_ma  # Trend filter
-                    and time_since_last_buy > 120  # Wait 2 minutes before buying again.
-                    and crypto_data[symbol].get("rising_streak", 0) > 1  # ✅ Ensure we’re not in a falling streak
-                    and balances[quote_currency] > 0  # Sufficient balance
-                    )
-                    or crypto_data[symbol].get("manual_cmd") == "BUY"  # Manual buy command
-                ):
-                    quote_cost = round((buy_percentage / 100) * balances[quote_currency], 2)  # Directly in USDC
 
-                    # Ensure we have enough balance and meet minimum order size
+                # ----------------- BUY decision (debuggable) -----------------
+                # Build named sub-conditions
+                cond_bollinger_primary = (bollinger_lower is None or current_price < bollinger_lower)
+
+                cond_stoch_part = (k is None or d is None or (k < 0.2 and k > d))
+                cond_bollinger_stoch = ((bollinger_mid is None or current_price < bollinger_mid) and cond_stoch_part)
+
+                cond_entry_band = (cond_bollinger_primary or cond_bollinger_stoch)
+
+                cond_price_thresh = (price_change <= dynamic_buy_threshold)
+
+                cond_rebuy_discount = (
+                    actual_buy_price is not None
+                    and current_price < actual_buy_price * (1 - rebuy_discount / 100.0)
+                )
+
+                cond_trend = (current_price < long_term_ma)
+                cond_cooldown = (time_since_last_buy > 120)
+                cond_streak = (crypto_data[symbol].get("rising_streak", 0) > 1)
+                cond_balance = (balances[quote_currency] > 0)
+                cond_manual = (crypto_data[symbol].get("manual_cmd") == "BUY")
+
+                # Full BUY condition (same structure as your original)
+                auto_buy_condition = (
+                    cond_entry_band
+                    and (cond_price_thresh or cond_rebuy_discount)
+                    and cond_trend
+                    and cond_cooldown
+                    and cond_streak
+                    and cond_balance
+                )
+                buy_condition = (auto_buy_condition or cond_manual)
+
+                # If buy not triggered, explain what's missing (when in DEBUG)
+                if DEBUG_MODE and not buy_condition and not cond_manual:
+                    reasons = [
+                        {
+                            "name": "Entry band",
+                            "ok": cond_entry_band,
+                            "detail": (
+                                f"need (price<{_fmt(bollinger_lower)} OR (price<{_fmt(bollinger_mid)} "
+                                f"AND StochK/D bullish<0.2)); price={_fmt(current_price)}; "
+                                f"K={_fmt(k) if k is not None else 'None'}, D={_fmt(d) if d is not None else 'None'}"
+                            )
+                        },
+                        {
+                            "name": "Price threshold OR Rebuy discount",
+                            "ok": (cond_price_thresh or cond_rebuy_discount),
+                            "detail": (
+                                f"price_change={price_change:.2f}% vs dyn_buy={dynamic_buy_threshold:.2f}%  |  "
+                                f"rebuy: actual_buy={_fmt(actual_buy_price)} -> target<{(1 - rebuy_discount/100):.3f}*buy"
+                            )
+                        },
+                        {
+                            "name": "Trend (below long-term MA)",
+                            "ok": cond_trend,
+                            "detail": f"current={_fmt(current_price)} < long_MA={_fmt(long_term_ma)}"
+                        },
+                        {
+                            "name": "Cooldown",
+                            "ok": cond_cooldown,
+                            "detail": f"since_last_buy={int(time_since_last_buy)}s > 120s"
+                        },
+                        {
+                            "name": "Rising streak > 1",
+                            "ok": cond_streak,
+                            "detail": f"rising_streak={crypto_data[symbol].get('rising_streak', 0)} > 1"
+                        },
+                        {
+                            "name": "USDC balance",
+                            "ok": cond_balance,
+                            "detail": f"{quote_currency}={_fmt(balances.get(quote_currency, 0), 2)} > 0"
+                        },
+                    ]
+                    debug_buy_blockers(symbol, reasons)
+
+                # Execute buy if condition met
+                if buy_condition:
+                    quote_cost = round((buy_percentage / 100) * balances[quote_currency], 2)  # USDC
                     if quote_cost < coins_config[symbol]["min_order_sizes"]["buy"]:
                         print(f"🚫  - Buy order too small: ${quote_cost:.2f} (minimum: ${coins_config[symbol]['min_order_sizes']['buy']})")
                         crypto_data[symbol]["manual_cmd"] = None
-                        continue
+                    else:
+                        buy_amount = quote_cost / current_price
+                        print(f"💰 Buying {buy_amount:.6f} {symbol} (${quote_cost:.2f} USDC)!")
+                        if await place_order(symbol, "BUY", buy_amount, current_price):
+                            crypto_data[symbol]["manual_cmd"] = None
+                            crypto_data[symbol]["total_trades"] += 1
+                            crypto_data[symbol]["last_buy_time"] = time.time()
 
-                    buy_amount = quote_cost / current_price  # Convert to coin amount
-                    print(f"💰 Buying {buy_amount:.6f} {symbol} (${quote_cost:.2f} USDC)!")
+                            updated_avg_price = get_weighted_avg_buy_price(symbol)
+                            save_weighted_avg_buy_price(symbol, updated_avg_price)
 
-                    if await place_order(symbol, "BUY", buy_amount, current_price):
-                        crypto_data[symbol]["manual_cmd"] = None
-                        crypto_data[symbol]["total_trades"] += 1
-                        crypto_data[symbol]["last_buy_time"] = time.time()  # ⏳ Track last buy time
-                        # coin_settings["buy_percentage"] *= 2  # Persist the change
+                            message = f"✅ *BOUGHT {buy_amount:.4f} {symbol}* at *${current_price:.{price_precision}f}* USDC"
+                            send_telegram_notification(message)
 
-                        # 🔥 Update Weighted Avg Buy Price
-                        updated_avg_price = get_weighted_avg_buy_price(symbol)
-                        save_weighted_avg_buy_price(symbol, updated_avg_price)  # Save the new average price
-
-                        message = f"✅ *BOUGHT {buy_amount:.4f} {symbol}* at *${current_price:.{price_precision}f}* USDC"
-                        send_telegram_notification(message)
-
-                        crypto_data[symbol]["peak_price"] = current_price
+                            crypto_data[symbol]["peak_price"] = current_price
 
                 elif (
                     # Execute sell order if sell signals are confirmed and dynamic_sell_threshold was reached
