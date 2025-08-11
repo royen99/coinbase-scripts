@@ -836,8 +836,8 @@ async def trading_bot():
                 cond_price_thresh = (price_change <= dynamic_buy_threshold)
 
                 cond_rebuy_discount = (
-                    actual_buy_price is None
-                    or current_price < actual_buy_price * (1 - rebuy_discount / 100.0)
+                    actual_buy_price is not None
+                    and current_price < actual_buy_price * (1 - rebuy_discount / 100.0)
                 )
 
                 cond_trend = (current_price < long_term_ma)
@@ -870,16 +870,11 @@ async def trading_bot():
                             )
                         },
                         {
-                            "name": "Price threshold",
-                            "ok": cond_price_thresh,
-                            "detail": f"price_change={_fmt(price_change,2)}% <= dyn_buy={_fmt(dynamic_buy_threshold,2)}%"
-                        },
-                        {
-                            "name": "Rebuy discount",
-                            "ok": cond_rebuy_discount,
+                            "name": "Price threshold OR Rebuy discount",
+                            "ok": (cond_price_thresh or cond_rebuy_discount),
                             "detail": (
-                                f"current={_fmt(current_price)} < actual_buy*{1 - rebuy_discount/100:.4f} "
-                                f"(actual_buy={_fmt(actual_buy_price) if actual_buy_price is not None else 'None'})"
+                                f"price_change={price_change:.2f}% vs dyn_buy={dynamic_buy_threshold:.2f}%  |  "
+                                f"rebuy: actual_buy={_fmt(actual_buy_price)} -> target<{(1 - rebuy_discount/100):.3f}*buy"
                             )
                         },
                         {
