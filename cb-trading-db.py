@@ -849,8 +849,7 @@ async def trading_bot():
                 # Full BUY condition (same structure as your original)
                 auto_buy_condition = (
                     cond_entry_band
-                    and cond_price_thresh
-                    and cond_rebuy_discount
+                    and (cond_price_thresh or cond_rebuy_discount)
                     and cond_trend
                     and cond_cooldown
                     and cond_streak
