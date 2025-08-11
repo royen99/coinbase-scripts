@@ -13,7 +13,7 @@ from decimal import Decimal
 import pandas as pd
 import numpy as np
 
-DEBUG_MODE = True  # Set to True for debugging
+DEBUG_MODE = False  # Set to True for debugging
 
 # Load configuration from config.json
 with open("config.json", "r") as f:
