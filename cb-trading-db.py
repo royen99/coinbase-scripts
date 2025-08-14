@@ -833,7 +833,10 @@ async def trading_bot():
 
                 cond_entry_band = (cond_bollinger_primary or cond_bollinger_stoch)
 
-                cond_price_thresh = (price_change <= dynamic_buy_threshold)
+                cond_price_thresh = (
+                    price_change <= dynamic_buy_threshold
+                    and actual_buy_price is None
+                )
 
                 cond_rebuy_discount = (
                     actual_buy_price is not None
