@@ -12,3 +12,4 @@
 # Local files
 config.json
 state.json
+.venv/
